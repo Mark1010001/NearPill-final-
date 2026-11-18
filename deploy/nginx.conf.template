@@ -64,9 +64,16 @@ http {
     }
 
     # The customer app shows a map and reads the visitor's location, so it gets its own headers.
+    # try_files falling back to /index.html would re-enter location / and lose these headers
+    # (and the Google Maps / geolocation allowances), so the fallback is a named location.
     location ~ ^/app(/|$) {
       include /etc/nginx/snippets/nginx-headers-app.conf;
-      try_files $uri $uri/ /index.html;
+      try_files $uri @app_index;
+    }
+
+    location @app_index {
+      include /etc/nginx/snippets/nginx-headers-app.conf;
+      rewrite ^ /index.html break;
     }
 
     location / {
