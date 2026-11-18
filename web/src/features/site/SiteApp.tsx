@@ -109,43 +109,8 @@ function Section({ id, title, intro, tone, children }: { id?: string; title: str
 }
 
 function PhoneMockup() {
-  return <div className="st-phone" role="img" aria-label="Preview of the NearPill app: nearby drugstores on a map and a pharmacy with a medicine to add to the cart. Sample data.">
-    <div className="st-phone-screen" aria-hidden="true">
-      <div className="st-ph-status"><strong>9:41 AM</strong><i className="st-phone-notch" /><span>UTC+8</span></div>
-      <div className="st-ph-head">
-        <img className="st-logo-img" src="/brand-mark.png" width="26" height="26" alt="" />
-        <div><strong>NearPill</strong><small><Icon name="pin" size={12} /> Cebu City · Sample data</small></div>
-        <span className="st-ph-expand">Expand</span>
-      </div>
-      <div className="st-ph-search"><Icon name="search" size={16} /> Search medicines or pharmacies…</div>
-      <div className="st-ph-panel">
-        <div className="st-ph-panel-head"><strong>Nearby Drugstores</strong><span>3 open</span></div>
-        <svg viewBox="0 0 320 110" className="st-ph-map" focusable="false">
-          <rect className="st-map-bg" width="320" height="110" rx="10" />
-          <path className="st-map-road" d="M0 78h320M100 0v110M220 0v110" />
-          <path className="st-ph-route" d="M92 82C130 50 190 44 236 52" />
-          <circle cx="42" cy="34" r="6" className="st-ph-closed-dot" />
-          <circle cx="236" cy="52" r="7" className="st-ph-open-dot" />
-          <circle cx="288" cy="82" r="6" className="st-ph-open-dot" />
-          <circle cx="92" cy="82" r="8" className="st-map-you" />
-        </svg>
-      </div>
-      <div className="st-ph-panel">
-        <div className="st-ph-panel-head"><strong>Sample Pharmacy A</strong><em className="st-open">Open</em></div>
-        <small>Fuente Osmeña · 0.6 km · Sample data</small>
-        <div className="st-ph-item">
-          <div><strong>Sample Paracetamol 500 mg</strong><small>₱12.00 / tablet · 48 in stock</small></div>
-          <span className="st-ph-add"><Icon name="plus" size={14} /> Add</span>
-        </div>
-      </div>
-      <div className="st-ph-nav">
-        <span className="on"><Icon name="home" size={20} />Home</span>
-        <span><Icon name="search" size={20} />Search</span>
-        <span><Icon name="pin" size={20} />Map</span>
-        <span><Icon name="receipt" size={20} />Orders</span>
-        <span><Icon name="user" size={20} />Profile</span>
-      </div>
-    </div>
+  return <div className="st-phone">
+    <img className="st-phone-shot" src="/app-preview.png" width="540" height="1105" alt="The NearPill Android app home screen: your location, nearby drugstores with open or closed status, and the Non-Prescriptions, Prescriptions and Non Medicines categories." />
   </div>;
 }
 
@@ -200,7 +165,7 @@ function Home() {
             <button type="button" className="st-btn st-btn-outline st-btn-lg" aria-expanded={androidNote} aria-controls="st-android-note" onClick={() => setAndroidNote(!androidNote)}><Icon name="phone" size={18} /> Get the Android app (coming soon)</button>
           </div>
           {androidNote && <p id="st-android-note" className="st-note" role="status">The Android app is not on the Play Store yet. Use the web app for now, or <Link to="/partners">see how pharmacies join</Link>.</p>}
-          <p className="st-note">The phone preview shows <strong>Sample data</strong>. Prices are in Philippine pesos (₱) and pickup dates use Manila time (UTC+8).</p>
+          <p className="st-note">The phone preview shows the NearPill Android app. Prices are in Philippine pesos (₱) and pickup dates use Manila time (UTC+8).</p>
         </div>
         <div className="st-hero-art"><PhoneMockup /></div>
       </div>
