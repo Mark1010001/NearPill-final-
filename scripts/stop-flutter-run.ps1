@@ -1,0 +1,2 @@
+# Stops only the Flutter tool's own processes (flutter_tools.snapshot), not IDE analysis servers or the API.
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'flutter_tools\.snapshot' -or $_.CommandLine -match 'dart.* fix --apply' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; "stopped $($_.ProcessId) $($_.Name)" } | Set-Content (Join-Path $PSScriptRoot '..\logs\stop-flutter.txt')

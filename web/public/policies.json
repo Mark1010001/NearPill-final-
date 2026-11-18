@@ -1,0 +1,26 @@
+{
+  "updated": "17 October 2026",
+  "status": "Prelaunch service information for the OTC-only NearPill scope. Payment collection is disabled unless an approved provider and versioned payment policy are explicitly configured.",
+  "sections": [
+    {
+      "id": "privacy",
+      "title": "Privacy notice",
+      "body": "NearPill is in prelaunch development. Account, profile and order data are stored by the backend in PostgreSQL. Passwords are stored as salted hashes; session credentials, refresh credentials and verification/reset codes are stored server-side only as hashes with expiry/revocation state. The web portal uses a server-owned secure session cookie and CSRF protection. The mobile application stores its credentials in platform secure storage.\n\nNearPill's current launch scope is OTC medicine discovery and pickup ordering. Do not submit unrelated sensitive information. Pharmacy verification and medicine evidence are backend-controlled records and are not established by browser fixture data.\n\nHosting, retention periods, production operator details and final privacy procedures still require approval before live customer operation. Contact nearpillemail@gmail.com for project support or privacy questions. Do not send passwords or other authentication secrets by email."
+    },
+    {
+      "id": "cancellations",
+      "title": "Orders, cancellations and refunds",
+      "body": "Payment and refund status is server-owned. NearPill does not treat a local status label as proof that money moved. When payment collection is enabled, payment confirmation must come from a verified provider event or approved reconciliation evidence; refund requests remain pending until provider/reconciliation confirmation. The production default is payment-disabled until an operator approves and configures a provider and payment policy. Final commercial cancellation, deposit/full-payment, fee and refund rules still require approval before live payment operation."
+    },
+    {
+      "id": "terms",
+      "title": "Terms of use for the prelaunch version",
+      "body": "NearPill is being developed for published OTC medicine discovery, verified public pharmacy listings, availability lookup and pickup order requests. Only backend-published medicine records and explicitly verified/published pharmacy profiles may be presented as public verified data. Synthetic fixtures are development-only and must be labelled as such. Availability can change and a map/list result is not a guarantee of stock.\n\nNearPill content is informational and is not medical diagnosis or individualized treatment advice. Final operator, pharmacy, payment, complaint and consumer terms must be approved before live operation."
+    },
+    {
+      "id": "storage",
+      "title": "Cookies, browser storage and third parties",
+      "body": "The authenticated web portal uses a server-owned secure HttpOnly session cookie and a session-bound CSRF token. Editable browser storage is not an authorization source. The mobile app stores session credentials using platform secure storage. Public catalog and verified-pharmacy GET responses may be cached briefly because PostgreSQL remains the source of truth; authenticated/private responses must not rely on a public cache. On the customer website, when Google Maps is enabled, your browser loads the map directly from Google, which receives your IP address and map requests under Google's terms; the website keeps your cart in this browser and does not store your location on the NearPill server."
+    }
+  ]
+}

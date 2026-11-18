@@ -1,0 +1,38 @@
+{
+  "name": "nearpill-backend",
+  "version": "0.1.0",
+  "description": "Backend API for NearPill Flutter app",
+  "type": "module",
+  "main": "src/bootstrap/server.ts",
+  "engines": {
+    "node": ">=24.7.0"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/bootstrap/server.ts",
+    "dev": "node --env-file-if-exists=.env --watch src/bootstrap/server.ts",
+    "db:migrate": "node scripts/migrate-postgres.mjs",
+    "db:import:mysql": "node scripts/import-mysql-to-postgres.mjs",
+    "db:reconcile": "node scripts/reconcile-postgres.mjs",
+    "db:generate": "drizzle-kit generate --config drizzle.config.ts",
+    "db:verify-security": "node scripts/verify-postgres-security.mjs",
+    "db:verify-identity": "node scripts/verify-identity-security.mjs",
+    "test:transport": "node --test test/http-transport-contract.test.mjs",
+    "db:verify-order-inventory": "node scripts/verify-order-inventory.mjs",
+    "test:payments": "node --test test/payment-reconciliation-integrity.test.mjs test/payment-subscription-layer-extraction.test.mjs"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "@hono/zod-openapi": "1.6.3",
+    "dotenv": "^16.3.1",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.13",
+    "pg": "8.23.1",
+    "sharp": "0.35.5",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "db-migrate": "^0.11.14",
+    "drizzle-kit": "0.31.11",
+    "mysql2": "^3.6.0"
+  }
+}

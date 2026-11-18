@@ -1,0 +1,1 @@
+e2e/settings-account.spec.ts e2e/customer.spec.ts e2e/customer-extras.spec.ts e2e/parity.spec.ts e2e/session.spec.ts e2e/pickup-orders.spec.ts e2e/receipt-plans-stocks.spec.ts e2e/ui-upgrades.spec.ts

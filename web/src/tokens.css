@@ -1,0 +1,59 @@
+/* NearPill design tokens - the single source of truth for all web surfaces.
+   Mirrors lib/app_theme.dart (NpColors) in the Flutter app. */
+:root {
+  /* brand */
+  --np-green: #2e7d32;
+  --np-green-dark: #1b5e20;
+  --np-green-soft: #e8f5e9;
+  --np-green-line: #c8e6c9;
+  --np-green-tint-surface: #f4fbf5;
+  /* neutrals */
+  --np-bg: #f8faf9;
+  --np-surface: #ffffff;
+  --np-ink: #0f172a;
+  --np-muted: #64748b; /* same slate as the app (NpColors.muted) */
+  --np-muted-strong: #526071; /* >= 5.7:1 contrast on white, --np-bg, and tinted pills */
+  --np-faint: #94a3b8; /* decorative only, never body text */
+  --np-line: #e8eeec;
+  --np-line-strong: #cbd5d1;
+  --np-border-control: #85928c; /* >= 3:1 UI boundary contrast on white/bg */
+  /* status */
+  --np-warning: #b45309;
+  --np-warning-text: #92400e; /* darker amber for text on tinted surfaces (contrast) */
+  --np-danger-text: #b91c1c; /* darker red for text on tinted surfaces (contrast) */
+  --np-warning-soft: #fff8e1;
+  --np-warning-line: #ffe0a3;
+  --np-danger: #dc2626;
+  --np-danger-soft: #fee9e9;
+  --np-danger-line: #f5c2c2;
+  --np-info: #1e40af;
+  --np-info-soft: #e8efff;
+  --np-info-line: #bfdbfe;
+  /* shape & elevation */
+  --np-radius-card: 20px;
+  --np-radius-control: 16px;
+  --np-radius-sm: 10px;
+  --np-radius-pill: 999px;
+  --np-shadow-sm: 0 1px 2px rgba(15, 23, 42, .05);
+  --np-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px rgba(15, 23, 42, .05);
+  --np-shadow-hover: 0 2px 6px rgba(15, 23, 42, .06), 0 14px 30px rgba(15, 23, 42, .08);
+  --np-shadow-header: 0 1px 3px rgba(15, 23, 42, .04), 0 4px 12px rgba(15, 23, 42, .03);
+  --np-shadow-up: 0 -4px 16px rgba(15, 23, 42, .08);
+  --np-focus-ring: 2px solid var(--np-green-dark);
+  /* spacing (4/8 scale) */
+  --np-s1: 4px; --np-s2: 8px; --np-s3: 12px; --np-s4: 16px; --np-s5: 24px; --np-s6: 32px; --np-s7: 40px; --np-s8: 48px;
+  /* motion */
+  --np-dur-fast: 150ms;
+  --np-dur-enter: 180ms;
+  --np-ease: cubic-bezier(.22, 1, .36, 1);
+  /* type */
+  --np-font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --np-text-title: clamp(1.5rem, 3vw, 1.75rem); /* 28px max */
+  --np-text-section: 1.125rem; /* 18px */
+  --np-text-card: 1rem; /* 16px */
+  --np-text-body: .9375rem; /* 15px */
+  --np-text-caption: .75rem; /* 12px */
+  --np-control-h: 48px;
+  --np-input-h: 52px;
+  --np-bottom-bar-h: 64px;
+}

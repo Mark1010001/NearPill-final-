@@ -1,0 +1,35 @@
+{
+    "name": "NearPill",
+    "short_name": "NearPill",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#E3FDEF",
+    "theme_color": "#2E7D32",
+    "description": "Find medicines at nearby verified pharmacies and order ahead for pickup.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

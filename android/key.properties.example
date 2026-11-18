@@ -1,0 +1,4 @@
+storePassword=replace-at-build-time
+keyPassword=replace-at-build-time
+keyAlias=release
+storeFile=/absolute/path/to/nearpill-release.jks

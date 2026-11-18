@@ -1,0 +1,55 @@
+# Render Blueprint: one service serves the website, customer app, admin and partner portals
+# (same origin, because the web app uses /api/v1 and same-origin session cookies) plus the API.
+# Values marked sync: false are entered once in the Render dashboard; they are never committed.
+services:
+  - type: web
+    name: nearpill
+    runtime: docker
+    dockerfilePath: ./deploy/Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: starter
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: DB_HOST
+        value: aws-0-ap-southeast-1.pooler.supabase.com
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_NAME
+        value: postgres
+      - key: DB_SSL
+        value: "true"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: PUBLIC_APP_URL
+        value: https://nearpill.xyz
+      - key: CORS_ORIGINS
+        value: https://nearpill.xyz,https://www.nearpill.xyz
+      - key: TRUSTED_PROXY_IPS
+        value: 127.0.0.1
+      - key: ORDER_RESERVATION_TTL_MINUTES
+        value: "4320"
+      - key: PAYMENT_POLICY_MODE
+        value: deposit_or_full
+      - key: PAYMENT_POLICY_VERSION
+        value: xendit-test-v1
+      - key: PAYMENT_DEPOSIT_BASIS_POINTS
+        value: "5000"
+      - key: PAYMENT_REFUNDS_ENABLED
+        value: "false"
+      - key: XENDIT_TEST_SECRET_KEY
+        sync: false
+      - key: XENDIT_TEST_WEBHOOK_TOKEN
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GOOGLE_ROUTES_API_KEY
+        sync: false

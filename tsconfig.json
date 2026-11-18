@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "lib": [
+      "ES2023",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "backend/src/**/*.ts"
+  ],
+  "exclude": [
+    "backend/node_modules",
+    "node_modules",
+    "build",
+    ".dart_tool"
+  ]
+}

@@ -1,0 +1,13 @@
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import pg from 'pg';
+import { loadReviewedMigrationSources } from './lib/reviewed-migration-sources.mjs';
+const dir = path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), 'migrations', 'postgres');
+const local = (await loadReviewedMigrationSources(dir)).map(({ filename, sql }) => ({ filename, sha: createHash('sha256').update(sql).digest('hex') }));
+const c = new pg.Client({ host: process.env.DB_HOST, port: 5432, user: process.env.DB_USER, password: process.env.DB_PASSWORD, database: 'postgres', ssl: { rejectUnauthorized: true } });
+await c.connect();
+const { rows } = await c.query('SELECT filename, sha256 FROM nearpill_schema_migrations ORDER BY filename');
+await c.end();
+console.log('db rows', rows.length, 'local files', local.length);
+rows.forEach((r, i) => console.log(i, r.filename, local[i] ? (local[i].filename === r.filename ? (local[i].sha === r.sha256.trim() ? 'OK' : 'CHECKSUM-MISMATCH') : 'NAME-DIFF local=' + local[i].filename) : 'EXTRA-IN-DB'));

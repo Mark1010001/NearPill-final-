@@ -1,0 +1,96 @@
+name: NearPill CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Validate root lockfile
+        run: npm run check:lockfile
+      - name: Clean root engineering install
+        run: npm ci --ignore-scripts
+      - name: Foundation contract tests
+        run: npm run test:foundation
+      - name: Environment contract tests
+        run: npm run test:config
+      - name: JavaScript syntax
+        run: npm run check:syntax
+      - name: TypeScript strict check
+        run: npm run typecheck
+      - name: ESLint
+        run: npm run lint
+      - name: Prettier
+        run: npm run format:check
+      - name: Secret scan
+        run: npm run secret:scan
+      - name: Compose configuration
+        env:
+          DB_PASSWORD: ci-verification-only
+          MIGRATOR_DB_PASSWORD: ci-migrator-only
+          POSTGRES_OWNER_PASSWORD: ci-owner-only
+        run: docker compose config --quiet
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Validate backend lockfile
+        run: npm run check:backend-lockfile
+      - name: Clean backend install
+        run: npm ci --prefix backend
+      - name: HTTP transport contract
+        run: npm run test:http-contract
+      - name: Backend baseline
+        run: npm run test:backend
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Clean web install
+        run: npm ci --prefix web --ignore-scripts
+      - name: Portal migration contracts
+        run: npm run test:portal
+      - name: Web typecheck
+        run: npm run typecheck:web
+      - name: Web production build
+        run: npm run build:web
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Portal browser checks
+        run: npm run test:web:e2e
+
+  flutter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.4'
+          channel: stable
+          cache: true
+      - name: Mobile architecture contract
+        run: node --test test/mobile-architecture.test.mjs
+      - name: Flutter dependencies
+        run: flutter pub get
+      - name: Flutter analyze
+        run: flutter analyze
+      - name: Flutter tests
+        run: flutter test

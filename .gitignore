@@ -1,0 +1,40 @@
+# Local Environment Secrets
+.env
+.env.local
+.env.*
+!.env.example
+
+# Node.js Dependencies
+node_modules/
+web/dist/
+*.tsbuildinfo
+web/playwright-report/
+web/test-results/
+web/playwright/.auth/
+npm-debug.log*
+yarn-error.log*
+
+# Flutter / Dart Build Outputs
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-get-history
+build/
+*.log
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+
+# Local IDE Files
+.idea/
+*.iml
+
+# PostgreSQL exports contain customer/order data; never source-package them
+*.dump
+*.dump.partial.*
+logs/
+
+# Local working folders (backups and run logs)
+_to_delete/
+logs/

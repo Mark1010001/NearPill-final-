@@ -1,0 +1,87 @@
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.6-pg18-trixie
+    environment:
+      POSTGRES_DB: ${DB_NAME:-nearpill}
+      POSTGRES_USER: ${POSTGRES_OWNER_USER:-nearpill_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:?POSTGRES_OWNER_PASSWORD is required}
+      APP_DB_USER: ${DB_USER:-nearpill_app}
+      APP_DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      MIGRATOR_DB_USER: ${MIGRATOR_DB_USER:-nearpill_migrator}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?MIGRATOR_DB_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    volumes:
+      - nearpill_postgres:/var/lib/postgresql/data
+      - ./backend/postgres/bootstrap:/docker-entrypoint-initdb.d:ro
+
+  db-migrate:
+    build:
+      context: ./backend
+    command: ["node", "scripts/migrate-postgres.mjs"]
+    environment: &migrator-env
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${MIGRATOR_DB_USER:-nearpill_migrator}
+      DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?MIGRATOR_DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:-nearpill}
+      DB_SSL: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-nearpill_app}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:-nearpill}
+      DB_SSL: "false"
+      PORT: 3001
+      TRUSTED_PROXY_IPS: ${TRUSTED_PROXY_IPS:-}
+      CORS_ORIGINS: http://localhost:8080,http://127.0.0.1:8080
+      PUBLIC_APP_URL: http://localhost:8080
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_GOOGLE_MAPS_BROWSER_KEY: ${VITE_GOOGLE_MAPS_BROWSER_KEY:-}
+    expose:
+      - "80"
+
+  nginx:
+    image: nginx:1.28-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+
+volumes:
+  nearpill_postgres:
