@@ -3,21 +3,9 @@
   "compilerOptions": {
     "allowJs": true,
     "checkJs": false,
-    "lib": [
-      "ES2023",
-      "DOM"
-    ],
-    "types": [
-      "node"
-    ]
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
   },
-  "include": [
-    "backend/src/**/*.ts"
-  ],
-  "exclude": [
-    "backend/node_modules",
-    "node_modules",
-    "build",
-    ".dart_tool"
-  ]
+  "include": ["backend/src/**/*.ts"],
+  "exclude": ["backend/node_modules", "node_modules", "build", ".dart_tool"]
 }

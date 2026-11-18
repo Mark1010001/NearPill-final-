@@ -28,7 +28,8 @@ if (lock !== undefined) {
     process.exitCode = 1;
   }
 
-  const root = lock && typeof lock === 'object' && !Array.isArray(lock) ? lock.packages?.[''] : undefined;
+  const root =
+    lock && typeof lock === 'object' && !Array.isArray(lock) ? lock.packages?.[''] : undefined;
   if (!Number.isInteger(lock?.lockfileVersion) || lock.lockfileVersion < 3) {
     failures.push('web lockfile must use npm lockfileVersion 3 or newer.');
   }
@@ -36,12 +37,15 @@ if (lock !== undefined) {
     failures.push('web lockfile must contain the root package entry.');
   } else {
     for (const key of ['name', 'version', 'dependencies', 'devDependencies', 'engines']) {
-      const fromManifest = manifest[key] ?? (key === 'dependencies' || key === 'devDependencies' ? {} : null);
-      const fromLock = root[key] ?? (key === 'dependencies' || key === 'devDependencies' ? {} : null);
+      const fromManifest =
+        manifest[key] ?? (key === 'dependencies' || key === 'devDependencies' ? {} : null);
+      const fromLock =
+        root[key] ?? (key === 'dependencies' || key === 'devDependencies' ? {} : null);
       // npm lockfiles can reorder keys without changing dependency identity.
-      const comparable = (value) => value && typeof value === 'object' && !Array.isArray(value)
-        ? JSON.stringify(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
-        : JSON.stringify(value);
+      const comparable = (value) =>
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? JSON.stringify(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+          : JSON.stringify(value);
       if (comparable(fromManifest) !== comparable(fromLock)) {
         failures.push(`web lockfile root ${key} does not match web/package.json.`);
       }
@@ -51,6 +55,8 @@ if (lock !== undefined) {
     for (const failure of failures) console.error(`LOCKFILE FAILURE: ${failure}`);
     process.exitCode = 1;
   } else if (process.exitCode !== 1) {
-    console.log(`PASS: web package-lock.json structurally aligned (lockfileVersion ${lock.lockfileVersion}).`);
+    console.log(
+      `PASS: web package-lock.json structurally aligned (lockfileVersion ${lock.lockfileVersion}).`,
+    );
   }
 }

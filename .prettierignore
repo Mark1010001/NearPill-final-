@@ -4,3 +4,11 @@ node_modules/
 build/
 coverage/
 analyze-output.txt
+
+# Security contract tests match the exact text of these files, so they are not auto-formatted.
+backend/src/config/env.ts
+backend/src/bootstrap/server.ts
+backend/src/http/app.ts
+backend/src/http/contracts.ts
+backend/src/http/routes/v1/register.ts
+backend/src/http/transport.ts

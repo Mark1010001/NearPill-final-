@@ -75,10 +75,19 @@ test('source packaging excludes dependency caches, secrets, build output and sta
   // Exclusions are built from reviewed directory names for both top-level and
   // nested build caches; requiring literal backend/node_modules patterns would
   // incorrectly reject the stronger generic exclusion.
-  assert.match(script, /excluded_dirs=\(node_modules \.dart_tool \.gradle \.idea \.next \.turbo \.vercel dist build coverage \.git\)/);
+  assert.match(
+    script,
+    /excluded_dirs=\(node_modules \.dart_tool \.gradle \.idea \.next \.turbo \.vercel dist build coverage \.git\)/,
+  );
   assert.match(script, /zip_excludes\+=\(\"\$dir\/\*\" \"\*\/\$dir\/\*\"/);
   assert.match(script, /zip -qr "\$staged_zip" \. -x "\$\{zip_excludes\[@\]\}"/);
-  for (const excluded of ['web/playwright-report/*', 'web/test-results/*', 'web/playwright/.auth/*', '.env', 'analyze-output.txt']) {
+  for (const excluded of [
+    'web/playwright-report/*',
+    'web/test-results/*',
+    'web/playwright/.auth/*',
+    '.env',
+    'analyze-output.txt',
+  ]) {
     assert(script.includes(excluded), `${excluded} must be excluded`);
   }
   assert.doesNotMatch(script, /-x '\.env\.\*'/, '.env.example must remain packageable');
@@ -95,7 +104,6 @@ test('compose publishes only the gateway port and keeps database/API internal', 
   assert.match(compose, /api:[\s\S]*service_completed_successfully/);
   assert.match(compose, /nginx:[\s\S]*service_healthy/);
 });
-
 
 test('database migration runner is transactional and checksum-protected', async () => {
   const source = await read('backend/scripts/migrate-postgres.mjs');
@@ -121,7 +129,6 @@ test('CI pins the declared Node and Flutter toolchains and separates root/backen
   assert.match(workflow, /npm run test:foundation/);
   assert.match(workflow, /npm run test:config/);
 });
-
 
 test('safe environment template documents Compose secrets without containing real credentials', async () => {
   const example = await read('.env.example');
@@ -156,7 +163,6 @@ test('README documents the canonical existing startup paths and Packet 1 verific
   assert.match(readme, /npm run verify:foundation/);
   assert.match(readme, /does not create a replacement V2 application/);
 });
-
 
 test('lockfile preflight blocks missing root lockfile instead of allowing a mutable install', async () => {
   const rootPackage = JSON.parse(await read('package.json'));

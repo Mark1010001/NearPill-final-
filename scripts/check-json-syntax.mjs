@@ -6,11 +6,22 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const ignoredDirectories = new Set([
-  '.git', 'node_modules', '.dart_tool', '.gradle', '.idea', '.next',
-  '.turbo', '.vercel', 'dist', 'build', 'coverage',
+  '.git',
+  'node_modules',
+  '.dart_tool',
+  '.gradle',
+  '.idea',
+  '.next',
+  '.turbo',
+  '.vercel',
+  'dist',
+  'build',
+  'coverage',
 ]);
 const generatedWebDirs = new Set([
-  'web/playwright-report', 'web/test-results', 'web/playwright/.auth',
+  'web/playwright-report',
+  'web/test-results',
+  'web/playwright/.auth',
 ]);
 const decoder = new TextDecoder('utf-8', { fatal: true });
 const jsonPaths = [];
@@ -20,7 +31,8 @@ async function collect(directory = '') {
   for (const entry of await readdir(directory || '.', { withFileTypes: true })) {
     const relative = directory ? `${directory}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
-      if (!ignoredDirectories.has(entry.name) && !generatedWebDirs.has(relative)) await collect(relative);
+      if (!ignoredDirectories.has(entry.name) && !generatedWebDirs.has(relative))
+        await collect(relative);
     } else if (entry.isSymbolicLink()) {
       // A symlinked JSON configuration could introduce unreviewed external
       // bytes. Manifest verification also rejects symlinks; fail closed here.

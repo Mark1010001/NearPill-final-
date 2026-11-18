@@ -1,12 +1,6 @@
 export default [
   {
-    ignores: [
-      '**/node_modules/**',
-      '.dart_tool/**',
-      'build/**',
-      'coverage/**',
-      '**/*.min.js',
-    ],
+    ignores: ['**/node_modules/**', '.dart_tool/**', 'build/**', 'coverage/**', '**/*.min.js'],
   },
   {
     files: ['eslint.config.mjs', 'scripts/**/*.mjs', 'test/engineering-foundation.test.mjs'],

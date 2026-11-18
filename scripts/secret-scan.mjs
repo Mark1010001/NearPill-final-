@@ -7,29 +7,55 @@ import path from 'node:path';
 // Source-artifact scope mirrors the complete manifest: generated build/test
 // directories are not shipped and must not create false packaging failures.
 const ignoredDirectories = new Set([
-  'node_modules', '.dart_tool', 'build', '.git', 'coverage',
-  '.gradle', '.idea', '.next', '.turbo', '.vercel', 'dist',
+  'node_modules',
+  '.dart_tool',
+  'build',
+  '.git',
+  'coverage',
+  '.gradle',
+  '.idea',
+  '.next',
+  '.turbo',
+  '.vercel',
+  'dist',
 ]);
 const generatedWebDirs = new Set([
-  'web/playwright-report', 'web/test-results', 'web/playwright/.auth',
+  'web/playwright-report',
+  'web/test-results',
+  'web/playwright/.auth',
 ]);
 // A generated-name directory nested under reviewed runtime source could
 // contain executed but unscanned code. Ordinary root/backend/web build output
 // remains excluded; source/test subtrees must fail closed instead.
 const reviewedRuntimeSubtrees = [
-  'backend/src', 'backend/scripts', 'backend/test', 'backend/postgres',
+  'backend/src',
+  'backend/scripts',
+  'backend/test',
+  'backend/postgres',
   'backend/migrations', // canonical Drizzle/PostgreSQL SQL migration history
   'backend/public', // Hono-served password recovery assets
-  'web/src', 'web/public', 'web/test', 'web/tests', 'web/e2e',
-  'lib', 'assets', // Flutter sources and declared bundled image assets
-  'scripts', 'test', 'infra', 'android/app/src',
-  '.github/workflows', '.github/actions', '.github/scripts',
+  'web/src',
+  'web/public',
+  'web/test',
+  'web/tests',
+  'web/e2e',
+  'lib',
+  'assets', // Flutter sources and declared bundled image assets
+  'scripts',
+  'test',
+  'infra',
+  'android/app/src',
+  '.github/workflows',
+  '.github/actions',
+  '.github/scripts',
 ];
 // Reject names that normal Windows tools cannot create or extract reliably.
 function nonportableWindowsName(name) {
-  return /[<>:"/\\|?*\x00-\x1f]/u.test(name) ||
+  return (
+    /[<>:"/\\|?*\x00-\x1f]/u.test(name) ||
     /[. ]$/u.test(name) ||
-    /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(name);
+    /^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/iu.test(name)
+  );
 }
 function inReviewedRuntimeSubtree(relativePath) {
   return reviewedRuntimeSubtrees.some((prefix) => relativePath.startsWith(`${prefix}/`));
@@ -39,23 +65,62 @@ function inReviewedRuntimeSubtree(relativePath) {
 const lockfileNames = new Set(['package-lock.json', 'npm-shrinkwrap.json']);
 const npmManifestName = 'package.json';
 const textExtensions = new Set([
-  '.js', '.mjs', '.cjs', '.ts', '.tsx', '.dart', '.json', '.yaml', '.yml', '.md', '.html', '.css',
-  '.properties', '.gradle', '.xml', '.sh', '.env', '.example', '.txt',
-  '.sql', '.conf', '.kt', '.kts', '.toml', '.ini', '.tf', '.tfvars',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.ts',
+  '.tsx',
+  '.dart',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.md',
+  '.html',
+  '.css',
+  '.properties',
+  '.gradle',
+  '.xml',
+  '.sh',
+  '.env',
+  '.example',
+  '.txt',
+  '.sql',
+  '.conf',
+  '.kt',
+  '.kts',
+  '.toml',
+  '.ini',
+  '.tf',
+  '.tfvars',
   // Flutter/iOS platform settings and vector assets are shipped as readable
   // source and can accidentally carry embedded API or signing credentials.
-  '.plist', '.xcconfig', '.pbxproj', '.svg',
+  '.plist',
+  '.xcconfig',
+  '.pbxproj',
+  '.svg',
   // Deployment helpers must be parseable text. Previously a malformed UTF-8
   // .ps1/.cmd/.bat/.py file was treated like a binary asset and skipped,
   // despite potentially being executed by developer or CI tooling.
-  '.ps1', '.psm1', '.psd1', '.cmd', '.bat', '.py',
+  '.ps1',
+  '.psm1',
+  '.psd1',
+  '.cmd',
+  '.bat',
+  '.py',
 ]);
 // Match security-sensitive conventional filenames using the same case-folded
 // identity as the portable source archive checks (Windows extraction).
-const namedConfigFiles = new Set([
-  '.env.example', '.npmrc', 'Dockerfile', 'Containerfile', 'Makefile',
-  '.gitignore', '.dockerignore',
-].map((name) => name.toLowerCase()));
+const namedConfigFiles = new Set(
+  [
+    '.env.example',
+    '.npmrc',
+    'Dockerfile',
+    'Containerfile',
+    'Makefile',
+    '.gitignore',
+    '.dockerignore',
+  ].map((name) => name.toLowerCase()),
+);
 // Deployment, CI and source-packaging helpers are executable operational
 // source even when extensionless or given an unfamiliar suffix. Never treat
 // undecodable bytes inside these reviewed trees as harmless media. Binary
@@ -64,7 +129,14 @@ const mandatoryTextSubtrees = ['scripts/', 'backend/scripts/', 'infra/', '.githu
 // Apple App Store Connect .p8 signing keys and provisioning profiles are
 // credentials/identity material even if they contain no known token prefix.
 const privateCredentialExtensions = new Set([
-  '.pem', '.key', '.p12', '.pfx', '.jks', '.keystore', '.p8', '.mobileprovision',
+  '.pem',
+  '.key',
+  '.p12',
+  '.pfx',
+  '.jks',
+  '.keystore',
+  '.p8',
+  '.mobileprovision',
 ]);
 // libpq password files are credentials even when they have no recognizable
 // vendor token prefix; they must be supplied outside a source archive.
@@ -88,8 +160,13 @@ const sqliteDatabaseFileName = /\.(?:sqlite|sqlite3|db|db3)$/i;
 // keeping only the sidecar in a source ZIP is still a disclosure risk.
 const sqliteSidecarFileName = /(?:-wal|-shm|-journal)$/i;
 function isSQLiteWAL(bytes) {
-  return bytes.length >= 32 && bytes[0] === 0x37 && bytes[1] === 0x7f &&
-    bytes[2] === 0x06 && (bytes[3] === 0x82 || bytes[3] === 0x83);
+  return (
+    bytes.length >= 32 &&
+    bytes[0] === 0x37 &&
+    bytes[1] === 0x7f &&
+    bytes[2] === 0x06 &&
+    (bytes[3] === 0x82 || bytes[3] === 0x83)
+  );
 }
 // A rollback journal contains original database pages and may be renamed to
 // an unrelated binary extension. SQLite documents this eight-byte header.
@@ -109,7 +186,9 @@ function isPostgresCustomDump(bytes) {
 // do not reject ordinary reviewed migration SQL merely because it mentions
 // pg_dump in documentation or comments later in the source.
 function isPlainPostgresDump(contents) {
-  return /^(?:\uFEFF)?--\r?\n-- PostgreSQL database(?: cluster)? dump\r?\n--(?:\r?\n|$)/.test(contents);
+  return /^(?:\uFEFF)?--\r?\n-- PostgreSQL database(?: cluster)? dump\r?\n--(?:\r?\n|$)/.test(
+    contents,
+  );
 }
 
 function looksLikeBinaryArchive(bytes) {
@@ -117,26 +196,32 @@ function looksLikeBinaryArchive(bytes) {
   const startsWith = (...header) => header.every((byte, i) => bytes[i] === byte);
   // A TAR header has its magic at offset 257, not at byte zero. Checking
   // only leading bytes allows a renamed .tar file to bypass the source gate.
-  const tarMagic = bytes.length >= 512 &&
+  const tarMagic =
+    bytes.length >= 512 &&
     bytes.subarray(257, 262).toString('ascii') === 'ustar' &&
     (bytes[262] === 0 || bytes[262] === 0x20);
-  return tarMagic ||
+  return (
+    tarMagic ||
     startsWith(0x50, 0x4b, 0x03, 0x04) || // ZIP members
     startsWith(0x50, 0x4b, 0x05, 0x06) || // empty ZIP
     startsWith(0x50, 0x4b, 0x07, 0x08) || // spanned ZIP
-    startsWith(0x1f, 0x8b) ||             // gzip
+    startsWith(0x1f, 0x8b) || // gzip
     startsWith(0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00) || // XZ
     (startsWith(0x42, 0x5a, 0x68) && bytes[3] >= 0x31 && bytes[3] <= 0x39) || // bzip2
     startsWith(0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c) || // 7-Zip
     startsWith(0x52, 0x61, 0x72, 0x21, 0x1a, 0x07) || // RAR
-    startsWith(0x28, 0xb5, 0x2f, 0xfd);   // zstd
+    startsWith(0x28, 0xb5, 0x2f, 0xfd)
+  ); // zstd
 }
-
 
 const detectors = [
   // PKCS#8 encrypted, legacy DSA, and OpenPGP private keys are private
   // credentials too; detect their PEM/armor markers even in .ts/.md/.json.
-  { label: 'private key', pattern: /-----BEGIN (?:(?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----/ },
+  {
+    label: 'private key',
+    pattern:
+      /-----BEGIN (?:(?:RSA |EC |OPENSSH |DSA |ENCRYPTED )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----/,
+  },
   { label: 'OpenAI-style secret', pattern: /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/ },
   { label: 'Google API key', pattern: /\bAIza[0-9A-Za-z_-]{30,}\b/ },
   { label: 'GitHub token', pattern: /\bgh[pousr]_[A-Za-z0-9]{30,}\b/ },
@@ -162,41 +247,58 @@ function containsSupabaseServiceRoleJwt(contents) {
   return false;
 }
 
-
-
 // Android XML string resources, SVG, HTML attributes and plist strings decode
 // character references before the application consumes them. Raw-text scanning
 // can miss a credentialed database URI with encoded `:`, `/`, or `@`. Decode
 // one entity pass (as XML/HTML consumers do) and reuse the existing detectors;
 // never include decoded values in source-scanner diagnostics.
 const xmlHtmlNamedEntities = Object.freeze({
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
   // Common HTML named forms for URL punctuation; XML only defines the five
   // above, but this check also covers HTML documents.
-  colon: ':', sol: '/', commat: '@', equals: '=', quest: '?', num: '#',
+  colon: ':',
+  sol: '/',
+  commat: '@',
+  equals: '=',
+  quest: '?',
+  num: '#',
 });
 function decodeXmlHtmlCharacterReferences(contents) {
-  return contents.replace(/&(?:#(?:x[0-9a-f]+|[0-9]+)|amp|lt|gt|quot|apos|colon|sol|commat|equals|quest|num);/giu, (entity) => {
-    if (entity.startsWith('&#')) {
-      const hex = entity[2]?.toLowerCase() === 'x';
-      const value = Number.parseInt(entity.slice(hex ? 3 : 2, -1), hex ? 16 : 10);
-      // Invalid Unicode scalar values are not decoded as executable text.
-      if (!Number.isInteger(value) || value < 1 || value > 0x10ffff ||
-          (value >= 0xd800 && value <= 0xdfff)) return entity;
-      return String.fromCodePoint(value);
-    }
-    return xmlHtmlNamedEntities[entity.slice(1, -1).toLowerCase()] ?? entity;
-  });
+  return contents.replace(
+    /&(?:#(?:x[0-9a-f]+|[0-9]+)|amp|lt|gt|quot|apos|colon|sol|commat|equals|quest|num);/giu,
+    (entity) => {
+      if (entity.startsWith('&#')) {
+        const hex = entity[2]?.toLowerCase() === 'x';
+        const value = Number.parseInt(entity.slice(hex ? 3 : 2, -1), hex ? 16 : 10);
+        // Invalid Unicode scalar values are not decoded as executable text.
+        if (
+          !Number.isInteger(value) ||
+          value < 1 ||
+          value > 0x10ffff ||
+          (value >= 0xd800 && value <= 0xdfff)
+        )
+          return entity;
+        return String.fromCodePoint(value);
+      }
+      return xmlHtmlNamedEntities[entity.slice(1, -1).toLowerCase()] ?? entity;
+    },
+  );
 }
 function containsSecretInDecodedXmlHtml(contents) {
   const decoded = decodeXmlHtmlCharacterReferences(contents);
   if (decoded === contents) return false;
-  return detectors.some(({ pattern }) => pattern.test(decoded)) ||
+  return (
+    detectors.some(({ pattern }) => pattern.test(decoded)) ||
     containsSupabaseServiceRoleJwt(decoded) ||
     containsCredentialedPostgresUrl(decoded) ||
     containsCredentialedJDBCShortUrl(decoded) ||
     containsCredentialedLibpqConninfo(decoded) ||
-    containsLiteralLibpqEnvironmentPassword(decoded);
+    containsLiteralLibpqEnvironmentPassword(decoded)
+  );
 }
 
 // JavaScript/TypeScript runtime string literals accept escaped URL punctuation
@@ -207,12 +309,13 @@ function containsSecretInDecodedXmlHtml(contents) {
 // expressions. This is intentionally a conservative packaging heuristic.
 function containsSecretInEscapedJavaScriptStrings(contents) {
   const escapeSequence = /\\(?:x([\da-f]{2})|u([\da-f]{4})|u\{([\da-f]{1,6})\}|([\\/]))/gi;
-  const decode = (source) => source.replace(escapeSequence, (whole, short, medium, long, simple) => {
-    if (simple) return simple;
-    const point = Number.parseInt(short ?? medium ?? long, 16);
-    if (point === 0 || point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)) return whole;
-    return String.fromCodePoint(point);
-  });
+  const decode = (source) =>
+    source.replace(escapeSequence, (whole, short, medium, long, simple) => {
+      if (simple) return simple;
+      const point = Number.parseInt(short ?? medium ?? long, 16);
+      if (point === 0 || point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)) return whole;
+      return String.fromCodePoint(point);
+    });
   const containsSecret = (value) =>
     detectors.some(({ pattern }) => pattern.test(value)) ||
     containsSupabaseServiceRoleJwt(value) ||
@@ -240,7 +343,8 @@ function containsSecretInEscapedJavaScriptStrings(contents) {
   const eachLiteral = new RegExp(quoted, 'g');
   for (const chain of contents.matchAll(joinedLiterals)) {
     const decoded = [...chain[0].matchAll(eachLiteral)]
-      .map(([literal]) => decode(literal.slice(1, -1))).join('');
+      .map(([literal]) => decode(literal.slice(1, -1)))
+      .join('');
     if (containsSecret(decoded)) return true;
   }
   return false;
@@ -256,14 +360,14 @@ const postgresUrlCandidate = /\bpostgres(?:ql)?(?:\+[a-z][a-z0-9_.-]*)?:\/\/([^\
 // Only obvious documentation and environment-variable placeholders are safe.
 // Query and userinfo passwords use the same narrow exception rule.
 function isPasswordPlaceholder(value) {
-  return /^\[[^\]\r\n]+\]$/.test(value) ||
-    /^\$\{[A-Z_][A-Z0-9_]*\??\}$/.test(value);
+  return /^\[[^\]\r\n]+\]$/.test(value) || /^\$\{[A-Z_][A-Z0-9_]*\??\}$/.test(value);
 }
 
 // libpq also accepts credentials in URI query parameters, including percent-
 // encoded parameter names (`%70assword`). A userinfo-only scan would permit
 // a fully usable database password to ship in a source or build artifact.
-const postgresUrlWithQueryCandidate = /\bpostgres(?:ql)?(?:\+[a-z][a-z0-9_.-]*)?:\/\/[^\s"'`<>\\]+/gi;
+const postgresUrlWithQueryCandidate =
+  /\bpostgres(?:ql)?(?:\+[a-z][a-z0-9_.-]*)?:\/\/[^\s"'`<>\\]+/gi;
 function containsCredentialedPostgresUrl(contents) {
   for (const match of contents.matchAll(postgresUrlCandidate)) {
     const userInfo = match[1];
@@ -319,11 +423,13 @@ function containsCredentialedEscapedYamlPostgresUrl(contents) {
   const quotedScalar = /"(?:\\[\s\S]|[^"\\])*"/g;
   const escapeSequence = /\\(?:x([a-f\d]{2})|u([a-f\d]{4})|U([a-f\d]{8})|([\\"]))/gi;
   for (const match of contents.matchAll(quotedScalar)) {
-    const decoded = match[0].slice(1, -1).replace(escapeSequence, (_, short, medium, long, literal) => {
-      if (literal) return literal;
-      const point = Number.parseInt(short ?? medium ?? long, 16);
-      return point <= 0x10ffff ? String.fromCodePoint(point) : '';
-    });
+    const decoded = match[0]
+      .slice(1, -1)
+      .replace(escapeSequence, (_, short, medium, long, literal) => {
+        if (literal) return literal;
+        const point = Number.parseInt(short ?? medium ?? long, 16);
+        return point <= 0x10ffff ? String.fromCodePoint(point) : '';
+      });
     if (containsCredentialedPostgresUrl(decoded)) return true;
   }
   return false;
@@ -336,7 +442,8 @@ function containsCredentialedEscapedYamlPostgresUrl(contents) {
 // This is a conservative package heuristic, not a complete libpq parser.
 function containsCredentialedLibpqConninfo(contents) {
   const context = /(?:^|[\s"'`])(?:host|hostaddr|dbname|service|user)\s*=/i;
-  const passwordOption = /(?:^|[\s"'`])(?:password|sslpassword)\s*=\s*(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"|([^\s"'`;,]+))/gi;
+  const passwordOption =
+    /(?:^|[\s"'`])(?:password|sslpassword)\s*=\s*(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"|([^\s"'`;,]+))/gi;
   for (const line of contents.split(/\r?\n/)) {
     if (!context.test(line)) continue;
     for (const match of line.matchAll(passwordOption)) {
@@ -354,8 +461,10 @@ function containsLiteralLibpqEnvironmentPassword(contents) {
   // Shell/CI assignment, PowerShell ($env:PGPASSWORD), and JavaScript
   // (process.env.PGPASSWORD / process.env['PGPASSWORD']) all configure the
   // same libpq credential. Analyze each form without executing source code.
-  const shellAssignment = /(?:^|[\s;])PGPASSWORD\s*(?:=|:)\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|([^\s;,'"`#]+))/gi;
-  const scriptAssignment = /(?:^|[\s;])(?:\$env:PGPASSWORD|process\.env\.PGPASSWORD|process\.env\[\s*(['"])PGPASSWORD\1\s*\])\s*=\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|([^\s;,'"`#]+))/gi;
+  const shellAssignment =
+    /(?:^|[\s;])PGPASSWORD\s*(?:=|:)\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|([^\s;,'"`#]+))/gi;
+  const scriptAssignment =
+    /(?:^|[\s;])(?:\$env:PGPASSWORD|process\.env\.PGPASSWORD|process\.env\[\s*(['"])PGPASSWORD\1\s*\])\s*=\s*(?:"([^"\r\n]*)"|'([^'\r\n]*)'|([^\s;,'"`#]+))/gi;
   // Windows cmd uses `set "NAME=value"` to avoid trailing-space bugs,
   // while `setx NAME value` writes a persistent environment value. The
   // generic shell assignment matcher cannot see the leading quote or setx.
@@ -364,8 +473,10 @@ function containsLiteralLibpqEnvironmentPassword(contents) {
   // Python deployment scripts can set this same libpq credential via
   // os.environ[...] or os.putenv(...). Match only quoted inline literals:
   // values supplied by os.getenv/os.environ remain external at runtime.
-  const pythonEnvironLiteral = /\bos\.environ\[\s*(['"])PGPASSWORD\1\s*\]\s*=\s*(['"])([^'"\r\n]*)\2/gi;
-  const pythonPutenvLiteral = /\bos\.putenv\(\s*(['"])PGPASSWORD\1\s*,\s*(['"])([^'"\r\n]*)\2\s*\)/gi;
+  const pythonEnvironLiteral =
+    /\bos\.environ\[\s*(['"])PGPASSWORD\1\s*\]\s*=\s*(['"])([^'"\r\n]*)\2/gi;
+  const pythonPutenvLiteral =
+    /\bos\.putenv\(\s*(['"])PGPASSWORD\1\s*,\s*(['"])([^'"\r\n]*)\2\s*\)/gi;
   const isExternalReference = (value) =>
     isPasswordPlaceholder(value) ||
     /^\$[A-Z_][A-Z0-9_]*$/.test(value) ||
@@ -397,9 +508,11 @@ function containsLiteralLibpqEnvironmentPassword(contents) {
       for (const match of line.matchAll(pattern)) {
         // scriptAssignment's first capture is the bracket quote delimiter;
         // the remaining captures contain potential credential values.
-        const value = (pattern === scriptAssignment
-          ? (match[2] ?? match[3] ?? match[4] ?? '')
-          : (match[1] ?? match[2] ?? match[3] ?? '')).trim();
+        const value = (
+          pattern === scriptAssignment
+            ? (match[2] ?? match[3] ?? match[4] ?? '')
+            : (match[1] ?? match[2] ?? match[3] ?? '')
+        ).trim();
         if (value && !isExternalReference(value)) return true;
       }
     }
@@ -427,7 +540,6 @@ function containsInlineNpmCredential(contents) {
   return false;
 }
 
-
 // npm configuration can also embed credentials directly in registry URLs:
 // registry=https://user:password@registry.example.invalid/. Existing _authToken
 // checks are not sufficient for this form. Keep environment substitutions in
@@ -437,8 +549,8 @@ function containsAuthenticatedRegistryUrl(contents, allowEnvironmentPassword = f
   for (const match of contents.matchAll(candidate)) {
     const userInfo = match[1];
     const colon = userInfo.indexOf(':');
-    if (allowEnvironmentPassword && colon >= 0 &&
-        isPasswordPlaceholder(userInfo.slice(colon + 1))) continue;
+    if (allowEnvironmentPassword && colon >= 0 && isPasswordPlaceholder(userInfo.slice(colon + 1)))
+      continue;
     return true;
   }
   return false;
@@ -452,11 +564,21 @@ function containsAuthenticatedRegistryUrl(contents, allowEnvironmentPassword = f
 function containsCredentialedRegistryQueryUrl(contents) {
   const candidate = /\bhttps?:\/\/[^\s\"'`<>]+/gi;
   const credentialParams = new Set([
-    'token', 'authtoken', 'accesstoken', 'password', 'apikey', 'authorization', 'secret',
+    'token',
+    'authtoken',
+    'accesstoken',
+    'password',
+    'apikey',
+    'authorization',
+    'secret',
   ]);
   for (const match of contents.matchAll(candidate)) {
     let url;
-    try { url = new URL(match[0]); } catch { continue; }
+    try {
+      url = new URL(match[0]);
+    } catch {
+      continue;
+    }
     for (const [name, value] of url.searchParams) {
       if (!credentialParams.has(name.toLowerCase().replace(/[-_]/g, ''))) continue;
       if (value && !isPasswordPlaceholder(value)) return true;
@@ -490,10 +612,14 @@ function inspectDecodedNpmJson(contents) {
       // decoded string as well. These include libpq environment assignments,
       // JDBC short URLs and keyword/value conninfo, which can also be hidden
       // by JSON Unicode escapes in npm scripts/config values.
-      if (detectors.some(({ pattern }) => pattern.test(entry)) ||
-          containsSupabaseServiceRoleJwt(entry) || containsCredentialedPostgresUrl(entry) ||
-          containsLiteralLibpqEnvironmentPassword(entry) ||
-          containsCredentialedJDBCShortUrl(entry) || containsCredentialedLibpqConninfo(entry)) {
+      if (
+        detectors.some(({ pattern }) => pattern.test(entry)) ||
+        containsSupabaseServiceRoleJwt(entry) ||
+        containsCredentialedPostgresUrl(entry) ||
+        containsLiteralLibpqEnvironmentPassword(entry) ||
+        containsCredentialedJDBCShortUrl(entry) ||
+        containsCredentialedLibpqConninfo(entry)
+      ) {
         return 'secret';
       }
     } else if (Array.isArray(entry)) {
@@ -503,9 +629,12 @@ function inspectDecodedNpmJson(contents) {
         // npm registry auth values can be arbitrary opaque strings without a
         // recognizable token prefix. Decode JSON keys first, then apply the
         // same scoped/unscoped auth-key rule used for .npmrc files.
-        if (/(?:^|:)_(?:authToken|auth|password)$/i.test(key) && value != null &&
-            (typeof value !== 'string' ||
-              (value.trim() && !/^\$\{[A-Z_][A-Z0-9_]*\??\}$/.test(value.trim())))) {
+        if (
+          /(?:^|:)_(?:authToken|auth|password)$/i.test(key) &&
+          value != null &&
+          (typeof value !== 'string' ||
+            (value.trim() && !/^\$\{[A-Z_][A-Z0-9_]*\??\}$/.test(value.trim())))
+        ) {
           return 'inline-auth';
         }
         pending.push(key, value);
@@ -521,9 +650,16 @@ function inspectDecodedNpmJson(contents) {
 // Preserve the project's existing { ENV: 'DB_PASSWORD' } config contract.
 function containsInlineJsonDatabasePassword(contents, file) {
   let data;
-  try { data = JSON.parse(contents); } catch { return false; }
-  const databaseFile = /^(?:database|db|postgres|postgresql)(?:\.[^.]+)?\.json$/i.test(path.basename(file));
-  const explicitPasswordKey = /^(?:pgpassword|postgres(?:ql)?_?password|database_?password|db_?password|migration_?database_?password)$/i;
+  try {
+    data = JSON.parse(contents);
+  } catch {
+    return false;
+  }
+  const databaseFile = /^(?:database|db|postgres|postgresql)(?:\.[^.]+)?\.json$/i.test(
+    path.basename(file),
+  );
+  const explicitPasswordKey =
+    /^(?:pgpassword|postgres(?:ql)?_?password|database_?password|db_?password|migration_?database_?password)$/i;
   const databaseContextKey = /^(?:db|database|postgres|postgresql|pg|libpq|supabase)$/i;
   // Node pg/Drizzle pool configs often use a generic `connection` or `pool`
   // object. Treat host + database/dbname (or the standard PostgreSQL port)
@@ -531,21 +667,35 @@ function containsInlineJsonDatabasePassword(contents, file) {
   // Do not classify unrelated SMTP/HTTP connection objects by host alone.
   const isDatabaseConnectionObject = (value) => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    const fields = Object.fromEntries(Object.entries(value).map(([key, entry]) => [key.toLowerCase(), entry]));
-    return typeof fields.host === 'string' &&
-      (typeof fields.database === 'string' || typeof fields.dbname === 'string' ||
-        String(fields.port) === '5432');
+    const fields = Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key.toLowerCase(), entry]),
+    );
+    return (
+      typeof fields.host === 'string' &&
+      (typeof fields.database === 'string' ||
+        typeof fields.dbname === 'string' ||
+        String(fields.port) === '5432')
+    );
   };
   const isExternalValue = (value) => {
     if (typeof value === 'string') {
       const normalized = value.trim();
-      return !normalized || isPasswordPlaceholder(normalized) ||
+      return (
+        !normalized ||
+        isPasswordPlaceholder(normalized) ||
         /^\$[A-Z_][A-Z0-9_]*$/.test(normalized) ||
-        /^process\.env\.[A-Z_][A-Z0-9_]*$/.test(normalized);
+        /^process\.env\.[A-Z_][A-Z0-9_]*$/.test(normalized)
+      );
     }
-    return value == null || (value && typeof value === 'object' && !Array.isArray(value) &&
-      Object.keys(value).length === 1 &&
-      typeof value.ENV === 'string' && /^[A-Z_][A-Z0-9_]*$/.test(value.ENV));
+    return (
+      value == null ||
+      (value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        Object.keys(value).length === 1 &&
+        typeof value.ENV === 'string' &&
+        /^[A-Z_][A-Z0-9_]*$/.test(value.ENV))
+    );
   };
   const pending = [{ value: data, databaseContext: databaseFile }];
   while (pending.length) {
@@ -557,9 +707,16 @@ function containsInlineJsonDatabasePassword(contents, file) {
     }
     const inDatabaseContext = databaseContext || isDatabaseConnectionObject(value);
     for (const [key, child] of Object.entries(value)) {
-      if ((explicitPasswordKey.test(key) || (/^(?:password|sslpassword)$/i.test(key) && inDatabaseContext)) &&
-          !isExternalValue(child)) return true;
-      pending.push({ value: child, databaseContext: inDatabaseContext || databaseContextKey.test(key) });
+      if (
+        (explicitPasswordKey.test(key) ||
+          (/^(?:password|sslpassword)$/i.test(key) && inDatabaseContext)) &&
+        !isExternalValue(child)
+      )
+        return true;
+      pending.push({
+        value: child,
+        databaseContext: inDatabaseContext || databaseContextKey.test(key),
+      });
     }
   }
   return false;
@@ -571,21 +728,31 @@ function containsInlineJsonDatabasePassword(contents, file) {
 // conservative scalar/indentation heuristic, not a complete YAML parser.
 // External secret references remain valid; never include values in findings.
 function isExternalYamlPassword(raw, file) {
-  let scalar = raw.trim().replace(/\s+#.*$/, '').trim();
-  if ((scalar.startsWith('"') && scalar.endsWith('"')) ||
-      (scalar.startsWith("'") && scalar.endsWith("'"))) scalar = scalar.slice(1, -1).trim();
-  return !scalar || isPasswordPlaceholder(scalar) ||
+  let scalar = raw
+    .trim()
+    .replace(/\s+#.*$/, '')
+    .trim();
+  if (
+    (scalar.startsWith('"') && scalar.endsWith('"')) ||
+    (scalar.startsWith("'") && scalar.endsWith("'"))
+  )
+    scalar = scalar.slice(1, -1).trim();
+  return (
+    !scalar ||
+    isPasswordPlaceholder(scalar) ||
     /^\$[A-Z_][A-Z0-9_]*$/.test(scalar) ||
     /^process\.env\.[A-Z_][A-Z0-9_]*$/.test(scalar) ||
     /^\$\{[A-Z_][A-Z0-9_]*:\?[^}]+\}$/.test(scalar) ||
     /^\$\{\{\s*(?:secrets|env|vars)\.[A-Z_][A-Z0-9_.]*\s*\}\}$/.test(scalar) ||
     (file === '.github/workflows/ci.yml' &&
-      ['ci-verification-only', 'ci-migrator-only', 'ci-owner-only'].includes(scalar));
+      ['ci-verification-only', 'ci-migrator-only', 'ci-owner-only'].includes(scalar))
+  );
 }
 
 function containsInlineYamlDatabasePassword(contents, file) {
   const databaseContextKey = /^(?:db|database|postgres|postgresql|pg|libpq|supabase)$/i;
-  const explicitPasswordKey = /^(?:pgpassword|postgres(?:ql)?[-_]?password|database[-_]?password|db[-_]?password|migration[-_]?database[-_]?password)$/i;
+  const explicitPasswordKey =
+    /^(?:pgpassword|postgres(?:ql)?[-_]?password|database[-_]?password|db[-_]?password|migration[-_]?database[-_]?password)$/i;
   const lines = contents.split(/\r?\n/);
   const yamlField = /^(\s*)(?:-\s+)?(['"]?)([A-Za-z_][A-Za-z0-9_-]*)\2\s*:\s*(.*?)\s*$/;
   // Generic driver settings frequently use `connection:` or `pool:` rather
@@ -608,8 +775,10 @@ function containsInlineYamlDatabasePassword(contents, file) {
       if (indent === childIndent) directFields.set(field[3].toLowerCase(), field[4]);
     }
     const port = (directFields.get('port') ?? '').trim().replace(/^['"]|['"]$/g, '');
-    return directFields.has('host') &&
-      (directFields.has('database') || directFields.has('dbname') || port === '5432');
+    return (
+      directFields.has('host') &&
+      (directFields.has('database') || directFields.has('dbname') || port === '5432')
+    );
   };
   const stack = [];
   for (const [index, line] of lines.entries()) {
@@ -621,7 +790,10 @@ function containsInlineYamlDatabasePassword(contents, file) {
     const envList = /^\s*-\s+(?:"([^"]*)"|'([^']*)'|([^#]*?))\s*(?:#.*)?$/.exec(line);
     if (envList) {
       const item = (envList[1] ?? envList[2] ?? envList[3]).trim();
-      const assignment = /^(?:PGPASSWORD|PGSSLPASSWORD|POSTGRES(?:QL)?_PASSWORD|DB_PASSWORD|DATABASE_PASSWORD|MIGRATION_DATABASE_PASSWORD)=(.*)$/i.exec(item);
+      const assignment =
+        /^(?:PGPASSWORD|PGSSLPASSWORD|POSTGRES(?:QL)?_PASSWORD|DB_PASSWORD|DATABASE_PASSWORD|MIGRATION_DATABASE_PASSWORD)=(.*)$/i.exec(
+          item,
+        );
       if (assignment && !isExternalYamlPassword(assignment[1], file)) return true;
     }
     const match = yamlField.exec(line);
@@ -631,8 +803,13 @@ function containsInlineYamlDatabasePassword(contents, file) {
     const value = match[4];
     while (stack.length && stack.at(-1).indent >= indent) stack.pop();
     const withinDatabase = stack.some(({ name }) => databaseContextKey.test(name));
-    if ((explicitPasswordKey.test(key) || (/^(?:password|sslpassword)$/i.test(key) && withinDatabase)) &&
-        value && !isExternalYamlPassword(value, file)) return true;
+    if (
+      (explicitPasswordKey.test(key) ||
+        (/^(?:password|sslpassword)$/i.test(key) && withinDatabase)) &&
+      value &&
+      !isExternalYamlPassword(value, file)
+    )
+      return true;
 
     // YAML also permits a one-line flow mapping: database: {host: ..., password: ...}.
     // The block-style indentation parser above would overlook its password.
@@ -643,22 +820,28 @@ function containsInlineYamlDatabasePassword(contents, file) {
     const flow = /^\{(.*)\}(?:\s*#.*)?$/.exec(value);
     if (flow) {
       const fields = flow[1];
-      const pgShapedConnection = /^(?:connection|pool)$/i.test(key) &&
+      const pgShapedConnection =
+        /^(?:connection|pool)$/i.test(key) &&
         /(?:^|,)\s*['"]?host['"]?\s*:/i.test(fields) &&
         /(?:^|,)\s*['"]?(?:dbname|database|port)['"]?\s*:/i.test(fields);
       const inDatabaseFlow = withinDatabase || databaseContextKey.test(key) || pgShapedConnection;
-      const flowFields = /(?:^|,)\s*(['"]?)([A-Za-z_][A-Za-z0-9_-]*)\1\s*:\s*("[^"]*"|'[^']*'|[^,}]+)\s*/g;
+      const flowFields =
+        /(?:^|,)\s*(['"]?)([A-Za-z_][A-Za-z0-9_-]*)\1\s*:\s*("[^"]*"|'[^']*'|[^,}]+)\s*/g;
       for (const field of fields.matchAll(flowFields)) {
-        if ((explicitPasswordKey.test(field[2]) ||
+        if (
+          (explicitPasswordKey.test(field[2]) ||
             (/^(?:password|sslpassword)$/i.test(field[2]) && inDatabaseFlow)) &&
-            !isExternalYamlPassword(field[3], file)) return true;
+          !isExternalYamlPassword(field[3], file)
+        )
+          return true;
       }
     }
     stack.push({
       indent,
-      name: /^(?:connection|pool)$/i.test(key) && isPostgresConnectionBlock(index, indent)
-        ? 'postgres'
-        : key,
+      name:
+        /^(?:connection|pool)$/i.test(key) && isPostgresConnectionBlock(index, indent)
+          ? 'postgres'
+          : key,
     });
   }
   return false;
@@ -675,15 +858,22 @@ function containsInlineEnvironmentTemplateSecret(contents) {
     const assignment = /^\s*(?:export\s+)?([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/i.exec(line);
     if (!assignment || !credentialName.test(assignment[1])) continue;
     let value = assignment[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1).trim();
     }
-    if (!value || isPasswordPlaceholder(value) ||
-        /^\$[A-Z_][A-Z0-9_]*$/.test(value) ||
-        /^%[A-Z_][A-Z0-9_]*%$/.test(value) ||
-        /^![A-Z_][A-Z0-9_]*!$/.test(value) ||
-        /^(?:replace(?:[-_](?:me|with(?:[-_].*)?))?|your[-_].+|placeholder(?:[-_].*)?|change[-_]?me)$/i.test(value)) {
+    if (
+      !value ||
+      isPasswordPlaceholder(value) ||
+      /^\$[A-Z_][A-Z0-9_]*$/.test(value) ||
+      /^%[A-Z_][A-Z0-9_]*%$/.test(value) ||
+      /^![A-Z_][A-Z0-9_]*!$/.test(value) ||
+      /^(?:replace(?:[-_](?:me|with(?:[-_].*)?))?|your[-_].+|placeholder(?:[-_].*)?|change[-_]?me)$/i.test(
+        value,
+      )
+    ) {
       continue;
     }
     return true;
@@ -705,7 +895,6 @@ function containsCredentialedPostgresService(contents) {
   return false;
 }
 
-
 // Some Windows deployment tools emit UTF-16 text without a BOM. Detect only
 // strong ASCII-rich alternating-NUL byte patterns; ordinary binary assets
 // remain excluded and well-formed UTF-16 text still passes through the same
@@ -717,7 +906,8 @@ function inferBomlessUtf16(bytes) {
   let oddZero = 0;
   let evenText = 0;
   let oddText = 0;
-  const readable = (byte) => byte === 9 || byte === 10 || byte === 13 || (byte >= 32 && byte <= 126);
+  const readable = (byte) =>
+    byte === 9 || byte === 10 || byte === 13 || (byte >= 32 && byte <= 126);
   for (let i = 0; i < pairs * 2; i += 2) {
     const even = bytes[i];
     const odd = bytes[i + 1];
@@ -726,8 +916,10 @@ function inferBomlessUtf16(bytes) {
     if (readable(even)) evenText++;
     if (readable(odd)) oddText++;
   }
-  if (oddZero / pairs >= 0.9 && evenZero / pairs <= 0.05 && evenText / pairs >= 0.75) return 'utf-16le';
-  if (evenZero / pairs >= 0.9 && oddZero / pairs <= 0.05 && oddText / pairs >= 0.75) return 'utf-16be';
+  if (oddZero / pairs >= 0.9 && evenZero / pairs <= 0.05 && evenText / pairs >= 0.75)
+    return 'utf-16le';
+  if (evenZero / pairs >= 0.9 && oddZero / pairs <= 0.05 && oddText / pairs >= 0.75)
+    return 'utf-16be';
   return null;
 }
 
@@ -757,7 +949,10 @@ function inspectOpaqueAsset(bytes, file) {
   if (containsCredentialedJDBCShortUrl(printable) || containsCredentialedLibpqConninfo(printable)) {
     findings.push(`credentialed PostgreSQL connection in opaque asset: ${file}`);
   }
-  if (containsAuthenticatedRegistryUrl(printable) || containsCredentialedRegistryQueryUrl(printable)) {
+  if (
+    containsAuthenticatedRegistryUrl(printable) ||
+    containsCredentialedRegistryQueryUrl(printable)
+  ) {
     findings.push(`authenticated registry URL in opaque asset: ${file}`);
   }
 }
@@ -772,18 +967,28 @@ async function walk(directory, output = []) {
     const portableName = entry.name.normalize('NFC').toLowerCase();
     const previous = portableNames.get(portableName);
     if (previous !== undefined && previous !== entry.name) {
-      findings.push(`case-insensitive source name collision: ${path.join(directory, previous)} vs ${entry.name}`);
+      findings.push(
+        `case-insensitive source name collision: ${path.join(directory, previous)} vs ${entry.name}`,
+      );
     }
     portableNames.set(portableName, entry.name);
     if (nonportableWindowsName(entry.name)) {
       findings.push(`non-portable Windows source name: ${path.join(directory, entry.name)}`);
     }
     const fullPath = path.posix.join(directory, entry.name);
-    if (entry.isDirectory() && ignoredDirectories.has(entry.name) && inReviewedRuntimeSubtree(fullPath)) {
+    if (
+      entry.isDirectory() &&
+      ignoredDirectories.has(entry.name) &&
+      inReviewedRuntimeSubtree(fullPath)
+    ) {
       findings.push(`excluded generated directory inside first-party source: ${fullPath}`);
       continue;
     }
-    if (entry.isDirectory() && (ignoredDirectories.has(entry.name) || generatedWebDirs.has(fullPath))) continue;
+    if (
+      entry.isDirectory() &&
+      (ignoredDirectories.has(entry.name) || generatedWebDirs.has(fullPath))
+    )
+      continue;
     // Never follow symlinks that might point outside the source tree or hide
     // an unscanned local credentials file. Fail rather than quietly ignore.
     if (entry.isSymbolicLink()) {
@@ -860,7 +1065,8 @@ for (const file of await walk('.')) {
     // Binary images, fonts, and media are not reliably readable as source
     // text. Explicitly named source/config types must be valid text, however:
     // invalid UTF-8 or NUL bytes must not silently bypass their scan.
-    const requiredText = textExtensions.has(path.extname(file).toLowerCase()) ||
+    const requiredText =
+      textExtensions.has(path.extname(file).toLowerCase()) ||
       namedConfigFiles.has(path.basename(file).toLowerCase()) ||
       lockfileNames.has(path.basename(file).toLowerCase()) ||
       mandatoryTextSubtrees.some((prefix) => file.startsWith(prefix));
@@ -870,15 +1076,15 @@ for (const file of await walk('.')) {
     // identifies the encoding; unknown binary assets retain the old behavior.
     const utf16le = bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe;
     const utf16be = bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff;
-    const inferredUtf16 = !utf16le && !utf16be && bytes.includes(0)
-      ? inferBomlessUtf16(bytes) : null;
+    const inferredUtf16 =
+      !utf16le && !utf16be && bytes.includes(0) ? inferBomlessUtf16(bytes) : null;
     if (!utf16le && !utf16be && !inferredUtf16 && bytes.includes(0)) {
       if (requiredText) findings.push(`unreadable source text: ${file}`);
       else inspectOpaqueAsset(bytes, file);
       continue;
     }
     try {
-      const encoding = utf16le ? 'utf-16le' : utf16be ? 'utf-16be' : inferredUtf16 ?? 'utf-8';
+      const encoding = utf16le ? 'utf-16le' : utf16be ? 'utf-16be' : (inferredUtf16 ?? 'utf-8');
       content = new TextDecoder(encoding, { fatal: true }).decode(
         utf16le || utf16be ? bytes.subarray(2) : bytes,
       );
@@ -908,11 +1114,18 @@ for (const file of await walk('.')) {
   if (containsCredentialedPostgresUrl(content)) {
     findings.push(`credentialed PostgreSQL URL: ${file}`);
   }
-  if (/\.(?:js|mjs|cjs|jsx|ts|tsx)$/i.test(file) && containsSecretInEscapedJavaScriptStrings(content)) {
-    findings.push(`credentialed PostgreSQL URL or other secret in decoded JavaScript string: ${file}`);
+  if (
+    /\.(?:js|mjs|cjs|jsx|ts|tsx)$/i.test(file) &&
+    containsSecretInEscapedJavaScriptStrings(content)
+  ) {
+    findings.push(
+      `credentialed PostgreSQL URL or other secret in decoded JavaScript string: ${file}`,
+    );
   }
   if (/\.(?:xml|svg|html|plist)$/i.test(file) && containsSecretInDecodedXmlHtml(content)) {
-    findings.push(`credentialed PostgreSQL URL in decoded XML/HTML or other encoded secret: ${file}`);
+    findings.push(
+      `credentialed PostgreSQL URL in decoded XML/HTML or other encoded secret: ${file}`,
+    );
   }
   if (containsLiteralLibpqEnvironmentPassword(content)) {
     findings.push(`literal libpq environment password: ${file}`);
@@ -923,27 +1136,35 @@ for (const file of await walk('.')) {
   if (containsCredentialedLibpqConninfo(content)) {
     findings.push(`credentialed PostgreSQL conninfo: ${file}`);
   }
-  if (postgresServiceFiles.has(path.basename(file).toLowerCase()) &&
-      containsCredentialedPostgresService(content)) {
+  if (
+    postgresServiceFiles.has(path.basename(file).toLowerCase()) &&
+    containsCredentialedPostgresService(content)
+  ) {
     findings.push(`credentialed PostgreSQL service configuration: ${file}`);
   }
   if (containsSupabaseServiceRoleJwt(content)) {
     findings.push(`Supabase service-role JWT: ${file}`);
   }
-  if (path.basename(file).toLowerCase() === '.env.example' &&
-      containsInlineEnvironmentTemplateSecret(content)) {
+  if (
+    path.basename(file).toLowerCase() === '.env.example' &&
+    containsInlineEnvironmentTemplateSecret(content)
+  ) {
     findings.push(`literal secret in environment template: ${file}`);
   }
   if (path.basename(file).toLowerCase() === '.npmrc' && containsInlineNpmCredential(content)) {
     findings.push(`inline npm registry credential: ${file}`);
   }
-  if (path.basename(file).toLowerCase() === '.npmrc' &&
-      containsAuthenticatedRegistryUrl(content, true)) {
+  if (
+    path.basename(file).toLowerCase() === '.npmrc' &&
+    containsAuthenticatedRegistryUrl(content, true)
+  ) {
     findings.push(`authenticated registry URL: ${file}`);
   }
-  if ((path.basename(file).toLowerCase() === '.npmrc' ||
+  if (
+    (path.basename(file).toLowerCase() === '.npmrc' ||
       lockfileNames.has(path.basename(file).toLowerCase())) &&
-      containsCredentialedRegistryQueryUrl(content)) {
+    containsCredentialedRegistryQueryUrl(content)
+  ) {
     findings.push(`credentialed registry query parameter: ${file}`);
   }
   // All JSON is parsed by its consumers, not just npm manifests/lockfiles.
@@ -953,21 +1174,30 @@ for (const file of await walk('.')) {
   // relied on by the existing lockfile and packaging regression contracts.
   if (path.extname(file).toLowerCase() === '.json') {
     const name = path.basename(file).toLowerCase();
-    const kind = lockfileNames.has(name) ? 'npm lockfile' :
-      name === npmManifestName ? 'npm manifest' : 'application JSON';
+    const kind = lockfileNames.has(name)
+      ? 'npm lockfile'
+      : name === npmManifestName
+        ? 'npm manifest'
+        : 'application JSON';
     const decodedFinding = inspectDecodedNpmJson(content);
     if (decodedFinding === 'invalid') {
-      findings.push(`invalid ${kind === 'npm manifest' ? 'npm package manifest' : kind} JSON: ${file}`);
+      findings.push(
+        `invalid ${kind === 'npm manifest' ? 'npm package manifest' : kind} JSON: ${file}`,
+      );
     } else if (decodedFinding === 'credential') {
       findings.push(`credentialed registry URL in decoded ${kind}: ${file}`);
     } else if (decodedFinding === 'secret') {
       findings.push(`high-confidence secret in decoded ${kind}: ${file}`);
     } else if (decodedFinding === 'inline-auth') {
-      findings.push(`inline npm auth field in decoded ${kind === 'npm manifest' ? 'manifest' : kind === 'npm lockfile' ? 'lockfile' : 'application JSON'}: ${file}`);
+      findings.push(
+        `inline npm auth field in decoded ${kind === 'npm manifest' ? 'manifest' : kind === 'npm lockfile' ? 'lockfile' : 'application JSON'}: ${file}`,
+      );
     }
   }
-  if (path.extname(file).toLowerCase() === '.json' &&
-      containsInlineJsonDatabasePassword(content, file)) {
+  if (
+    path.extname(file).toLowerCase() === '.json' &&
+    containsInlineJsonDatabasePassword(content, file)
+  ) {
     findings.push(`inline database password in JSON: ${file}`);
   }
   if (/\.ya?ml$/i.test(file) && containsInlineYamlDatabasePassword(content, file)) {
@@ -979,7 +1209,10 @@ for (const file of await walk('.')) {
   // npm can persist a resolved tarball URL containing HTTP userinfo in a
   // lockfile. These credentials may not have a recognizable provider prefix.
   // Only output the file path, never the URL or embedded password.
-  if (lockfileNames.has(path.basename(file).toLowerCase()) && containsAuthenticatedRegistryUrl(content)) {
+  if (
+    lockfileNames.has(path.basename(file).toLowerCase()) &&
+    containsAuthenticatedRegistryUrl(content)
+  ) {
     findings.push(`authenticated registry URL: ${file}`);
   }
 }
@@ -989,5 +1222,7 @@ if (findings.length > 0) {
   for (const finding of findings) console.error(`- ${finding}`);
   process.exitCode = 1;
 } else {
-  console.log('PASS: no local environment files, unreviewed symlinks, or high-confidence secret patterns detected.');
+  console.log(
+    'PASS: no local environment files, unreviewed symlinks, or high-confidence secret patterns detected.',
+  );
 }
