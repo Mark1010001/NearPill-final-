@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { useMutation } from '@tanstack/react-query';
 import { authorizationScope, useSession } from '../auth/session';
 import { BrandLoading, ErrorState, FormFeedback, LoadingState } from '../components/States';
@@ -13,16 +13,36 @@ import { Shell } from './Shell';
 const CustomerApp = lazy(() => import('../features/customer/CustomerApp'));
 const SiteApp = lazy(() => import('../features/site/SiteApp'));
 
+/** The public website lives at the root address: nearpill.xyz, nearpill.xyz/features, and so on. */
+const SITE_PATHS = ['/', '/features', '/partners', '/about', '/contact', '/policies'];
+
+/** Old /site/... links keep working and move to the new address. */
+function SiteRedirect() {
+  const { pathname, hash } = useLocation();
+  const rest = pathname.replace(/^\/site\/?/, '').replace(/\/+$/, '');
+  const target = SITE_PATHS.includes(`/${rest}`) ? `/${rest}` : '/';
+  return <Navigate to={`${target}${hash}`} replace />;
+}
+
+/** Addresses that belong to the admin and partner portals. Anything else that is not a website page is "Page not found". */
+const PORTAL_PATHS = ['/portal', '/dashboard', '/pharmacies', '/orders', '/catalog', '/subscriptions', '/reports', '/staff', '/stock-submissions', '/partner'];
+
+function Fallback() {
+  const { pathname } = useLocation();
+  if (PORTAL_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) return <OperationsPortal />;
+  return <Suspense fallback={<BrandLoading />}><SiteApp /></Suspense>;
+}
+
 export function App() {
   return <Routes>
     <Route path="/app/*" element={<Suspense fallback={<BrandLoading />}>
       <CustomerApp />
     </Suspense>} />
-    <Route path="/site/*" element={<Suspense fallback={<BrandLoading />}>
+    {SITE_PATHS.map((path) => <Route key={path} path={path} element={<Suspense fallback={<BrandLoading />}>
       <SiteApp />
-    </Suspense>} />
-    <Route path="/" element={<Navigate to="/site/" replace />} />
-    <Route path="*" element={<OperationsPortal />} />
+    </Suspense>} />)}
+    <Route path="/site/*" element={<SiteRedirect />} />
+    <Route path="*" element={<Fallback />} />
   </Routes>;
 }
 

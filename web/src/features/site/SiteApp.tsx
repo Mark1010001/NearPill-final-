@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
-import { Link, NavLink, Route, Routes, useLocation } from 'react-router';
+import type { ComponentType } from 'react';
+import { Link, NavLink, useLocation } from 'react-router';
 import { categories, faqs, features, partnerPoints, steps, trustItems, type FeatureId } from './content';
 import { Icon, type IconName } from './icons';
 import './site.css';
@@ -32,7 +33,7 @@ function ScrollToTop() {
 }
 
 function Logo() {
-  return <Link to="/site/" className="st-logo" aria-label="NearPill home">
+  return <Link to="/" className="st-logo" aria-label="NearPill home">
     <img className="st-logo-img" src="/brand-mark.png" width="36" height="36" alt="" aria-hidden="true" />
     <span>NearPill</span>
   </Link>;
@@ -52,11 +53,11 @@ function Header() {
     <div className="st-wrap st-header-row">
       <Logo />
       <nav id="st-nav" className={`st-nav${open ? ' open' : ''}`} aria-label="Main">
-        <NavLink to="/site/features">Features</NavLink>
-        <Link to="/site/#how-it-works">How it works</Link>
-        <NavLink to="/site/partners">For pharmacies</NavLink>
-        <Link to="/site/#faq">FAQ</Link>
-        <NavLink to="/site/about">About</NavLink>
+        <NavLink to="/features">Features</NavLink>
+        <Link to="/#how-it-works">How it works</Link>
+        <NavLink to="/partners">For pharmacies</NavLink>
+        <Link to="/#faq">FAQ</Link>
+        <NavLink to="/about">About</NavLink>
         <a className="st-btn st-btn-primary st-nav-cta" href="/app/">Open web app</a>
       </nav>
       <button type="button" className="st-menu-btn" aria-expanded={open} aria-controls="st-nav" aria-label={open ? 'Close menu' : 'Open menu'}
@@ -75,19 +76,19 @@ function Footer() {
       <nav aria-label="Product">
         <h2>Product</h2>
         <a href="/app/">Open web app</a>
-        <Link to="/site/features">Features</Link>
-        <Link to="/site/#faq">FAQ</Link>
+        <Link to="/features">Features</Link>
+        <Link to="/#faq">FAQ</Link>
       </nav>
       <nav aria-label="Pharmacies">
         <h2>Pharmacies</h2>
-        <Link to="/site/partners">Partner with NearPill</Link>
+        <Link to="/partners">Partner with NearPill</Link>
         <a href="/portal">Pharmacy and admin sign in</a>
       </nav>
       <nav aria-label="Legal">
         <h2>Legal</h2>
-        <Link to="/site/policies">Policies</Link>
-        <Link to="/site/about">About this project</Link>
-        <Link to="/site/contact">Contact</Link>
+        <Link to="/policies">Policies</Link>
+        <Link to="/about">About this project</Link>
+        <Link to="/contact">Contact</Link>
       </nav>
     </div>
     <div className="st-wrap st-footer-base">
@@ -198,7 +199,7 @@ function Home() {
             <a className="st-btn st-btn-primary st-btn-lg" href="/app/">Open web app <Icon name="arrow" size={18} /></a>
             <button type="button" className="st-btn st-btn-outline st-btn-lg" aria-expanded={androidNote} aria-controls="st-android-note" onClick={() => setAndroidNote(!androidNote)}><Icon name="phone" size={18} /> Get the Android app (coming soon)</button>
           </div>
-          {androidNote && <p id="st-android-note" className="st-note" role="status">The Android app is not on the Play Store yet. Use the web app for now, or <Link to="/site/partners">see how pharmacies join</Link>.</p>}
+          {androidNote && <p id="st-android-note" className="st-note" role="status">The Android app is not on the Play Store yet. Use the web app for now, or <Link to="/partners">see how pharmacies join</Link>.</p>}
           <p className="st-note">The phone preview shows <strong>Sample data</strong>. Prices are in Philippine pesos (₱) and pickup dates use Manila time (UTC+8).</p>
         </div>
         <div className="st-hero-art"><PhoneMockup /></div>
@@ -220,7 +221,7 @@ function Home() {
         <div className="st-stack">{features.slice(0, 3).map((f) => <FeatureCard key={f.id} {...f} />)}</div>
       </div>
       <div className="st-grid-4">{features.slice(3).map((f) => <FeatureCard key={f.id} {...f} />)}</div>
-      <p className="st-more"><Link to="/site/features">Explore all features <Icon name="arrow" size={16} /></Link></p>
+      <p className="st-more"><Link to="/features">Explore all features <Icon name="arrow" size={16} /></Link></p>
     </Section>
 
     <Section id="how-it-works" tone="white" title="How NearPill works in four steps" intro="From finding an open drugstore to collecting your order with a PDF receipt.">
@@ -240,7 +241,7 @@ function Home() {
 
     <Section id="for-pharmacies" tone="white" title="Built for Cebu City pharmacies too" intro="Partner pharmacies get a portal to keep stock accurate, handle pickup orders and review prescriptions before checkout.">
       <div className="st-grid-4">{partnerPoints.map((p) => <article key={p.title} className="st-card"><h3>{p.title}</h3><p>{p.text}</p></article>)}</div>
-      <p className="st-more"><Link className="st-btn st-btn-primary" to="/site/partners">Partner with NearPill <Icon name="arrow" size={16} /></Link></p>
+      <p className="st-more"><Link className="st-btn st-btn-primary" to="/partners">Partner with NearPill <Icon name="arrow" size={16} /></Link></p>
     </Section>
 
     <Section id="faq" title="Frequently asked questions" intro="Pickup, deposits, prescriptions, location privacy and what the assistant can and cannot do."><Faq /></Section>
@@ -274,7 +275,7 @@ function Partners() {
         <li className="st-card"><span className="st-step-no" aria-hidden="true">02</span><h3>Get reviewed</h3><p>The platform team reviews your pharmacy before it appears in customer listings.</p></li>
         <li className="st-card"><span className="st-step-no" aria-hidden="true">03</span><h3>Go live</h3><p>Sign in to the Partner portal, add your medicines and stock, and start receiving pickup orders.</p></li>
       </ol>
-      <div className="st-actions"><Link className="st-btn st-btn-primary" to="/site/contact">Contact the team</Link><a className="st-btn st-btn-outline" href="/portal">Partner sign in</a></div>
+      <div className="st-actions"><Link className="st-btn st-btn-primary" to="/contact">Contact the team</Link><a className="st-btn st-btn-outline" href="/portal">Partner sign in</a></div>
     </Section>
   </>;
 }
@@ -302,7 +303,7 @@ function Contact() {
       <div className="st-grid-3">
         <article className="st-card"><h3>Customers</h3><p>Open the web app, then use Ask NearPill in the app for help with searching, orders and pickup.</p><a className="st-btn st-btn-outline" href="/app/">Open web app</a></article>
         <article className="st-card"><h3>Pharmacies</h3><p>To become a partner, contact the project team through your school or project coordinator. Existing partners can sign in to the portal.</p><a className="st-btn st-btn-outline" href="/portal">Partner sign in</a></article>
-        <article className="st-card"><h3>Policies</h3><p>Read how NearPill handles your data and what the rules are for orders and prescriptions.</p><Link className="st-btn st-btn-outline" to="/site/policies">View policies</Link></article>
+        <article className="st-card"><h3>Policies</h3><p>Read how NearPill handles your data and what the rules are for orders and prescriptions.</p><Link className="st-btn st-btn-outline" to="/policies">View policies</Link></article>
       </div>
     </Section>
   </>;
@@ -384,16 +385,17 @@ export function SiteLanding() {
   return <Shell><Home /></Shell>;
 }
 
+const SITE_PAGES: Record<string, ComponentType> = {
+  '/': Home,
+  '/features': Features,
+  '/partners': Partners,
+  '/about': About,
+  '/contact': Contact,
+  '/policies': Policies,
+};
+
 export default function SiteApp() {
-  return <Shell>
-    <Routes>
-      <Route index element={<Home />} />
-      <Route path="features" element={<Features />} />
-      <Route path="partners" element={<Partners />} />
-      <Route path="about" element={<About />} />
-      <Route path="contact" element={<Contact />} />
-      <Route path="policies" element={<Policies />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
-  </Shell>;
+  const { pathname } = useLocation();
+  const Page = SITE_PAGES[pathname.replace(/\/+$/, '') || '/'] ?? NotFound;
+  return <Shell><Page /></Shell>;
 }

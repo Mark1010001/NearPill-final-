@@ -10,7 +10,7 @@ export function LoginPage() {
       <p>Sign in with your administrator or partner pharmacy account.</p>
       <SignInForm />
       <a className="policy-link" href="/policies.html">Privacy and service information</a>
-      <a className="policy-link" href="/site/">Visit the NearPill website</a>
+      <a className="policy-link" href="/">Visit the NearPill website</a>
     </section>
   </main>;
 }
