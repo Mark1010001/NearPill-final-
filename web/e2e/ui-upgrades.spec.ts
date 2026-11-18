@@ -120,7 +120,7 @@ test('admin orders sort, select and export rows; columns can be hidden', async (
 test('desktop sidebar collapses to icons and remembers the choice', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await mockAdmin(page);
-  await page.goto('/');
+  await page.goto('/portal');
   await page.getByRole('button', { name: 'Collapse sidebar' }).click();
   await expect(page.locator('.portal-shell')).toHaveAttribute('data-collapsed', 'true');
   await expect(page.getByRole('link', { name: 'Pharmacies', exact: true })).toBeVisible();

@@ -81,7 +81,7 @@ function Footer() {
       <nav aria-label="Pharmacies">
         <h2>Pharmacies</h2>
         <Link to="/site/partners">Partner with NearPill</Link>
-        <a href="/">Pharmacy and admin sign in</a>
+        <a href="/portal">Pharmacy and admin sign in</a>
       </nav>
       <nav aria-label="Legal">
         <h2>Legal</h2>
@@ -274,7 +274,7 @@ function Partners() {
         <li className="st-card"><span className="st-step-no" aria-hidden="true">02</span><h3>Get reviewed</h3><p>The platform team reviews your pharmacy before it appears in customer listings.</p></li>
         <li className="st-card"><span className="st-step-no" aria-hidden="true">03</span><h3>Go live</h3><p>Sign in to the Partner portal, add your medicines and stock, and start receiving pickup orders.</p></li>
       </ol>
-      <div className="st-actions"><Link className="st-btn st-btn-primary" to="/site/contact">Contact the team</Link><a className="st-btn st-btn-outline" href="/">Partner sign in</a></div>
+      <div className="st-actions"><Link className="st-btn st-btn-primary" to="/site/contact">Contact the team</Link><a className="st-btn st-btn-outline" href="/portal">Partner sign in</a></div>
     </Section>
   </>;
 }
@@ -301,7 +301,7 @@ function Contact() {
     <Section title="Get in touch">
       <div className="st-grid-3">
         <article className="st-card"><h3>Customers</h3><p>Open the web app, then use Ask NearPill in the app for help with searching, orders and pickup.</p><a className="st-btn st-btn-outline" href="/app/">Open web app</a></article>
-        <article className="st-card"><h3>Pharmacies</h3><p>To become a partner, contact the project team through your school or project coordinator. Existing partners can sign in to the portal.</p><a className="st-btn st-btn-outline" href="/">Partner sign in</a></article>
+        <article className="st-card"><h3>Pharmacies</h3><p>To become a partner, contact the project team through your school or project coordinator. Existing partners can sign in to the portal.</p><a className="st-btn st-btn-outline" href="/portal">Partner sign in</a></article>
         <article className="st-card"><h3>Policies</h3><p>Read how NearPill handles your data and what the rules are for orders and prescriptions.</p><Link className="st-btn st-btn-outline" to="/site/policies">View policies</Link></article>
       </div>
     </Section>

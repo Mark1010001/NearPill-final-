@@ -54,7 +54,14 @@ test('policies page shows the real policy sections as accessible tabs', async ({
 
 test('the sign-in page links to the public website', async ({ page }) => {
   await page.route('**/api/v1/auth/me', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'Unauthorized' }) }));
-  await page.goto('/');
+  await page.goto('/portal');
   await page.getByRole('link', { name: 'Visit the NearPill website' }).click();
   await expect(page).toHaveURL(/\/site\/$/);
+});
+
+test('the root address opens the public website and the website links to the portal sign-in', async ({ page }) => {
+  await page.route('**/api/v1/auth/me', (route) => route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'Unauthorized' }) }));
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/site\/$/);
+  await expect(page.getByRole('link', { name: 'Pharmacy and admin sign in' })).toHaveAttribute('href', '/portal');
 });

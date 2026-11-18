@@ -21,6 +21,7 @@ export function App() {
     <Route path="/site/*" element={<Suspense fallback={<BrandLoading />}>
       <SiteApp />
     </Suspense>} />
+    <Route path="/" element={<Navigate to="/site/" replace />} />
     <Route path="*" element={<OperationsPortal />} />
   </Routes>;
 }

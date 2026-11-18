@@ -126,7 +126,7 @@ test('partner session never loads administrator order or inventory collections',
     }
     return route.fulfill(json({ error: 'Not mocked' }, 404));
   });
-  await page.goto('/');
+  await page.goto('/portal');
   await expect(page.getByText('Pharmacy overview')).toBeVisible();
   await expect(page.getByText('Test branch address')).toBeVisible();
   await expect(page.getByText('Not public', { exact: true })).toBeVisible();

@@ -10,7 +10,7 @@ test.describe('live partner tenant isolation', () => {
   test.skip(!configured, 'Requires seeded staging partner credentials and another pharmacy ID.');
 
   test('partner cannot cross pharmacy scope or call administrator collections', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/portal');
     await page.getByLabel('Email').fill(partnerEmail!);
     await page.getByLabel('Password').fill(partnerPassword!);
     await page.getByRole('button', { name: 'Sign in' }).click();

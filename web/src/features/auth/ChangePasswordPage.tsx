@@ -22,7 +22,7 @@ export function ChangePasswordPage() {
     try {
       await api.changePassword(String(fields.get('currentPassword')), password);
       clearSession();
-      window.location.assign('/?passwordChanged=1');
+      window.location.assign('/portal?passwordChanged=1');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to change password.');
       setBusy(false);

@@ -208,7 +208,7 @@ function Shop({ customer, staffSession, logoutButton, logoutError }: {
             {customer ? null : staffSession ? <>
               <h1>Sign in to NearPill</h1>
               <p>A staff account is signed in. Sign out to use your customer account.</p>
-              <div className="shop-actions">{logoutButton}<a className="shop-text-link" href="/">Go to Operations Portal</a></div>
+              <div className="shop-actions">{logoutButton}<a className="shop-text-link" href="/portal">Go to Operations Portal</a></div>
             </> : <CustomerAuth disabled={loading || checking || !!error} />}
           </section>} />
         <Route path="cart" element={<Navigate to="/app/orders?tab=cart" replace />} />
@@ -232,7 +232,7 @@ function Shop({ customer, staffSession, logoutButton, logoutError }: {
     </main>
     <footer className="shop-footer"><div className="shop-container">
       <a className="shop-text-link" href="/policies.html">Privacy and service information</a>
-      <a className="shop-text-link" href="/">Operations Portal</a>
+      <a className="shop-text-link" href="/portal">Operations Portal</a>
     </div></footer>
   </div></CartContext.Provider>;
 }

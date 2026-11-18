@@ -43,7 +43,7 @@ export function Shell() {
     <a className="skip-link" href="#portal-content">Skip to content</a>
     <aside className="sidebar">
       <div className="sidebar-heading">
-        <Link className="brand" to="/"><img className="brand-logo" src="/brand-mark.png" width="36" height="36" alt="" aria-hidden="true" />Near<span>Pill</span></Link>
+        <Link className="brand" to="/portal"><img className="brand-logo" src="/brand-mark.png" width="36" height="36" alt="" aria-hidden="true" />Near<span>Pill</span></Link>
         <button type="button" className="secondary menu-toggle" aria-expanded={menuOpen}
           aria-controls="portal-navigation" onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? 'Close menu' : 'Menu'}

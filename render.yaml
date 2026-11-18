@@ -53,3 +53,7 @@ services:
         sync: false
       - key: GOOGLE_ROUTES_API_KEY
         sync: false
+      # Browser Maps key for the website map (read at BUILD time by deploy/Dockerfile).
+      # Referrer-restricted in Google Cloud to https://nearpill.xyz/* and https://www.nearpill.xyz/*.
+      - key: VITE_GOOGLE_MAPS_BROWSER_KEY
+        sync: false
