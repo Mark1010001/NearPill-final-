@@ -35,7 +35,7 @@ export function createPasswordRecoveryService({
       ? 'Repeated unsuccessful sign-in attempts temporarily blocked your NearPill account for 15 minutes.'
       : 'A password reset was requested for your NearPill account.';
     await sendEmail(user.email, 'NearPill account security',
-      `${intro}\n\nReset your password using this single-use link, which expires in 15 minutes:\n${link.href}\n\nIf you did not request this, you can ignore this email. Contact nearpillemail@gmail.com if you need help.`);
+      `${intro}\n\nReset your password using this single-use link, which expires in 15 minutes:\n${link.href}\n\nIf you did not request this, you can ignore this email. Contact nearpillemail.business@gmail.com if you need help.`);
   }
 
   return Object.freeze({
@@ -60,7 +60,7 @@ export function createPasswordRecoveryService({
         await security.reset(result.email);
         // Tell the owner their password changed; a failed email never undoes the reset.
         void Promise.resolve(sendEmail(result.email, 'Your NearPill password was changed',
-          'The password for your NearPill account was just changed and you were signed out on every device. If this was not you, reset your password again and contact nearpillemail@gmail.com.'))
+          'The password for your NearPill account was just changed and you were signed out on every device. If this was not you, reset your password again and contact nearpillemail.business@gmail.com.'))
           .catch(() => console.error('password_changed_notification_failed'));
         return success({ message: 'Password updated. You can now sign in with your new password.' });
       } catch (error) {

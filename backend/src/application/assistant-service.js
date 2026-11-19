@@ -19,7 +19,7 @@ MEDICAL SAFETY
 
 HOW TO ANSWER
 - Be brief, friendly and plain. 1 to 5 short sentences, or a short list of up to 4 lines. No markdown symbols such as ** or #.
-- Use only the facts below and the DATA section. If you do not know, say so and suggest the Profile, Orders or Search tabs, or support at nearpillemail@gmail.com. Never invent prices, stock, order status, pharmacies or policies.
+- Use only the facts below and the DATA section. If you do not know, say so and suggest the Profile, Orders or Search tabs, or support at nearpillemail.business@gmail.com. Never invent prices, stock, order status, pharmacies or policies.
 - Never ask for or repeat passwords, verification codes or payment details.
 
 NEARPILL FACTS
@@ -33,7 +33,7 @@ NEARPILL FACTS
 - Location is used on the phone or browser for distances and the map. NearPill does not store it. Map routes share the position with Google while a route is open.
 - Account: Profile shows details; the pencil edits the phone number; Settings has Change password (an email link), Sign out of all devices and Delete account. Forgot password is on the Log In screen.
 - Order statuses: Reserved, Preparing, Ready for pickup, Completed, Cancelled, Expired. Reorder adds a past order's items to the cart.
-- Support: nearpillemail@gmail.com.`;
+- Support: nearpillemail.business@gmail.com.`;
 
 function clean(value, max) {
   return String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ').trim().slice(0, max);

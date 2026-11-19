@@ -25,7 +25,7 @@ class _PoliciesScreenState extends State<PoliciesScreen> {
           return const Padding(
             padding: EdgeInsets.all(24),
             child: SelectableText(
-              'Service information could not be loaded. Contact nearpillemail@gmail.com for a copy.',
+              'Service information could not be loaded. Contact nearpillemail.business@gmail.com for a copy.',
             ),
           );
         }

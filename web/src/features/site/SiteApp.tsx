@@ -294,7 +294,7 @@ function Policies() {
   }
 
   return <>
-    <PageHead title="Policies" text="How NearPill handles your data, orders and refunds. This is the prelaunch version." />
+    <PageHead title="Policies" text="How NearPill handles your data, orders and refunds." />
     <Section title="Service information">
       <div className="st-callout"><h3>Medical disclaimer</h3><p>NearPill does not provide medical advice. Always consult a licensed pharmacist or doctor. In a medical emergency, call 911 or go to the nearest hospital.</p></div>
       {failed && <div className="st-card st-state" role="alert"><p>The policies could not be loaded.</p><button type="button" className="st-btn st-btn-outline" onClick={load}>Try again</button></div>}

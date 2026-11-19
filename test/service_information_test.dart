@@ -142,7 +142,7 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: PoliciesScreen()));
       await tester.pumpAndSettle();
       expect(find.text('Privacy notice'), findsOneWidget);
-      expect(find.textContaining('nearpillemail@gmail.com'), findsWidgets);
+      expect(find.textContaining('nearpillemail.business@gmail.com'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );
