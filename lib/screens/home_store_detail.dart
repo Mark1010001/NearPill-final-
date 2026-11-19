@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../features/pharmacy/presentation/pharmacy_view_model.dart';
 import '../features/cart/presentation/cart_view_model.dart';
 import '../widgets/favourite_heart.dart';
+import '../app_theme.dart';
 import '../models/medicine_model.dart';
+import '../widgets/catalog_cards.dart';
+import 'orders/orders.dart';
 
 class StoreDetailScreen extends StatefulWidget {
   const StoreDetailScreen({super.key, this.viewModel});
@@ -138,20 +141,6 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
     }
   }
 
-  Future<void> _launchPhone(String phone) async {
-    final uri = Uri(scheme: 'tel', path: phone.replaceAll(' ', ''));
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
-  }
-
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
   void _changeQuantity(String id, int quantity) {
     setState(() => _quantities[id] = quantity);
   }
@@ -249,177 +238,97 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
     final storeName = _storeMeta?['store_name'] ?? 'Store';
     final branch = _storeMeta?['branch'] ?? '';
     final openNow = _storeMeta?['openNow'];
-    final hours = _storeMeta?['operating_hours'] ?? '';
-    final phone = _storeMeta?['phone'] ?? 'N/A';
-    final fb = _storeMeta?['facebook'] ?? 'N/A';
-    final distance = _storeMeta?['distance'] ?? '';
+    final cart = context.watch<CartViewModel?>();
+    final cartCount = cart?.items.fold<int>(0, (sum, line) => sum + line.quantity) ?? 0;
+    final cartCentavos = cart?.items.fold<int>(0, (sum, line) => sum + line.priceCentavos * line.quantity) ?? 0;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('$storeName ${branch.isNotEmpty ? '– $branch' : ''}'),
+        automaticallyImplyLeading: false,
+        centerTitle: true,
+        titleSpacing: 0,
+        leadingWidth: 56,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: IconButton(
+            tooltip: 'Back',
+            onPressed: () => Navigator.maybePop(context),
+            style: IconButton.styleFrom(
+              fixedSize: const Size(40, 40),
+              minimumSize: const Size(40, 40),
+              foregroundColor: NpColors.ink,
+            ),
+            icon: const NpIcon(NpIcons.arrow_back),
+          ),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                '$storeName${branch.isNotEmpty ? ' – $branch' : ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: NpColors.ink,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            StoreStatusPill(openNow: openNow),
+          ],
+        ),
         actions: [
           if ((int.tryParse(_storeId) ?? 0) > 0)
             FavouriteHeart(
               storeId: int.parse(_storeId),
               name: '$storeName${branch.isNotEmpty ? ' — $branch' : ''}',
             ),
+          const SizedBox(width: 8),
         ],
       ),
+      bottomNavigationBar: cartCount > 0
+          ? CatalogCartDock(
+              count: cartCount,
+              centavos: cartCentavos,
+              onViewCart: () => Navigator.pushNamed(context, OrdersScreen.routeName),
+            )
+          : null,
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Name + open status read as one unit instead of two
-                  // separate lines the eye has to reconnect.
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '$storeName${branch.isNotEmpty ? ' — $branch' : ''}',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: openNow == true
-                              ? Colors.green.shade100
-                              : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          openNow == null
-                              ? 'Hours not confirmed'
-                              : openNow == true
-                              ? 'Open now'
-                              : 'Closed',
-                          style: TextStyle(
-                            color: openNow == true
-                                ? Colors.green.shade700
-                                : Colors.grey.shade700,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-
-                  // Distance and hours merged into one chunk (Miller's
-                  // Law) instead of two rows fighting for attention.
-                  Text(
-                    [
-                      if (distance.toString().isNotEmpty) distance.toString(),
-                      if (hours.toString().isNotEmpty)
-                        'Hours ${hours.toString()}',
-                    ].join('  ·  '),
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Contact becomes two tappable actions instead of a
-                  // card of text to read: fewer things to parse (Hick's
-                  // Law), bigger targets side by side (Fitts's Law).
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: phone == 'N/A'
-                              ? null
-                              : () => _launchPhone(phone.toString()),
-                          icon: const Icon(Icons.call, size: 18),
-                          label: const Text('Call'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(44),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: fb == 'N/A'
-                              ? null
-                              : () => _launchUrl(fb.toString()),
-                          icon: const Icon(Icons.facebook, size: 18),
-                          label: const Text('Message'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(44),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      labelText: 'Search in this store',
-                      prefixIcon: const Icon(Icons.search),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onChanged: _onSearchChanged,
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                decoration: catalogSearchDecoration(hint: 'Search in this store'),
+                onChanged: _onSearchChanged,
               ),
             ),
 
-            // Categories bar. Chips get uniform 44px height and generous
-            // horizontal padding so each one is easy to hit without
-            // clipping a neighbor (Fitts's Law), and the list stays short
-            // enough to scan in one glance (Hick's Law).
+            // Category chips: the selected one is solid green with a check, the rest are white pills.
             SizedBox(
               height: 44,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 scrollDirection: Axis.horizontal,
                 itemCount: _categories.length,
                 separatorBuilder: (context, index) => const SizedBox(width: 8),
                 itemBuilder: (context, i) {
                   final category = _categories[i];
                   final selected = category == _selectedCategory;
-                  return ChoiceChip(
-                    label: Text(category?.label ?? 'All'),
+                  return CatalogFilterChip(
+                    label: category?.label ?? 'All',
                     selected: selected,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    materialTapTargetSize: MaterialTapTargetSize.padded,
-                    onSelected: (_) {
+                    onSelected: () {
                       _debounce?.cancel();
                       _selectedCategory = category;
                       _fetchInventory();
                     },
-                    selectedColor: const Color(0xFF2E7D32),
-                    backgroundColor: Colors.white,
-                    labelStyle: TextStyle(
-                      color: selected ? Colors.white : Colors.black87,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    ),
                   );
                 },
               ),
@@ -431,18 +340,17 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
             Expanded(
               child: _isLoading
                   ? ListView.separated(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
                       itemCount: 5,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
+                      separatorBuilder: (context, index) => const SizedBox(height: 14),
                       itemBuilder: (context, index) => Shimmer.fromColors(
                         baseColor: Colors.grey[300]!,
                         highlightColor: Colors.grey[100]!,
                         child: Container(
-                          height: 120,
+                          height: 150,
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
                       ),
@@ -462,110 +370,22 @@ class _StoreDetailScreenState extends State<StoreDetailScreen> {
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                       itemCount: _inventory.length,
-                      separatorBuilder: (context, index) =>
-                          const SizedBox(height: 12),
+                      separatorBuilder: (context, index) => const SizedBox(height: 14),
                       itemBuilder: (context, index) {
                         final item = _inventory[index] as Map<String, dynamic>;
                         final medicine = MedicineModel.fromJson(item);
                         final id = item['id']?.toString() ?? index.toString();
-                        final qty = (_quantities[id] ?? 1).clamp(
-                          1,
-                          medicine.cartQuantityLimit,
-                        );
-
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: Icon(
-                                    Icons.medication,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                  title: Text(
-                                    medicine.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  subtitle: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        CatalogCategory.fromCatalogValue(
-                                              medicine.category,
-                                            )?.label ??
-                                            medicine.category,
-                                      ),
-                                      Text(medicine.listingStatus),
-                                    ],
-                                  ),
-                                ),
-                                OverflowBar(
-                                  spacing: 8,
-                                  overflowSpacing: 8,
-                                  alignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      medicine.pricePerUnit,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    Wrap(
-                                      crossAxisAlignment:
-                                          WrapCrossAlignment.center,
-                                      children: [
-                                        IconButton(
-                                          tooltip:
-                                              'Decrease quantity for ${medicine.name}',
-                                          onPressed: qty > 1
-                                              ? () =>
-                                                    _changeQuantity(id, qty - 1)
-                                              : null,
-                                          icon: const Icon(Icons.remove),
-                                        ),
-                                        Text(
-                                          '$qty',
-                                          semanticsLabel: 'Quantity $qty',
-                                        ),
-                                        IconButton(
-                                          tooltip:
-                                              'Increase quantity for ${medicine.name}',
-                                          onPressed:
-                                              qty < medicine.cartQuantityLimit
-                                              ? () =>
-                                                    _changeQuantity(id, qty + 1)
-                                              : null,
-                                          icon: const Icon(Icons.add),
-                                        ),
-                                      ],
-                                    ),
-                                    FilledButton.icon(
-                                      onPressed: () => _addToCart(item, qty),
-                                      icon: const Icon(
-                                        Icons.add_shopping_cart,
-                                        size: 18,
-                                      ),
-                                      label: const Text('Add to cart'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+                        final qty = (_quantities[id] ?? 1).clamp(1, medicine.cartQuantityLimit);
+                        return CatalogProductCard(
+                          medicine: medicine,
+                          quantity: qty,
+                          onDecrease: qty > 1 ? () => _changeQuantity(id, qty - 1) : null,
+                          onIncrease: qty < medicine.cartQuantityLimit
+                              ? () => _changeQuantity(id, qty + 1)
+                              : null,
+                          onAdd: () => _addToCart(item, qty),
                         );
                       },
                     ),

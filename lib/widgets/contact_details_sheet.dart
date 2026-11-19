@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -79,7 +80,7 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
   }
 
   InputDecoration _decoration(
-    IconData icon, {
+    NpIconData icon, {
     String? hint,
     String? floatingLabel,
   }) => InputDecoration(
@@ -95,7 +96,7 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
     errorMaxLines: 4,
     filled: true,
     fillColor: Colors.white,
-    prefixIcon: Icon(icon, color: profileMuted),
+    prefixIcon: NpIcon(icon, color: profileMuted),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(18),
@@ -142,7 +143,7 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
           'Edit Account Details',
           leading: IconButton(
             tooltip: 'Back',
-            icon: const Icon(Icons.arrow_back, color: profileInk),
+            icon: const NpIcon(NpIcons.arrow_back, color: profileInk),
             onPressed: _saving ? null : () => Navigator.of(context).pop(),
           ),
         ),
@@ -175,8 +176,8 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.person_outline,
+                            const NpIcon(
+                              NpIcons.person_outline,
                               color: profileDeepGreen,
                             ),
                             const SizedBox(width: 12),
@@ -196,8 +197,8 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
                                 color: profileSoftGreen,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(
-                                Icons.check,
+                              child: const NpIcon(
+                                NpIcons.check,
                                 size: 18,
                                 color: profileDeepGreen,
                               ),
@@ -221,7 +222,7 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
                         LengthLimitingTextInputFormatter(11),
                       ],
                       decoration: _decoration(
-                        Icons.smartphone_outlined,
+                        NpIcons.smartphone_outlined,
                         hint: '09171234567',
                       ),
                       validator: (value) =>
@@ -242,7 +243,7 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
                       onFieldSubmitted: (_) => _save(),
                       inputFormatters: [DateTextFormatter()],
                       decoration: _decoration(
-                        Icons.calendar_today_outlined,
+                        NpIcons.calendar_today_outlined,
                         floatingLabel: 'MM/DD/YYYY',
                       ),
                       validator: validateBirthdate,
@@ -269,7 +270,7 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
                         ),
                       ),
                       onPressed: _saving ? null : _save,
-                      icon: const Icon(Icons.save_outlined),
+                      icon: const NpIcon(NpIcons.save_outlined),
                       label: Semantics(
                         liveRegion: _saving,
                         child: Text(

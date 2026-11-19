@@ -226,10 +226,6 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('PICKUP CLAIM CODE'), findsOneWidget);
-    expect(
-      find.textContaining('Physical prescription check required'),
-      findsOneWidget,
-    );
     expect(find.text('₱25.00 each'), findsOneWidget);
   });
 

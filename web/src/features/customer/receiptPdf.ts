@@ -60,9 +60,6 @@ export function receiptLines({ order, customer, phone, balanceDue }: ReceiptFact
     });
   }
   out.push({ text: '', gap: 4 }, { text: 'Total', size: 12, bold: true, x: 50 }, { text: php(total), size: 12, bold: true, x: 465, gap: 12 });
-  if (order.items.some((item) => item.prescriptionRequired)) {
-    out.push({ text: 'Physical prescription check required. Bring the prescription you uploaded.', size: 10, bold: true, gap: 12 });
-  }
   out.push({ text: 'Show this receipt and a valid ID to the pharmacy staff when you pick up your order.', size: 9, gap: 4 },
     { text: 'Capstone test payment, no real money was charged.', size: 9 });
   return out;

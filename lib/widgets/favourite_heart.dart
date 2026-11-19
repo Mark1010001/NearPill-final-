@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../app_theme.dart';
@@ -24,8 +25,8 @@ class FavouriteHeart extends StatelessWidget {
     return IconButton(
       tooltip: on ? 'Remove from favourites' : 'Add to favourites',
       isSelected: on,
-      icon: Icon(
-        on ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+      icon: NpIcon(
+        on ? NpIcons.favorite_rounded : NpIcons.favorite_border_rounded,
         color: on ? const Color(0xFFD32F2F) : NpColors.muted,
       ),
       onPressed: () => favourites.toggle(storeId),

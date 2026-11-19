@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../config/service_notices.dart';
@@ -13,6 +14,7 @@ import '../../features/orders/pickup.dart';
 import '../../features/orders/receipt_pdf.dart';
 import '../../widgets/pickup_picker.dart';
 import '../../features/orders/presentation/order_view_model.dart';
+import '../../features/pharmacy/presentation/pharmacy_view_model.dart';
 import '../../models/order_model.dart';
 
 class OrderConfirmationScreen extends StatefulWidget {
@@ -84,6 +86,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
   String? _pickupError;
   String _newPickupDate = pickupDays().first;
   String? _newPickupWindow;
+  String? _operatingHours;
 
   bool get _canChangePickup =>
       widget.orderId != null &&
@@ -261,6 +264,28 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
     }
   }
 
+  /// Looks up the pharmacy's hours so the pickup picker can hide today in the last hour before closing.
+  Future<void> _loadOperatingHours() async {
+    int? storeId;
+    for (final raw in widget.receiptItems) {
+      if (raw is Map) storeId = int.tryParse('${raw['drugstoreId']}');
+      if (storeId != null) break;
+    }
+    if (storeId == null) return;
+    try {
+      final stores = await context.read<PharmacyViewModel>().listStores();
+      final hours = stores.where((store) => store.id == storeId).firstOrNull?.operatingHours;
+      if (!mounted) return;
+      setState(() {
+        _operatingHours = hours;
+        if (!dayAvailable(_newPickupDate, hours)) _newPickupDate = firstPickupDay(hours);
+        _newPickupWindow = windowForDay(_newPickupDate, _newPickupWindow, hours);
+      });
+    } catch (_) {
+      // Without the hours the picker stays unrestricted; the server still enforces the closing rule.
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -280,6 +305,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
     _controller.forward();
     WidgetsBinding.instance.addObserver(this);
     _loadPayment();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadOperatingHours());
   }
 
   void _loadPayment() {
@@ -413,17 +439,17 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
     final choice = canChooseDeposit ? _choice : 'full';
     final (heroIcon, heroColor, heroTitle) = switch (_stage) {
       OrderStage.cancelled => (
-        Icons.cancel_outlined,
+        NpIcons.cancel_outlined,
         Colors.red.shade400,
         _orderStatus == 'expired' ? 'Reservation expired' : 'Order Cancelled',
       ),
       OrderStage.completed => (
-        Icons.check_circle,
+        NpIcons.check_circle,
         _green,
         'Collected',
       ),
       OrderStage.placed => (
-        Icons.check_circle,
+        NpIcons.check_circle,
         _green,
         _orderStatus == 'cancellation_pending'
             ? 'Cancellation requested'
@@ -434,12 +460,12 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
             : 'Order reserved',
       ),
       OrderStage.preparing => (
-        Icons.timelapse,
+        NpIcons.timelapse,
         _green,
         'Preparing for pickup',
       ),
       OrderStage.ready => (
-        Icons.check_circle,
+        NpIcons.check_circle,
         _green,
         'Ready for pickup',
       ),
@@ -499,7 +525,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
                     ),
                   ],
                 ),
-                child: Icon(
+                child: NpIcon(
                   heroIcon,
                   color: _stage == OrderStage.completed
                       ? Colors.white
@@ -529,7 +555,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
           if (widget.hasRemainingCart) ...[
             _Banner(
               tone: _Tone.neutral,
-              icon: Icons.shopping_bag_outlined,
+              icon: NpIcons.shopping_bag_outlined,
               text: 'Your other items are still in your cart.',
               action: TextButton(
                 onPressed: () => Navigator.of(context).maybePop(),
@@ -554,10 +580,10 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
                 child: _Banner(
                   tone: paymentTone,
                   icon: switch (paymentTone) {
-                    _Tone.good => Icons.check_circle_outline,
-                    _Tone.warn => Icons.warning_amber_rounded,
-                    _Tone.info => Icons.hourglass_top,
-                    _Tone.neutral => Icons.info_outline,
+                    _Tone.good => NpIcons.check_circle_outline,
+                    _Tone.warn => NpIcons.warning_amber_rounded,
+                    _Tone.info => NpIcons.hourglass_top,
+                    _Tone.neutral => NpIcons.info_outline,
                   },
                   text: paymentText,
                 ),
@@ -568,7 +594,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
                 liveRegion: true,
                 child: _Banner(
                   tone: _Tone.warn,
-                  icon: Icons.error_outline,
+                  icon: NpIcons.error_outline,
                   text: _paymentError!,
                 ),
               ),
@@ -577,7 +603,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
               const SizedBox(height: 8),
               const _Banner(
                 tone: _Tone.info,
-                icon: Icons.refresh,
+                icon: NpIcons.refresh,
                 text: 'Come back here after paying.',
               ),
             ],
@@ -684,7 +710,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
                               openCheckout: true,
                               plan: choice == 'deposit' ? 'deposit' : null,
                             ),
-                      icon: const Icon(Icons.account_balance_wallet_outlined),
+                      icon: const NpIcon(NpIcons.account_balance_wallet_outlined),
                       label: Text(
                         choice == 'deposit'
                             ? 'Pay ${_price(deposit)} deposit with GCash'
@@ -758,8 +784,8 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
                     children: [
                       Semantics(
                         label: 'Pickup date',
-                        child: const Icon(
-                          Icons.event_outlined,
+                        child: const NpIcon(
+                          NpIcons.event_outlined,
                           size: 22,
                           color: _muted,
                         ),
@@ -802,6 +828,7 @@ class _OrderConfirmationScreenState extends State<OrderConfirmationScreen>
                     PickupPicker(
                       date: _newPickupDate,
                       window: _newPickupWindow,
+                      operatingHours: _operatingHours,
                       dateLabel: 'New pickup date',
                       timeLabel: 'New pickup time',
                       onChanged: (date, window) => setState(() {
@@ -924,7 +951,7 @@ class _Banner extends StatelessWidget {
   });
 
   final _Tone tone;
-  final IconData icon;
+  final NpIconData icon;
   final String text;
   final Widget? action;
 
@@ -949,7 +976,7 @@ class _Banner extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: fg),
+              NpIcon(icon, size: 20, color: fg),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1005,8 +1032,8 @@ class _PayOption extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+            NpIcon(
+              selected ? NpIcons.radio_button_checked : NpIcons.radio_button_off,
               color: selected ? _green : _muted,
             ),
             const SizedBox(width: 10),
@@ -1124,8 +1151,8 @@ class _ProgressCard extends StatelessWidget {
                                       width: 2,
                                     ),
                             ),
-                            child: Icon(
-                              steps[i].$3 ? Icons.check : Icons.circle,
+                            child: NpIcon(
+                              steps[i].$3 ? NpIcons.check : NpIcons.circle,
                               size: steps[i].$3 ? 18 : 10,
                               color: steps[i].$3
                                   ? Colors.white
@@ -1195,7 +1222,7 @@ class _CancelledCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, color: Colors.red.shade400, size: 22),
+          NpIcon(NpIcons.info_outline, color: Colors.red.shade400, size: 22),
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
@@ -1263,10 +1290,8 @@ class _ReceiptCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final lines = <Widget>[];
-    var needsPrescription = false;
     for (final raw in items) {
       if (raw is! Map) continue;
-      if (raw['prescriptionRequired'] == true) needsPrescription = true;
       final quantity = int.tryParse('${raw['quantity']}') ?? 0;
       final unitCents = int.tryParse('${raw['priceCentavos']}') ?? 0;
       final unit = raw['sellingUnit']?.toString();
@@ -1315,7 +1340,7 @@ class _ReceiptCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.receipt_long_outlined, color: _greenDark),
+              const NpIcon(NpIcons.receipt_long_outlined, color: _greenDark),
               const SizedBox(width: 8),
               Expanded(
                 child: Semantics(
@@ -1371,15 +1396,6 @@ class _ReceiptCard extends StatelessWidget {
               ],
             ),
           ),
-          if (needsPrescription) ...[
-            const SizedBox(height: 12),
-            const _Banner(
-              tone: _Tone.good,
-              icon: Icons.assignment_turned_in_outlined,
-              text:
-                  'Physical prescription check required. Bring the prescription you uploaded when you claim your order.',
-            ),
-          ],
           const SizedBox(height: 12),
           _fact('Pharmacy', storeName),
           if (customerName.isNotEmpty) _fact('Customer', customerName),
@@ -1433,7 +1449,7 @@ class _ReceiptCard extends StatelessWidget {
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
             onPressed: onDownload,
-            icon: const Icon(Icons.download_outlined, size: 18),
+            icon: const NpIcon(NpIcons.download_outlined, size: 18),
             label: const Text('Download receipt (PDF)'),
           ),
         ],

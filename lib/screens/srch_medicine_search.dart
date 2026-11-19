@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../features/catalog/presentation/catalog_view_model.dart';
@@ -131,7 +132,7 @@ class _MedicineSearchScreenState extends State<MedicineSearchScreen> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Search medicines, generics, or brands',
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const NpIcon(NpIcons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -225,8 +226,8 @@ class _MedicineSearchScreenState extends State<MedicineSearchScreen> {
                                             ),
                                           ),
                                           child: const Center(
-                                            child: Icon(
-                                              Icons.medical_services,
+                                            child: NpIcon(
+                                              NpIcons.medical_services,
                                               size: 36,
                                               color: Color(0xFF2E7D32),
                                             ),
@@ -320,8 +321,8 @@ class _MedicineSearchScreenState extends State<MedicineSearchScreen> {
                                                       }
                                                     }
                                                   },
-                                                  icon: const Icon(
-                                                    Icons.add_shopping_cart,
+                                                  icon: const NpIcon(
+                                                    NpIcons.add_shopping_cart,
                                                     size: 20,
                                                   ),
                                                 ),

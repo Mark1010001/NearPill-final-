@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -241,7 +242,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                         suffixIcon: IconButton(
                           tooltip: 'Search pharmacies',
                           onPressed: () => _search(_manualSearch.text),
-                          icon: const Icon(Icons.search),
+                          icon: const NpIcon(NpIcons.search),
                         ),
                       ),
                     ),
@@ -256,7 +257,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                             FocusScope.of(context).unfocus();
                             model.loadNearby();
                           },
-                    icon: const Icon(Icons.my_location),
+                    icon: const NpIcon(NpIcons.my_location),
                   ),
                 ],
               ),
@@ -271,8 +272,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.account_circle,
+                        NpIcon(
+                          NpIcons.account_circle,
                           color: Color(0xFF1565C0),
                           size: 20,
                         ),
@@ -283,8 +284,8 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.local_pharmacy,
+                        NpIcon(
+                          NpIcons.local_pharmacy,
                           color: Color(0xFF2E7D32),
                           size: 20,
                         ),
@@ -380,7 +381,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
         final store = stores[index - 1];
         final distance = store.distanceKm;
         return ListTile(
-          leading: const Icon(Icons.local_pharmacy),
+          leading: const NpIcon(NpIcons.local_pharmacy),
           title: Text(store.name),
           subtitle: Text(
             distance == null
@@ -394,7 +395,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
             onPressed: store.directionsUri == null
                 ? null
                 : () => model.selectRoute(store),
-            icon: const Icon(Icons.directions),
+            icon: const NpIcon(NpIcons.directions),
           ),
         );
       },
@@ -414,7 +415,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
           children: [
             Row(
               children: [
-                const Icon(Icons.local_pharmacy, color: Colors.green),
+                const NpIcon(NpIcons.local_pharmacy, color: Colors.green),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -425,7 +426,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 IconButton(
                   tooltip: 'Close route',
                   onPressed: model.closeRoute,
-                  icon: const Icon(Icons.close),
+                  icon: const NpIcon(NpIcons.close),
                 ),
               ],
             ),
@@ -460,7 +461,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                   onPressed: model.routeLoading
                       ? null
                       : () => model.selectRoute(store),
-                  icon: const Icon(Icons.refresh),
+                  icon: const NpIcon(NpIcons.refresh),
                   label: const Text('Refresh route'),
                 ),
                 TextButton(
@@ -469,7 +470,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 ),
                 FilledButton.icon(
                   onPressed: () => _openDirections(store),
-                  icon: const Icon(Icons.navigation),
+                  icon: const NpIcon(NpIcons.navigation),
                   label: const Text('Navigate'),
                 ),
               ],

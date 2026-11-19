@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import '../../app_theme.dart';
 import '../../config/service_notices.dart';
 import 'package:provider/provider.dart';
@@ -44,6 +45,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
   bool _testCheckout = false;
   String _pickupDate = pickupDays().first;
   String? _pickupWindow;
+  String? _operatingHours;
 
   String? _blockReason(CartViewModel cart) => widget.pharmacyId == null
       ? cart.checkoutBlockReason
@@ -59,6 +61,16 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
       );
     }
     return user;
+  }
+
+  /// Pickup today is not offered in the last hour before the pharmacy closes, and "any time" is not allowed for today.
+  void _useOperatingHours(String? hours) {
+    if (!mounted) return;
+    setState(() {
+      _operatingHours = hours;
+      if (!dayAvailable(_pickupDate, hours)) _pickupDate = firstPickupDay(hours);
+      _pickupWindow = windowForDay(_pickupDate, _pickupWindow, hours);
+    });
   }
 
   Future<_CheckoutReview> _review(
@@ -86,6 +98,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
       (storeId) async {
         final inventory = await pharmacies.getStoreInventory(storeId);
         address = inventory.store.address;
+        _useOperatingHours(inventory.store.operatingHours);
         return inventory;
       },
       pharmacyId: widget.pharmacyId,
@@ -296,6 +309,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
                     'quantity': item.quantity,
                     'priceCentavos': item.priceCentavos,
                     'sellingUnit': item.sellingUnit,
+                    'drugstoreId': item.drugstoreId,
                   },
                 )
                 .toList(),
@@ -567,7 +581,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
                   ),
                   const Divider(height: 1, thickness: 1, color: NpColors.line),
                   _ActionTextButton(
-                    icon: Icons.edit_outlined,
+                    icon: NpIcons.edit_outlined,
                     label: 'Edit cart quantities',
                     centered: true,
                     onPressed: () => Navigator.of(context).maybePop(),
@@ -580,7 +594,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
           _StaggeredEntrance(
             index: 1,
             child: _SectionCard(
-              icon: Icons.local_pharmacy_outlined,
+              icon: NpIcons.local_pharmacy_outlined,
               title: 'Pharmacy pickup',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,8 +616,8 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
                       children: [
                         const Padding(
                           padding: EdgeInsets.only(top: 2),
-                          child: Icon(
-                            Icons.location_on_outlined,
+                          child: NpIcon(
+                            NpIcons.location_on_outlined,
                             size: 18,
                             color: NpColors.muted,
                           ),
@@ -629,7 +643,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
           _StaggeredEntrance(
             index: 2,
             child: _SectionCard(
-              icon: Icons.calendar_today_outlined,
+              icon: NpIcons.calendar_today_outlined,
               title: 'Pickup date & time',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,6 +651,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
                   PickupPicker(
                     date: _pickupDate,
                     window: _pickupWindow,
+                    operatingHours: _operatingHours,
                     onChanged: (date, window) => setState(() {
                       _pickupDate = date;
                       _pickupWindow = window;
@@ -652,7 +667,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
           _StaggeredEntrance(
             index: 3,
             child: _SectionCard(
-              icon: Icons.person_outline_rounded,
+              icon: NpIcons.person_outline_rounded,
               title: 'Pickup contact',
               child: _buildContact(),
             ),
@@ -661,7 +676,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
           _StaggeredEntrance(
             index: 4,
             child: _SectionCard(
-              icon: Icons.payments_outlined,
+              icon: NpIcons.payments_outlined,
               title: 'Payment method',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -685,8 +700,8 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.account_balance_wallet_outlined,
+                        NpIcon(
+                          NpIcons.account_balance_wallet_outlined,
                           size: 22,
                           color: _testCheckout
                               ? NpColors.primaryDark
@@ -702,10 +717,10 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
                             ),
                           ),
                         ),
-                        Icon(
+                        NpIcon(
                           _testCheckout
-                              ? Icons.radio_button_checked_rounded
-                              : Icons.radio_button_unchecked_rounded,
+                              ? NpIcons.radio_button_checked_rounded
+                              : NpIcons.radio_button_unchecked_rounded,
                           size: 20,
                           color: _testCheckout
                               ? NpColors.primary
@@ -768,7 +783,7 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
               ),
               const SizedBox(height: 4),
               _ActionTextButton(
-                icon: Icons.refresh_rounded,
+                icon: NpIcons.refresh_rounded,
                 label: 'Try again',
                 onPressed: () => setState(() => _profile = null),
               ),
@@ -779,20 +794,20 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ContactInfoRow(
-              icon: Icons.person_outline_rounded,
+              icon: NpIcons.person_outline_rounded,
               text: user.fullName,
               emphasize: true,
             ),
             const SizedBox(height: 8),
             _ContactInfoRow(
-              icon: Icons.phone_outlined,
+              icon: NpIcons.phone_outlined,
               text: user.phone?.isNotEmpty == true
                   ? user.phone!
                   : 'No mobile number saved',
             ),
             const SizedBox(height: 4),
             _ActionTextButton(
-              icon: Icons.edit_outlined,
+              icon: NpIcons.edit_outlined,
               label: 'Edit contact details',
               onPressed: () async {
                 final saved = await showContactDetailsSheet(
@@ -820,7 +835,7 @@ class _ContactInfoRow extends StatelessWidget {
     this.emphasize = false,
   });
 
-  final IconData icon;
+  final NpIconData icon;
   final String text;
   final bool emphasize;
 
@@ -831,7 +846,7 @@ class _ContactInfoRow extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: Icon(icon, size: 18, color: NpColors.muted),
+          child: NpIcon(icon, size: 18, color: NpColors.muted),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -857,7 +872,7 @@ class _ActionTextButton extends StatelessWidget {
     this.centered = false,
   });
 
-  final IconData icon;
+  final NpIconData icon;
   final String label;
   final VoidCallback? onPressed;
   final bool centered;
@@ -877,7 +892,7 @@ class _ActionTextButton extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18),
+          NpIcon(icon, size: 18),
           const SizedBox(width: 8),
           Flexible(child: Text(label)),
         ],
@@ -963,7 +978,7 @@ class _SectionCard extends StatelessWidget {
     required this.child,
   });
 
-  final IconData? icon;
+  final NpIconData? icon;
   final String title;
   final Widget child;
 
@@ -990,7 +1005,7 @@ class _SectionCard extends StatelessWidget {
           Row(
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 22, color: NpColors.muted),
+                NpIcon(icon, size: 22, color: NpColors.muted),
                 const SizedBox(width: 12),
               ],
               Expanded(

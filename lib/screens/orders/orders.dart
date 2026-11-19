@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/medicine_model.dart';
@@ -7,6 +8,7 @@ import '../../models/order_model.dart';
 import '../../features/auth/presentation/auth_view_model.dart';
 import '../../features/cart/presentation/cart_view_model.dart';
 import '../../features/orders/presentation/order_view_model.dart';
+import '../../widgets/catalog_cards.dart';
 import '../../widgets/skeleton.dart';
 import 'checkout.dart';
 import 'confirmation.dart';
@@ -111,7 +113,7 @@ class _CartTab extends StatelessWidget {
       return ListView(
         children: [
           _EmptyState(
-            icon: Icons.shopping_bag_outlined,
+            icon: NpIcons.shopping_bag_outlined,
             title: 'Your cart is empty',
             subtitle: 'Browse products from local pharmacies to get started.',
             action: onBrowseProducts == null
@@ -197,7 +199,7 @@ class _StoreGroupHeader extends StatelessWidget {
           visualDensity: VisualDensity.compact,
           onChanged: (value) => onSelectedChanged(value ?? false),
         ),
-        const Icon(Icons.storefront, size: 18, color: Color(0xFF2E7D32)),
+        const NpIcon(NpIcons.storefront, size: 18, color: Color(0xFF2E7D32)),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -286,7 +288,7 @@ class _CartItemCardState extends State<_CartItemCard> {
           color: Colors.red.shade400,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Icon(Icons.delete_outline, color: Colors.white),
+        child: const NpIcon(NpIcons.delete_outline, color: Colors.white),
       ),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
@@ -321,19 +323,7 @@ class _CartItemCardState extends State<_CartItemCard> {
                   ),
                 ),
               ),
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.green.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.medical_services,
-                  color: Color(0xFF2E7D32),
-                  size: 28,
-                ),
-              ),
+              CatalogThumb(category: category, size: 52),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -354,8 +344,8 @@ class _CartItemCardState extends State<_CartItemCard> {
                         IconButton(
                           tooltip: 'Remove ${item.name} from cart',
                           onPressed: () => _removeItem(context),
-                          icon: Icon(
-                            Icons.delete_outline,
+                          icon: NpIcon(
+                            NpIcons.delete_outline,
                             color: Theme.of(context).colorScheme.error,
                           ),
                         ),
@@ -407,7 +397,7 @@ class _CartItemCardState extends State<_CartItemCard> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               _QuantityControl(
-                                icon: Icons.remove,
+                                icon: NpIcons.remove,
                                 onTap: item.quantity > 1
                                     ? () => _updateQuantity(
                                         context,
@@ -437,7 +427,7 @@ class _CartItemCardState extends State<_CartItemCard> {
                                 ),
                               ),
                               _QuantityControl(
-                                icon: Icons.add,
+                                icon: NpIcons.add,
                                 onTap: atStockLimit
                                     ? null
                                     : () => _updateQuantity(
@@ -510,16 +500,16 @@ class _RxPill extends StatelessWidget {
 class _QuantityControl extends StatelessWidget {
   const _QuantityControl({required this.icon, required this.onTap});
 
-  final IconData icon;
+  final NpIconData icon;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: icon == Icons.add ? 'Increase quantity' : 'Decrease quantity',
+      tooltip: icon == NpIcons.add ? 'Increase quantity' : 'Decrease quantity',
       onPressed: onTap,
       style: IconButton.styleFrom(minimumSize: const Size.square(44)),
-      icon: Icon(icon, size: 20),
+      icon: NpIcon(icon, size: 20),
     );
   }
 }
@@ -787,7 +777,7 @@ class _MyOrdersTabState extends State<_MyOrdersTab> {
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
             _EmptyState(
-              icon: failed ? Icons.error_outline : Icons.receipt_long_outlined,
+              icon: failed ? NpIcons.error_outline : NpIcons.receipt_long_outlined,
               title: failed ? 'Unable to load orders' : 'No orders yet',
               subtitle: failed
                   ? 'Check your connection and try again.'
@@ -835,7 +825,7 @@ class _MyOrdersTabState extends State<_MyOrdersTab> {
           const SizedBox(height: 16),
           if (filteredOrders.isEmpty)
             const _EmptyState(
-              icon: Icons.receipt_long_outlined,
+              icon: NpIcons.receipt_long_outlined,
               title: 'No orders here',
               subtitle: 'Orders with this status will appear here.',
             ),
@@ -971,18 +961,9 @@ class _OrderCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.medication_outlined,
-                  size: 22,
-                  color: Color(0xFF526071),
-                ),
+              CatalogThumb(
+                category: CatalogCategory.fromCatalogValue(raw['category']?.toString()),
+                size: 52,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -995,18 +976,29 @@ class _OrderCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         height: 1.3,
                         color: Color(0xFF0F172A),
                       ),
                     ),
+                    if ((raw['genericName']?.toString() ?? '').isNotEmpty)
+                      Text(
+                        raw['genericName'].toString(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13, color: Color(0xFF526071)),
+                      ),
                     const SizedBox(height: 2),
                     Text(
-                      '× ${raw['quantity']}${(raw['sellingUnit']?.toString() ?? '').isNotEmpty ? ' (${raw['sellingUnit']})' : ''}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF526071),
-                      ),
+                      [
+                        raw['drugstoreName']?.toString() ?? order.storeName,
+                        raw['category']?.toString(),
+                      ].where((part) => part != null && part.isNotEmpty).join(' · '),
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF526071)),
+                    ),
+                    Text(
+                      '${_cartPrice(int.tryParse('${raw['priceCentavos']}') ?? 0)} each × ${raw['quantity']}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF526071)),
                     ),
                   ],
                 ),
@@ -1070,8 +1062,8 @@ class _OrderCard extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.storefront_outlined,
+                        const NpIcon(
+                          NpIcons.storefront_outlined,
                           size: 22,
                           color: Color(0xFF526071),
                         ),
@@ -1289,7 +1281,7 @@ class _EmptyState extends StatelessWidget {
     this.action,
   });
 
-  final IconData icon;
+  final NpIconData icon;
   final String title;
   final String subtitle;
   final Widget? action;
@@ -1302,7 +1294,7 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Colors.grey.shade400),
+            NpIcon(icon, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Semantics(
               liveRegion: true,

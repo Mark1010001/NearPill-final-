@@ -135,6 +135,8 @@ export interface OrderItem {
   drugstoreId?: number;
   drugstoreName?: string;
   prescriptionRequired?: boolean;
+  category?: string;
+  dosageForm?: string;
 }
 
 export type CheckoutItem = { id: number; drugstoreId: number; quantity: number; expectedUnitPriceCentavos: number; expectedSellingUnit?: string };

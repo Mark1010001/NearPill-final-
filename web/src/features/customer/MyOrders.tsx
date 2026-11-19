@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
@@ -10,7 +10,8 @@ import { TestPayment } from './OrderPages';
 import { nonnegativeInteger, positiveId } from './cart';
 import { useToast } from './toast';
 import { OrderReceipt, hasReceipt } from './Receipt';
-import { chipLabel, pickupDays, pickupFlag, pickupText, pickupWindows, shortDate, windowAvailable, type PickupWindowId } from './pickup';
+import { CategoryThumb } from './CatalogCard';
+import { anyTimeAvailable, chipLabel, dayAvailable, firstPickupDay, pickupDays, pickupFlag, pickupText, pickupWindows, shortDate, windowAvailable, windowForDay, type PickupWindowId } from './pickup';
 import { MaterialIcon } from './MaterialIcon';
 
 type Stage = 'placed' | 'preparing' | 'ready' | 'completed' | 'cancelled';
@@ -54,6 +55,16 @@ function PickupCard({ order, user, refresh, paid }: { order: Order; user: Sessio
   const [editing, setEditing] = useState(false);
   const [date, setDate] = useState(order.pickupDate ?? pickupDays()[0]);
   const [window, setWindow] = useState<PickupWindowId | ''>((order.pickupWindow as PickupWindowId | null) ?? '');
+  const storeId = positiveId(order.items[0]?.drugstoreId);
+  const stores = useQuery({ queryKey: ['pickup-store-hours'], queryFn: ({ signal }) => api.publicPharmacies('', signal), enabled: editing && storeId !== undefined, retry: false });
+  const operatingHours = stores.data?.find((store) => store.store_id === storeId)?.operating_hours;
+  // Pickup today is not offered in the last hour before the pharmacy closes, and "any time" is not allowed for today.
+  useEffect(() => {
+    const day = dayAvailable(date, operatingHours) ? date : firstPickupDay(operatingHours);
+    if (day !== date) setDate(day);
+    const next = windowForDay(day, window, operatingHours);
+    if (next !== window) setWindow(next);
+  }, [operatingHours, date, window]);
   const status = statusOf(order);
   const canChange = ['reserved', 'awaiting_payment'].includes(status) && !paid && !order.pickupRescheduled;
   const save = useMutation({
@@ -67,13 +78,13 @@ function PickupCard({ order, user, refresh, paid }: { order: Order; user: Sessio
     {editing && <>
       <strong>Pick date & time</strong>
       <div className="chip-row pickup-days" role="group" aria-label="New pickup date">
-        {pickupDays().map((day) => <button key={day} type="button" className={`chip${date === day ? ' chip-on' : ''}`} aria-pressed={date === day} aria-label={`${chipLabel(day)}, ${shortDate(day)}`}
-          onClick={() => { setDate(day); if (window && !windowAvailable(day, window)) setWindow(''); }}>{chipLabel(day)}</button>)}
+        {pickupDays().map((day) => <button key={day} type="button" className={`chip${date === day ? ' chip-on' : ''}`} aria-pressed={date === day} aria-label={`${chipLabel(day)}, ${shortDate(day)}`} disabled={!dayAvailable(day, operatingHours)}
+          onClick={() => { setDate(day); setWindow(windowForDay(day, window, operatingHours)); }}>{chipLabel(day)}</button>)}
       </div>
       <div className="chip-row pickup-windows" role="group" aria-label="New pickup time">
-        <button type="button" className={`chip${window === '' ? ' chip-on' : ''}`} aria-pressed={window === ''} onClick={() => setWindow('')}>Any time</button>
+        <button type="button" className={`chip${window === '' ? ' chip-on' : ''}`} aria-pressed={window === ''} disabled={!anyTimeAvailable(date, operatingHours)} onClick={() => setWindow('')}>Any time</button>
         {pickupWindows.map((entry) => <button key={entry.id} type="button" className={`chip${window === entry.id ? ' chip-on' : ''}`} aria-pressed={window === entry.id}
-          disabled={!windowAvailable(date, entry.id)} onClick={() => setWindow(entry.id)}>{entry.label} {entry.hours}</button>)}
+          disabled={!windowAvailable(date, entry.id, Date.now(), operatingHours)} onClick={() => setWindow(entry.id)}>{entry.label} {entry.hours}</button>)}
       </div>
       <p className="shop-muted">You can change this once.</p>
       {save.isError && <p className="form-error" role="alert">{save.error instanceof Error ? save.error.message : 'Could not change the pickup date.'}</p>}
@@ -220,9 +231,11 @@ export function OrdersPage({ user, retrySession, hasRemainingCart }: { user: Ses
         <span className="order-card-head"><strong><MaterialIcon name="storefront" size={22} /> {order.storeName}</strong><span className={`order-status ${tone}`}>{label}</span></span>
         {lines.length > 0 ? <span className="order-lines">
           {lines.map((item, i) => <span key={i} className="order-line">
-            <span className="thumb" aria-hidden="true"><MaterialIcon name="medication" size={22} /></span>
+            <CategoryThumb category={item.category} />
             <span className="order-line-text"><span className="order-summary">{item.name ?? 'Medicine'}</span>
-              <span className="shop-muted">× {item.quantity}{item.sellingUnit ? ` (${item.sellingUnit})` : ''}</span></span>
+              {item.genericName && <span className="shop-muted">{item.genericName}</span>}
+              <span className="shop-muted order-line-meta">{[item.drugstoreName ?? order.storeName, item.category].filter(Boolean).join(' · ')}</span>
+              <span className="shop-muted">{pesos(nonnegativeInteger(item.priceCentavos) ?? 0)} each × {item.quantity}</span></span>
             <span className="order-line-price">{pesos((nonnegativeInteger(item.priceCentavos) ?? 0) * (Number(item.quantity) || 0))}</span>
           </span>)}
           {more > 0 && <span className="shop-muted">+{more} more item{more === 1 ? '' : 's'}</span>}

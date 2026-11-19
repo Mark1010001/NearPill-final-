@@ -18,6 +18,8 @@ import 'package:nearpill/screens/home_store_detail.dart';
 import 'package:nearpill/screens/orders/confirmation.dart';
 import 'package:nearpill/screens/policies_screen.dart';
 import 'package:nearpill/utils/formatters.dart';
+import 'package:nearpill/widgets/np_icon.dart';
+import 'support/np_icon_finders.dart';
 
 class _SignupRepository implements AuthRepository {
   String? verifiedCode;
@@ -294,7 +296,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('2'), findsOneWidget);
         if (scenario == 'unreviewed') {
-          expect(find.text('Available'), findsOneWidget);
+          expect(find.text('Stock (2)'), findsOneWidget);
           await tester.tap(increase);
           await tester.pumpAndSettle();
           await tester.tap(
@@ -310,7 +312,7 @@ void main() {
         } else {
           expect(
             tester
-                .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.add))
+                .widget<IconButton>(findIconButton(NpIcons.add))
                 .onPressed,
             isNull,
           );

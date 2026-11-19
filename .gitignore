@@ -38,3 +38,4 @@ logs/
 # Local working folders (backups and run logs)
 _to_delete/
 logs/
+__pycache__/

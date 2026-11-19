@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createOrderService } from '../src/application/order-service.js';
-import { manilaToday, validatePickup } from '../src/domain/orders/pickup.js';
+import { manilaToday, parseOperatingHours, validatePickup, validatePickupForHours } from '../src/domain/orders/pickup.js';
 
 // 2026-11-16 10:00 Philippine time.
 const now = Date.parse('2026-11-16T02:00:00Z');
@@ -77,4 +77,21 @@ test('second reschedule, finished orders and bad dates are rejected', async () =
   assert.equal((await ok.service.reschedulePickup(1, 5, { pickupDate: '2026-12-31' })).status, 422);
   assert.equal((await ok.service.reschedulePickup(1, 5, {})).status, 422);
   assert.equal((await ok.service.createOrder(1, { items: [{ id: 1, drugstoreId: 1, quantity: 1 }], pickupDate: '2026-11-01' })).status, 422);
+});
+
+test('pickup today closes one hour before the pharmacy closes and "any time" is not allowed for today', () => {
+  const hours = '8:00 AM - 6:00 PM';
+  const at = (time) => Date.parse(`2026-11-16T${time}:00+08:00`);
+  assert.deepEqual(parseOperatingHours(hours), { openMinute: 480, closeMinute: 1080 });
+  assert.equal(parseOperatingHours('Open 24 hours'), null);
+  // 4:59 pm: still one minute over an hour before closing
+  assert.equal(validatePickupForHours({ pickupDate: '2026-11-16', pickupWindow: 'afternoon' }, hours, at('15:59')).ok, true);
+  assert.match(validatePickupForHours({ pickupDate: '2026-11-16', pickupWindow: 'afternoon' }, hours, at('17:00')).message, /closing soon/);
+  assert.match(validatePickupForHours({ pickupDate: '2026-11-16', pickupWindow: 'evening' }, hours, at('17:30')).message, /closing soon/);
+  assert.match(validatePickupForHours({ pickupDate: '2026-11-16' }, hours, at('10:00')).message, /Choose a pickup time/);
+  // the evening window (5-8) starts after the 5 pm cutoff
+  assert.match(validatePickupForHours({ pickupDate: '2026-11-16', pickupWindow: 'evening' }, hours, at('10:00')).message, /too close to closing/);
+  // later days and unreadable hours are not restricted
+  assert.equal(validatePickupForHours({ pickupDate: '2026-11-17' }, hours, at('17:30')).ok, true);
+  assert.equal(validatePickupForHours({ pickupDate: '2026-11-16' }, 'Open 24 hours', at('23:00')).ok, true);
 });

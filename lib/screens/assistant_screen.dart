@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 import '../features/assistant/assistant_repository.dart';
 import '../features/cart/presentation/cart_view_model.dart';
@@ -139,7 +140,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
               color: Color(0xFFE3FDEF),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.chat_bubble_outline, color: _green),
+            child: const NpIcon(NpIcons.chat_bubble_outline, color: _green),
           ),
           const SizedBox(height: 16),
           const Text(
@@ -181,7 +182,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
           IconButton(
             tooltip: 'New chat',
             onPressed: _turns.isEmpty && _error == null ? null : _newChat,
-            icon: const Icon(Icons.add_comment_outlined),
+            icon: const NpIcon(NpIcons.add_comment_outlined),
           ),
         ],
       ),
@@ -281,7 +282,7 @@ class _AssistantScreenState extends State<AssistantScreen> {
                       minimumSize: const Size(52, 52),
                     ),
                     onPressed: _waiting ? null : _send,
-                    icon: const Icon(Icons.arrow_upward),
+                    icon: const NpIcon(NpIcons.arrow_upward),
                   ),
                 ],
               ),

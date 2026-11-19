@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../models/order_model.dart';
@@ -109,10 +110,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         isLabelVisible: unread > 0,
         smallSize: 9,
         backgroundColor: NpColors.primary,
-        child: Icon(
+        child: NpIcon(
           unread > 0
-              ? Icons.notifications_rounded
-              : Icons.notifications_outlined,
+              ? NpIcons.notifications_rounded
+              : NpIcons.notifications_outlined,
         ),
       ),
       onPressed: () =>
@@ -204,12 +205,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (widget.onOpenAssistant != null)
             IconButton(
               tooltip: 'Ask NearPill',
-              icon: const Icon(Icons.chat_bubble_outline),
+              icon: const NpIcon(NpIcons.chat_bubble_outline),
               onPressed: widget.onOpenAssistant,
             ),
           IconButton(
             tooltip: 'Settings',
-            icon: const Icon(Icons.settings_outlined),
+            icon: const NpIcon(NpIcons.settings_outlined),
             onPressed: _openSettings,
           ),
           const SizedBox(width: 4),
@@ -413,7 +414,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           IconButton(
             onPressed: _editContactDetails,
-            icon: const Icon(Icons.edit_outlined, color: profileInk),
+            icon: const NpIcon(NpIcons.edit_outlined, color: profileInk),
             tooltip: 'Edit contact details',
           ),
         ],
@@ -491,8 +492,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 if (editable)
-                  const Icon(
-                    Icons.chevron_right,
+                  const NpIcon(
+                    NpIcons.chevron_right,
                     size: 20,
                     color: profileGreen,
                   ),
@@ -558,7 +559,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       'View all',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    Icon(Icons.chevron_right, size: 20),
+                    NpIcon(NpIcons.chevron_right, size: 20),
                   ],
                 ),
               ),
@@ -750,7 +751,7 @@ class _OrderHistoryPage extends StatelessWidget {
         'Order History',
         leading: IconButton(
           tooltip: 'Back',
-          icon: const Icon(Icons.arrow_back, color: profileInk),
+          icon: const NpIcon(NpIcons.arrow_back, color: profileInk),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),

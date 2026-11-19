@@ -52,6 +52,28 @@ void main() {
     expect(pickupText(null, null), '');
   });
 
+  test('pickup today closes one hour before the pharmacy closes and "any time" is not allowed today', () {
+    const hours = '8:00 AM - 6:00 PM';
+    final at1559 = DateTime.utc(2026, 11, 16, 7, 59); // 15:59 Philippine time
+    final at1700 = DateTime.utc(2026, 11, 16, 9); // 17:00
+    expect(closingMinute(hours), 18 * 60);
+    expect(closingMinute('Open 24 hours'), isNull);
+    expect(dayAvailable('2026-11-16', hours, at1559), isTrue);
+    expect(dayAvailable('2026-11-16', hours, at1700), isFalse);
+    expect(dayAvailable('2026-11-17', hours, at1700), isTrue);
+    expect(firstPickupDay(hours, at1700), '2026-11-17');
+    expect(anyTimeAvailable('2026-11-16', hours, at1559), isFalse);
+    expect(anyTimeAvailable('2026-11-17', hours, at1559), isTrue);
+    // the evening window (5-8) starts at the 5 pm cutoff, so it cannot be chosen for today
+    expect(windowAvailable('2026-11-16', 'evening', _now, hours), isFalse);
+    expect(windowAvailable('2026-11-16', 'afternoon', _now, hours), isTrue);
+    expect(defaultWindow('2026-11-16', hours, _now), 'morning');
+    expect(windowForDay('2026-11-17', 'morning', hours, _now), 'morning');
+    // unreadable hours do not restrict anything
+    expect(anyTimeAvailable('2026-11-16', null, _now), isTrue);
+    expect(dayAvailable('2026-11-16', 'Open 24 hours', at1700), isTrue);
+  });
+
   test('pickup flags only apply to active orders', () {
     expect(pickupFlag('2026-11-16', true, _now), 'today');
     expect(pickupFlag('2026-11-15', true, _now), 'missed');
@@ -107,7 +129,6 @@ void main() {
       'Balance due at pickup',
       'PHP 30.00',
       'Biogesic',
-      'Physical prescription check required',
       'Capstone test payment, no real money was charged.',
     ]) {
       expect(text, contains(expected));

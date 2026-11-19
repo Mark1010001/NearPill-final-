@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../models/medicine_model.dart';
@@ -64,18 +65,18 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
   }
 
   Widget _quantityPillButton({
-    required IconData icon,
+    required NpIconData icon,
     required bool enabled,
     required VoidCallback onTap,
   }) {
     return IconButton.outlined(
-      tooltip: icon == Icons.add ? 'Increase quantity' : 'Decrease quantity',
+      tooltip: icon == NpIcons.add ? 'Increase quantity' : 'Decrease quantity',
       onPressed: enabled ? onTap : null,
       style: IconButton.styleFrom(
         minimumSize: const Size.square(48),
         foregroundColor: Theme.of(context).colorScheme.primary,
       ),
-      icon: Icon(icon, size: 20),
+      icon: NpIcon(icon, size: 20),
     );
   }
 
@@ -174,8 +175,8 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
                                 color: Colors.green.shade50,
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: const Icon(
-                                Icons.medical_services,
+                              child: const NpIcon(
+                                NpIcons.medical_services,
                                 color: Color(0xFF2E7D32),
                                 size: 30,
                               ),
@@ -265,7 +266,7 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   _quantityPillButton(
-                                    icon: Icons.remove,
+                                    icon: NpIcons.remove,
                                     enabled: _quantity > 1,
                                     onTap: () => _updateQuantity(_quantity - 1),
                                   ),
@@ -283,7 +284,7 @@ class _MedicineDetailScreenState extends State<MedicineDetailScreen> {
                                     ),
                                   ),
                                   _quantityPillButton(
-                                    icon: Icons.add,
+                                    icon: NpIcons.add,
                                     enabled:
                                         _quantity < medicine.cartQuantityLimit,
                                     onTap: () => _updateQuantity(_quantity + 1),

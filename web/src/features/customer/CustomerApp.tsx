@@ -169,11 +169,11 @@ function Shop({ customer, staffSession, logoutButton, logoutError }: {
         <Link className="shop-brand" to="/app/"><span className="brand-mark" aria-hidden="true"><img src="/brand-mark.png" alt="" /></span>NearPill</Link>
         <nav className="shop-nav" aria-label="NearPill customer navigation">
           {([
-            ['/app/', 'Home', !!onCatalog, 'homeRounded', 'homeOutlined', undefined],
+            ['/app/', 'Home', !!onCatalog, 'homeOutlined', 'homeOutlined', undefined],
             ['/app/search', 'Search', location.pathname.startsWith('/app/search'), 'search', 'search', undefined],
-            ['/app/map', 'Map', location.pathname.startsWith('/app/map'), 'mapRounded', 'mapOutlined', undefined],
-            ['/app/orders', 'Orders', !!(orderActive || onCart || onPickup), 'receiptRounded', 'receiptOutlined', navLabel('Orders', cartNote)],
-            ['/app/profile', 'Profile', location.pathname.startsWith('/app/profile') || location.pathname.startsWith('/app/notifications'), 'personRounded', 'personOutlined',
+            ['/app/map', 'Map', location.pathname.startsWith('/app/map'), 'mapOutlined', 'mapOutlined', undefined],
+            ['/app/orders', 'Orders', !!(orderActive || onCart || onPickup), 'receiptOutlined', 'receiptOutlined', navLabel('Orders', cartNote)],
+            ['/app/profile', 'Profile', location.pathname.startsWith('/app/profile') || location.pathname.startsWith('/app/notifications'), 'personOutlined', 'personOutlined',
               unreadUpdates > 0 ? `Profile, ${unreadUpdates} new order ${unreadUpdates === 1 ? 'update' : 'updates'}` : undefined],
           ] as const).map(([to, label, active, filled, outlined, aria]) => <Link key={to} to={to} aria-label={aria}
             aria-current={active ? 'page' : undefined} className={active ? 'shop-nav-on' : undefined}>

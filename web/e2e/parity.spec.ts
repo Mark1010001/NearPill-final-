@@ -132,7 +132,8 @@ test('home, search and pharmacy pages follow the app', async ({ page, context })
   await page.goto('/app/pharmacies/12');
   await expect(page.getByRole('heading', { name: 'Test Central Pharmacy' })).toBeVisible();
   await expect(page.getByText('Open now')).toBeVisible();
-  await expect(page.getByText('Hours 8am - 9pm')).toBeVisible();
+  await expect(page.getByText('Hours 8am - 9pm')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Call' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Increase quantity for Test Paracetamol 500 mg' }).click();
   await page.getByRole('button', { name: 'Add to cart' }).first().click();
   await expect(page.getByText('Added 2 Test Paracetamol 500 mg to cart')).toBeVisible();

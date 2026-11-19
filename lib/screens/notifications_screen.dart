@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../app_theme.dart';
@@ -87,8 +88,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: ListTile(
                           leading: IconTile(
                             icon: update.unread
-                                ? Icons.notifications_rounded
-                                : Icons.notifications_outlined,
+                                ? NpIcons.notifications_rounded
+                                : NpIcons.notifications_outlined,
                             size: 40,
                           ),
                           title: Text(

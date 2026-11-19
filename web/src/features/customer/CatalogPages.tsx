@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, type Ref, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
@@ -11,6 +11,7 @@ import { useCart } from './cartContext';
 import { useToast } from './toast';
 import { type CartLine, cartCategory, listingIssue, listingKey, listingPath, nonnegativeInteger, positiveId, quantityLimit } from './cart';
 import { MaterialIcon } from './MaterialIcon';
+import { CartDock, CatalogCard, FilterChips, useCatalogAdd } from './CatalogCard';
 
 function SearchForm({ label, placeholder, search, onSearch }: {
   label: string;
@@ -67,6 +68,8 @@ export function SearchPage() {
     (!category || cartCategory(listing.category) === category.kind)
     && (listing.name.toLowerCase().includes(text) || listing.drugstoreName.toLowerCase().includes(text)));
   const returned = useLocation().search;
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const { add: addToCart, toast } = useCatalogAdd();
   const loading = !settled || catalog.isPending || catalog.isFetching && !catalog.data;
 
   function pick(value: string | null) {
@@ -74,9 +77,6 @@ export function SearchPage() {
     if (value) next.set('category', value); else next.delete('category');
     setParams(next, { replace: true });
   }
-  const chip = (label: string, selected: boolean, onClick: () => void) =>
-    <button type="button" className={`chip${selected ? ' chip-on' : ''}`} aria-pressed={selected} onClick={onClick}>{label}</button>;
-
   return <>
     <div className="screen-header">
       <h1>Search products</h1>
@@ -85,16 +85,14 @@ export function SearchPage() {
         <button type="button" className="icon-button" aria-label="Refresh products" disabled={loading} onClick={() => void catalog.refetch()}><MaterialIcon name="refresh" size={24} /></button>
       </div>
     </div>
-    <div className="search-field">
+    <div className="search-field store-search">
       <span aria-hidden="true"><SearchIcon /></span>
       <input type="search" aria-label="Search products, brands, or symptoms" placeholder="Search products, brands, or symptoms"
         maxLength={160} value={query} onChange={(event) => setQuery(event.target.value)} />
       {query && <button type="button" className="icon-button" aria-label="Clear search" onClick={() => setQuery('')}><MaterialIcon name="closeRounded" size={24} /></button>}
     </div>
-    <div className="chip-row" role="group" aria-label="Category">
-      {chip('All Items', !category, () => pick(null))}
-      {categoryFilters.map((entry) => chip(entry.label, category?.value === entry.value, () => pick(entry.value)))}
-    </div>
+    <FilterChips items={[{ key: null, label: 'All Items' }, ...categoryFilters.map((entry) => ({ key: entry.value, label: entry.label }))]}
+      selected={category?.value ?? null} onPick={pick} />
     {!loading && location.message && <div className="location-banner" role="status">
       <span>{location.message}</span>
       <button type="button" className="shop-text-link" onClick={location.start}>Retry</button>
@@ -106,36 +104,18 @@ export function SearchPage() {
       </div>
       : products.length === 0 ? <p className="center-note" role="status">{text ? 'No products match your search.' : category ? 'No products in this category.' : 'No products found.'}</p>
       : <ul className="product-list">
-        {products.map((listing) => <li key={listingKey(listing)}><MedicineCard listing={listing} search={returned} /></li>)}
+        {products.map((listing) => {
+          const key = listingKey(listing);
+          const distance = listingDistance(listing);
+          const quantity = Math.min(Math.max(1, quantities[key] ?? 1), quantityLimit(listing));
+          return <li key={key}><CatalogCard listing={listing} to={{ pathname: listingPath(listing), search: returned }} showAvailability
+            subtitle={distance ? `${listing.drugstoreName} · ${distance}` : listing.drugstoreName} quantity={quantity}
+            onQuantity={(next) => setQuantities((q) => ({ ...q, [key]: next }))} onAdd={() => addToCart(listing, quantity)} /></li>;
+        })}
       </ul>}
+    <CartDock />
+    {toast}
   </>;
-}
-
-function MedicineCard({ listing, search, linkRef }: { listing: CatalogListing; search: string; linkRef?: Ref<HTMLAnchorElement> }) {
-  const price = nonnegativeInteger(listing.priceCentavos);
-  const issue = listingIssue(listing);
-  const stock = nonnegativeInteger(listing.stockCount) ?? 0;
-  const distance = listingDistance(listing);
-  const path = { pathname: listingPath(listing), search };
-  return <article className="card product-card">
-    <div className="product-card-top">
-      <span className="icon-tile" aria-hidden="true"><MaterialIcon name="addRounded" size={24} /></span>
-      <div>
-        <h3><Link ref={linkRef} to={path}>{listing.name}</Link></h3>
-        <p className="shop-muted">{distance ? `${listing.drugstoreName} · ${distance}` : listing.drugstoreName}</p>
-        <div className="product-meta">
-          <span className={`pill ${issue ? 'pill-warn' : 'pill-ok'}`}><i aria-hidden="true" />{stock === 0 ? 'Out of stock' : issue ? 'Not available right now' : 'Available'}</span>
-          {stock > 0 && <span>{stock} listed in stock</span>}
-        </div>
-      </div>
-    </div>
-    <hr />
-    <div className="product-card-bottom">
-      <div><span className="eyebrow">UNIT PRICE</span>
-        <strong>{price === null ? 'Price unavailable' : `${pesos(price)}${listing.sellingUnit ? ` per ${listing.sellingUnit}` : ''}`}</strong></div>
-      <Link className="pill-button" to={path} aria-label={`Add ${listing.name}`}><MaterialIcon name="add" size={18} /> Add</Link>
-    </div>
-  </article>;
 }
 
 function ListingStatus({ listing }: { listing: CatalogListing }) {

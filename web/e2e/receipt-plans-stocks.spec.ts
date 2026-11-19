@@ -28,7 +28,6 @@ test('a paid order shows a pickup receipt; an unpaid reservation does not', asyn
   await expect(receipt).toContainText('Dobol B Pharmacy');
   await expect(receipt).toContainText('Sam Customer');
   await expect(receipt).toContainText('PICKUP CLAIM CODE');
-  await expect(receipt).toContainText('Physical prescription check required');
   await expect(receipt).toContainText('Pay at pickup');
   await expect(receipt.getByRole('row', { name: /Biogesic 500 mg \(Tablet\)/ })).toContainText('₱90.00');
   await expect(receipt.getByRole('row', { name: /Total/ })).toContainText('₱189.00');

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 
 import '../app_theme.dart';
 
@@ -48,7 +49,7 @@ class PageHeader extends StatelessWidget {
 class IconTile extends StatelessWidget {
   const IconTile({super.key, required this.icon, this.size = 48});
 
-  final IconData icon;
+  final NpIconData icon;
   final double size;
 
   @override
@@ -60,7 +61,7 @@ class IconTile extends StatelessWidget {
         color: NpColors.primarySoft,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Icon(icon, color: NpColors.primary, size: size * 0.5),
+      child: NpIcon(icon, color: NpColors.primary, size: size * 0.5),
     );
   }
 }
@@ -131,7 +132,7 @@ class PillButton extends StatelessWidget {
   });
 
   final String label;
-  final IconData? icon;
+  final NpIconData? icon;
   final VoidCallback? onPressed;
 
   @override
@@ -151,7 +152,7 @@ class PillButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (icon != null) ...[
-                  Icon(icon, size: 18, color: NpColors.primary),
+                  NpIcon(icon, size: 18, color: NpColors.primary),
                   const SizedBox(width: 8),
                 ],
                 Flexible(

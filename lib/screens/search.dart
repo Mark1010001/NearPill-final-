@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
+import '../features/cart/presentation/cart_view_model.dart';
+import '../widgets/catalog_cards.dart';
+import 'orders/orders.dart';
 import '../models/medicine_model.dart';
 import '../features/catalog/presentation/catalog_view_model.dart';
 import '../app_theme.dart';
@@ -14,6 +18,7 @@ class SearchScreen extends StatefulWidget {
     this.category,
     this.onClearCategory,
     this.onSelectCategory,
+    this.onViewCart,
   });
 
   static const routeName = '/search';
@@ -21,6 +26,9 @@ class SearchScreen extends StatefulWidget {
   final CatalogCategory? category;
   final VoidCallback? onClearCategory;
   final ValueChanged<CatalogCategory>? onSelectCategory;
+
+  /// Switches to the Orders tab (the cart). Falls back to opening the Orders route.
+  final VoidCallback? onViewCart;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -32,6 +40,7 @@ class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<MedicineModel> _medicines = [];
   String? _locationNote;
+  final Map<String, int> _quantities = {};
 
   @override
   void initState() {
@@ -79,20 +88,33 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _onSearchChanged() => setState(() {});
 
-  Widget _filterChip(String label, bool selected, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        showCheckmark: false,
-        onSelected: (_) => onTap(),
-        labelStyle: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: selected ? Colors.white : NpColors.ink,
-        ),
-      ),
-    );
+  Future<void> _addToCart(MedicineModel medicine, int quantity) async {
+    if (quantity <= 0 || quantity > medicine.cartQuantityLimit) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.read<CartViewModel>().addItem(
+        id: medicine.id,
+        name: medicine.name,
+        priceCentavos: medicine.priceCentavos,
+        sellingUnit: medicine.sellingUnit,
+        drugstoreName: medicine.drugstoreName,
+        drugstoreId: medicine.drugstoreId,
+        category: medicine.category,
+        quantity: quantity,
+      );
+      if (!mounted) return;
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+            content: Text(quantity > 1 ? 'Added $quantity ${medicine.name} to cart' : 'Added ${medicine.name} to cart'),
+          ),
+        );
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('Could not save this item to your cart.')));
+    }
   }
 
   @override
@@ -105,7 +127,10 @@ class _SearchScreenState extends State<SearchScreen> {
           (product.name.toLowerCase().contains(query) ||
               product.drugstoreName.toLowerCase().contains(query));
     }).toList();
-    return SafeArea(
+    final cart = context.watch<CartViewModel?>();
+    final cartCount = cart?.items.fold<int>(0, (sum, line) => sum + line.quantity) ?? 0;
+    final cartCentavos = cart?.items.fold<int>(0, (sum, line) => sum + line.priceCentavos * line.quantity) ?? 0;
+    final list = SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: CustomScrollView(
@@ -122,12 +147,12 @@ class _SearchScreenState extends State<SearchScreen> {
                         IconButton(
                           tooltip: 'Clear category filter',
                           onPressed: widget.onClearCategory,
-                          icon: const Icon(Icons.close),
+                          icon: const NpIcon(NpIcons.close),
                         ),
                       IconButton(
                         tooltip: 'Refresh products',
                         onPressed: _isLoadingMedicines ? null : _loadMedicines,
-                        icon: const Icon(Icons.refresh),
+                        icon: const NpIcon(NpIcons.refresh),
                       ),
                     ],
                   ),
@@ -135,39 +160,36 @@ class _SearchScreenState extends State<SearchScreen> {
                   TextField(
                     controller: _searchController,
                     textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: 'Search products, brands, or symptoms',
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: NpColors.faint,
-                      ),
-                      suffixIcon: query.isEmpty
+                    decoration: catalogSearchDecoration(
+                      hint: 'Search products, brands, or symptoms',
+                      suffix: query.isEmpty
                           ? null
                           : IconButton(
                               tooltip: 'Clear search',
                               onPressed: _searchController.clear,
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                color: NpColors.faint,
-                              ),
+                              icon: const NpIcon(NpIcons.close, color: NpColors.muted),
                             ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
-                    height: 40,
+                    height: 44,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        _filterChip('All Items', category == null, () {
-                          widget.onClearCategory?.call();
-                        }),
-                        for (final c in CatalogCategory.values)
-                          _filterChip(
-                            c.label,
-                            category == c,
-                            () => widget.onSelectCategory?.call(c),
+                        CatalogFilterChip(
+                          label: 'All Items',
+                          selected: category == null,
+                          onSelected: () => widget.onClearCategory?.call(),
+                        ),
+                        for (final c in CatalogCategory.values) ...[
+                          const SizedBox(width: 8),
+                          CatalogFilterChip(
+                            label: c.label,
+                            selected: category == c,
+                            onSelected: () => widget.onSelectCategory?.call(c),
                           ),
+                        ],
                       ],
                     ),
                   ),
@@ -223,144 +245,45 @@ class _SearchScreenState extends State<SearchScreen> {
                 ),
               )
             else
-              SliverList.builder(
+              SliverList.separated(
                 itemCount: products.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 14),
                 itemBuilder: (context, index) {
                   final medicine = products[index];
-                  final listingLabel = medicine.listingStatus == 'Available' && !medicine.canOrder
-                      ? 'Not available right now'
-                      : medicine.listingStatus;
-                  final available = listingLabel == 'Available';
-                  void open() => Navigator.of(context).pushNamed(
-                    MedicineDetailScreen.routeName,
-                    arguments: medicine,
-                  );
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      clipBehavior: Clip.antiAlias,
-                      child: InkWell(
-                        onTap: open,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const IconTile(
-                                    icon: Icons.add_rounded,
-                                    size: 56,
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          medicine.name,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.titleSmall,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          medicine.hasDistance
-                                              ? '${medicine.drugstoreName} · ${medicine.distance}'
-                                              : medicine.drugstoreName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Wrap(
-                                          spacing: 8,
-                                          runSpacing: 4,
-                                          crossAxisAlignment:
-                                              WrapCrossAlignment.center,
-                                          children: [
-                                            StatusPill(
-                                              label: listingLabel,
-                                              dot: true,
-                                              color: available
-                                                  ? NpColors.primary
-                                                  : NpColors.warning,
-                                              background: available
-                                                  ? NpColors.primarySoft
-                                                  : NpColors.warningSoft,
-                                            ),
-                                            if (medicine.stockCount > 0)
-                                              Text(
-                                                '${medicine.stockCount} listed in stock',
-                                              ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Divider(),
-                              ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'UNIT PRICE',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w800,
-                                            letterSpacing: 0.8,
-                                            color: NpColors.faint,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          medicine.pricePerUnit,
-                                          style: const TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w800,
-                                            color: NpColors.ink,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: open,
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: const Text('Add'),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: NpColors.primary,
-                                      backgroundColor: NpColors.primarySoft,
-                                      side: const BorderSide(
-                                        color: NpColors.primaryBorder,
-                                      ),
-                                      shape: const StadiumBorder(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                  final key = '${medicine.drugstoreId}:${medicine.id}';
+                  final qty = (_quantities[key] ?? 1).clamp(1, medicine.cartQuantityLimit);
+                  return CatalogProductCard(
+                    medicine: medicine,
+                    quantity: qty,
+                    showAvailability: true,
+                    subtitle: medicine.hasDistance
+                        ? '${medicine.drugstoreName} · ${medicine.distance}'
+                        : medicine.drugstoreName,
+                    onOpen: () => Navigator.of(context).pushNamed(
+                      MedicineDetailScreen.routeName,
+                      arguments: medicine,
                     ),
+                    onDecrease: qty > 1 ? () => setState(() => _quantities[key] = qty - 1) : null,
+                    onIncrease: qty < medicine.cartQuantityLimit ? () => setState(() => _quantities[key] = qty + 1) : null,
+                    onAdd: () => _addToCart(medicine, qty),
                   );
                 },
               ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
           ],
         ),
       ),
+    );
+    if (cartCount == 0) return list;
+    return Column(
+      children: [
+        Expanded(child: list),
+        CatalogCartDock(
+          count: cartCount,
+          centavos: cartCentavos,
+          onViewCart: widget.onViewCart ?? () => Navigator.pushNamed(context, OrdersScreen.routeName),
+        ),
+      ],
     );
   }
 }
@@ -383,8 +306,8 @@ class _LocationBanner extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
         child: Row(
           children: [
-            const Icon(
-              Icons.location_off_outlined,
+            const NpIcon(
+              NpIcons.location_off_outlined,
               color: NpColors.warning,
               size: 20,
             ),

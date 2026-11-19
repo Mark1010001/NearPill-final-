@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../models/medicine_model.dart';
@@ -185,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const IconTile(
-                            icon: Icons.local_pharmacy_outlined,
+                            icon: NpIcons.local_pharmacy_outlined,
                             size: 44,
                           ),
                           Row(
@@ -272,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
               actions: [
                 PillButton(
                   onPressed: _openAssistant,
-                  icon: Icons.chat_bubble_outline,
+                  icon: NpIcons.chat_bubble_outline,
                   label: 'Ask NearPill',
                 ),
               ],
@@ -283,14 +284,14 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 minTileHeight: 76,
-                leading: const IconTile(icon: Icons.place_rounded),
+                leading: const IconTile(icon: NpIcons.place_rounded),
                 title: const Text(
                   'Cebu City, Philippines',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                 ),
                 subtitle: const Text('Use current location'),
-                trailing: const Icon(
-                  Icons.chevron_right,
+                trailing: const NpIcon(
+                  NpIcons.chevron_right,
                   color: NpColors.faint,
                 ),
                 onTap: () => _onItemTapped(2),
@@ -362,11 +363,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       leading: IconTile(
                         icon: switch (category) {
                           CatalogCategory.nonPrescription =>
-                            Icons.medical_services_outlined,
+                            NpIcons.medical_services_outlined,
                           CatalogCategory.prescription =>
-                            Icons.assignment_outlined,
+                            NpIcons.assignment_outlined,
                           CatalogCategory.nonMedicine =>
-                            Icons.shopping_bag_outlined,
+                            NpIcons.shopping_bag_outlined,
                         },
                       ),
                       title: Text(
@@ -384,8 +385,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         CatalogCategory.nonMedicine =>
                           'Personal care, hygiene & supplies',
                       }),
-                      trailing: const Icon(
-                        Icons.chevron_right,
+                      trailing: const NpIcon(
+                        NpIcons.chevron_right,
                         color: NpColors.faint,
                       ),
                       onTap: () => _onItemTapped(1, category: category),
@@ -408,6 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
         category: _selectedCategory,
         onClearCategory: () => _onItemTapped(1),
         onSelectCategory: (c) => _onItemTapped(1, category: c),
+        onViewCart: () => _onItemTapped(3),
       ),
       const MapScreen(),
       OrdersScreen(

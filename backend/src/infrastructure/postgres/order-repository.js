@@ -52,8 +52,13 @@ function transactionAdapter(connection) {
       return Number(result.insertId);
     },
     async findStoreById(drugstoreId) {
-      const [rows] = await connection.query(`SELECT id, name, is_active FROM drugstores WHERE id = ? LIMIT 1`, [drugstoreId]);
+      const [rows] = await connection.query(`SELECT id, name, is_active, operating_hours FROM drugstores WHERE id = ? LIMIT 1`, [drugstoreId]);
       return rows[0] ?? null;
+    },
+    async listOrderOperatingHours(orderId) {
+      const [rows] = await connection.query(
+        `SELECT ds.operating_hours AS "operatingHours" FROM order_drugstores od JOIN drugstores ds ON ds.id = od.drugstore_id WHERE od.order_id = ?`, [orderId]);
+      return rows.map((row) => row.operatingHours);
     },
     async createOrderDrugstore(orderId, drugstoreId) {
       const [result] = await connection.query(
@@ -267,6 +272,7 @@ export function createPostgresOrderRepository(postgresPool) {
                 ${itemMoneySelect('oi')}, od.drugstore_id AS drugstoreId, od.status AS drugstoreStatus,
                 od.rejection_reason AS rejectionReason, ds.name AS drugstoreName,
                 m.brand_name AS medicineName, m.generic_name AS genericName,
+                m.category AS category, m.dosage_form AS "dosageForm",
                 (lower(btrim(m.category)) IN ('prescription', 'prescriptions', 'prescription (source list)')) AS "prescriptionRequired"
          FROM order_drugstores od JOIN order_items oi ON oi.order_drugstore_id = od.id
          JOIN drugstores ds ON ds.id = od.drugstore_id JOIN medicines m ON m.id = oi.medicine_id
@@ -287,6 +293,7 @@ export function createPostgresOrderRepository(postgresPool) {
                 od.drugstore_id AS drugstoreId, od.status AS drugstoreStatus,
                 od.rejection_reason AS drugstoreRejectionReason, ds.name AS drugstoreName,
                 m.brand_name AS medicineName, m.generic_name AS genericName,
+                m.category AS category, m.dosage_form AS "dosageForm",
                 (lower(btrim(m.category)) IN ('prescription', 'prescriptions', 'prescription (source list)')) AS "prescriptionRequired"
          FROM order_drugstores od JOIN order_items oi ON oi.order_drugstore_id = od.id
          JOIN drugstores ds ON ds.id = od.drugstore_id JOIN medicines m ON m.id = oi.medicine_id

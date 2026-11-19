@@ -99,7 +99,7 @@
 
 /* map illustration */
 .st-mapcard { background: #fff; border: 1px solid var(--np-line); border-radius: var(--np-radius-card); padding: 16px; box-shadow: var(--np-shadow); }
-.st-mapcard svg { width: 100%; height: auto; border-radius: 14px; display: block; }
+.st-mapcard svg, .st-map-shot { width: 100%; height: auto; border-radius: 14px; display: block; }
 .st-map-bg { fill: #eef5ee; }
 .st-map-water { fill: #cfe3f5; }
 .st-map-road { fill: none; stroke: #fff; stroke-width: 10; stroke-linecap: round; }

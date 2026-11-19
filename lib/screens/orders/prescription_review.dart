@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:flutter/services.dart';
 
 import '../../features/orders/data/order_repository.dart';
@@ -143,11 +144,11 @@ class _PrescriptionReviewState extends State<PrescriptionReview> {
       if (review == null) return const SizedBox.shrink();
       final status = review.status ?? 'none';
       final canUpload = defaultTargetPlatform == TargetPlatform.android;
-      final (Color tone, Color soft, Color border, IconData icon) = switch (status) {
-        'approved' => (const Color(0xFF2E7D32), const Color(0xFFE8F5E9), const Color(0xFFA5D6A7), Icons.check_circle),
-        'pending' => (const Color(0xFF1565C0), const Color(0xFFE3F2FD), const Color(0xFF90CAF9), Icons.hourglass_top),
-        'rejected' => (const Color(0xFFC62828), const Color(0xFFFFEBEE), const Color(0xFFEF9A9A), Icons.cancel),
-        _ => (const Color(0xFF8D5A00), const Color(0xFFFFF8E1), const Color(0xFFFFE082), Icons.warning_amber_rounded),
+      final (Color tone, Color soft, Color border, NpIconData icon) = switch (status) {
+        'approved' => (const Color(0xFF2E7D32), const Color(0xFFE8F5E9), const Color(0xFFA5D6A7), NpIcons.check_circle),
+        'pending' => (const Color(0xFF1565C0), const Color(0xFFE3F2FD), const Color(0xFF90CAF9), NpIcons.hourglass_top),
+        'rejected' => (const Color(0xFFC62828), const Color(0xFFFFEBEE), const Color(0xFFEF9A9A), NpIcons.cancel),
+        _ => (const Color(0xFF8D5A00), const Color(0xFFFFF8E1), const Color(0xFFFFE082), NpIcons.warning_amber_rounded),
       };
       final title = switch (status) {
         'approved' => 'Approved by ${widget.pharmacyName}',
@@ -176,7 +177,7 @@ class _PrescriptionReviewState extends State<PrescriptionReview> {
               radius: 10,
               backgroundColor: done || active ? c : Colors.grey.shade200,
               child: done
-                  ? const Icon(Icons.check, size: 12, color: Colors.white)
+                  ? const NpIcon(NpIcons.check, size: 12, color: Colors.white)
                   : Text(
                       color != null && !active ? '!' : '$number',
                       style: TextStyle(
@@ -240,7 +241,7 @@ class _PrescriptionReviewState extends State<PrescriptionReview> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(icon, color: tone, size: 22),
+                      NpIcon(icon, color: tone, size: 22),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -295,7 +296,7 @@ class _PrescriptionReviewState extends State<PrescriptionReview> {
                         minimumSize: const Size.fromHeight(46),
                       ),
                       onPressed: _sending ? null : () => _send(review.account),
-                      icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                      icon: const NpIcon(NpIcons.photo_camera_outlined, size: 18),
                       label: Text(
                         _sending
                             ? 'Sending…'

@@ -2,7 +2,7 @@ import { createHash, randomInt } from 'node:crypto';
 import { actorHasPermission } from '../domain/identity/permissions.js';
 import { centavosToPesosNumber } from '../domain/money/centavos.js';
 import { minimumPharmacyCheckoutCentavos } from '../domain/payments/policy.js';
-import { validatePickup } from '../domain/orders/pickup.js';
+import { validatePickup, validatePickupForHours } from '../domain/orders/pickup.js';
 import { isSettledPayment } from '../domain/payments/status.js';
 import {
   canTransitionOrder,
@@ -48,12 +48,28 @@ function orderFingerprint(items) {
   return createHash('sha256').update(canonical).digest('hex');
 }
 
+/** Customer-facing category label for an order line. Read from the medicine, so it works for past orders too. */
+function orderLineCategory(value) {
+  switch (String(value ?? '').trim().toLowerCase().replace(/ \(source list\)$/, '').replace(/\s*-\s*/g, '-')) {
+    case 'prescription': case 'prescriptions':
+      return 'Prescription';
+    case 'non-prescription': case 'non-prescriptions': case 'otc': case 'general otc':
+      return 'Non-prescription';
+    case 'medical supplies': case 'non-medicine': case 'non-medicines': case 'non medicine': case 'non medicines':
+      return 'Non-medicine';
+    default:
+      return null;
+  }
+}
+
 function formatCustomerItems(itemRows) {
   return itemRows.map((item) => ({
     id: Number(item.medicineId),
     name: item.medicineName,
     genericName: item.genericName,
     ...(item.sellingUnit ? { sellingUnit: item.sellingUnit } : {}),
+    ...(orderLineCategory(item.category) ? { category: orderLineCategory(item.category) } : {}),
+    ...(item.dosageForm ? { dosageForm: item.dosageForm } : {}),
     ...(item.prescriptionRequired === true ? { prescriptionRequired: true } : {}),
     priceCentavos: Number(item.unitPriceCentavos),
     price: centavosToPesosNumber(item.unitPriceCentavos),
@@ -171,6 +187,8 @@ export function createOrderService({ repository, now = Date.now, nextRandom = ra
           const store = await transaction.findStoreById(drugstoreId);
           if (!store) throw new Error(`Drugstore ${drugstoreId} does not exist.`);
           if (Number(store.is_active) !== 1) throw new Error(`${store.name} is currently inactive.`);
+          const closingCheck = validatePickupForHours(pickup, store.operating_hours, now());
+          if (!closingCheck.ok) return { rollback: true, value: failure(422, closingCheck.message) };
 
           let totalCentavos = 0;
           const verifiedItems = [];
@@ -484,6 +502,10 @@ export function createOrderService({ repository, now = Date.now, nextRandom = ra
         }
         if (order.pickupRescheduled === true) {
           return { rollback: true, value: failure(409, 'The pickup date was already changed once. Contact the pharmacy for another change.') };
+        }
+        for (const hours of await (transaction.listOrderOperatingHours?.(orderId) ?? [])) {
+          const closingCheck = validatePickupForHours(pickup, hours, now());
+          if (!closingCheck.ok) return { rollback: true, value: failure(422, closingCheck.message) };
         }
         await transaction.updateOrderPickup(orderId, pickup.pickupDate, pickup.pickupWindow);
         await transaction.appendAudit(userId, 'RESCHEDULE_PICKUP', `Pickup for order ${order.reference} changed to ${pickup.pickupDate}.`);

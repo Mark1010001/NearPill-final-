@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -333,10 +334,10 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
     setState(() => _error = null);
   }
 
-  InputDecoration _decoration(String label, IconData icon, {Widget? suffix}) =>
+  InputDecoration _decoration(String label, NpIconData icon, {Widget? suffix}) =>
       InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        prefixIcon: NpIcon(icon),
         suffixIcon: suffix,
         constraints: const BoxConstraints(minHeight: 56),
         errorMaxLines: 3,
@@ -376,7 +377,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
           autofillHints: const [AutofillHints.email],
-          decoration: _decoration('Email address', Icons.email_outlined),
+          decoration: _decoration('Email address', NpIcons.email_outlined),
           validator: validateEmailAddress,
         ),
         const SizedBox(height: 16),
@@ -389,13 +390,13 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
           onFieldSubmitted: (_) => _login(),
           decoration: _decoration(
             'Password',
-            Icons.lock_outline,
+            NpIcons.lock_outline,
             suffix: IconButton(
               tooltip: _showLoginPassword ? 'Hide password' : 'Show password',
-              icon: Icon(
+              icon: NpIcon(
                 _showLoginPassword
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
+                    ? NpIcons.visibility_off_outlined
+                    : NpIcons.visibility_outlined,
               ),
               onPressed: () =>
                   setState(() => _showLoginPassword = !_showLoginPassword),
@@ -466,7 +467,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
                           _error = null;
                         });
                       },
-                icon: const Icon(Icons.arrow_back),
+                icon: const NpIcon(NpIcons.arrow_back),
               ),
               Expanded(
                 child: Text(
@@ -491,7 +492,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
-              decoration: _decoration('Email address', Icons.email_outlined),
+              decoration: _decoration('Email address', NpIcons.email_outlined),
               validator: validateEmailAddress,
             ),
             const SizedBox(height: 16),
@@ -503,15 +504,15 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
               onFieldSubmitted: (_) => _continueSignup(),
               decoration: _decoration(
                 'Create password',
-                Icons.lock_outline,
+                NpIcons.lock_outline,
                 suffix: IconButton(
                   tooltip: _showRegisterPassword
                       ? 'Hide password'
                       : 'Show password',
-                  icon: Icon(
+                  icon: NpIcon(
                     _showRegisterPassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined,
+                        ? NpIcons.visibility_off_outlined
+                        : NpIcons.visibility_outlined,
                   ),
                   onPressed: () => setState(
                     () => _showRegisterPassword = !_showRegisterPassword,
@@ -531,7 +532,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
               textInputAction: TextInputAction.done,
               autofillHints: const [AutofillHints.name],
               onFieldSubmitted: (_) => _continueSignup(),
-              decoration: _decoration('Full name', Icons.person_outline),
+              decoration: _decoration('Full name', NpIcons.person_outline),
               validator: (value) {
                 final name = value?.trim() ?? '';
                 if (name.isEmpty) return 'Enter your full name';
@@ -584,7 +585,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
             Center(
               child: TextButton.icon(
                 onPressed: _loading ? null : _pasteCode,
-                icon: const Icon(Icons.content_paste_outlined),
+                icon: const NpIcon(NpIcons.content_paste_outlined),
                 label: const Text('Paste code'),
               ),
             ),
@@ -881,8 +882,8 @@ class _StrengthMeter extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      rule.$2 ? Icons.check_circle : Icons.circle_outlined,
+                    NpIcon(
+                      rule.$2 ? NpIcons.check_circle : NpIcons.circle_outlined,
                       size: 14,
                       color: rule.$2 ? _green : _muted,
                     ),

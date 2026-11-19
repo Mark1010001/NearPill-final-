@@ -10,7 +10,7 @@ import { paymentNotice } from './copy';
 import { type PreparedPhoto, preparePrescriptionPhoto } from './prescriptionPhoto';
 import { type CartLine, type CheckoutAttempt, isSelected, cartCategory, cartTotal, listingIssue, listingKey, listingPath, nonnegativeInteger, positiveId,
   quantityLimit, reviewCart, saveCheckoutAttempt, storedCheckoutAttempt } from './cart';
-import { chipLabel, pickupDays, pickupText, shortDate, type PickupWindowId, pickupWindows, windowAvailable } from './pickup';
+import { anyTimeAvailable, chipLabel, dayAvailable, firstPickupDay, pickupDays, pickupText, shortDate, type PickupWindowId, pickupWindows, windowAvailable, windowForDay } from './pickup';
 import { MaterialIcon } from './MaterialIcon';
 
 function EmptyCart() {
@@ -255,6 +255,14 @@ export function CheckoutPage({ cart: allLines, user, onReserved }: { cart: CartL
   const subtotal = review && !needsCartEdit ? cartTotal(review) : null;
   const belowGroupMinimum = selected !== undefined && subtotal !== null && subtotal < 10000;
   const store = inventory.data?.store;
+  const operatingHours = store?.operating_hours;
+  // Pickup today is not offered in the last hour before the pharmacy closes, and "any time" is not allowed for today.
+  useEffect(() => {
+    const day = dayAvailable(pickupDate, operatingHours) ? pickupDate : firstPickupDay(operatingHours);
+    if (day !== pickupDate) setPickupDate(day);
+    const window = windowForDay(day, pickupWindow, operatingHours);
+    if (window !== pickupWindow) setPickupWindow(window);
+  }, [operatingHours, pickupDate, pickupWindow]);
   const checkingStock = inventory.isFetching || inventory.isPending;
   function finishAttempt(attempt: CheckoutAttempt) {
     const pharmacyId = attempt.items[0].drugstoreId;
@@ -341,13 +349,13 @@ export function CheckoutPage({ cart: allLines, user, onReserved }: { cart: CartL
           <>
             <div className="chip-row pickup-days" role="group" aria-label="Pickup date">
               {pickupDays().map((day) => <button key={day} type="button" className={`chip${pickupDate === day ? ' chip-on' : ''}`}
-                aria-pressed={pickupDate === day} aria-label={`${chipLabel(day)}, ${shortDate(day)}`}
-                onClick={() => { setPickupDate(day); if (pickupWindow && !windowAvailable(day, pickupWindow)) setPickupWindow(''); }}>{chipLabel(day)}</button>)}
+                aria-pressed={pickupDate === day} aria-label={`${chipLabel(day)}, ${shortDate(day)}`} disabled={!dayAvailable(day, operatingHours)}
+                onClick={() => { setPickupDate(day); setPickupWindow(windowForDay(day, pickupWindow, operatingHours)); }}>{chipLabel(day)}</button>)}
             </div>
             <div className="chip-row pickup-windows" role="group" aria-label="Pickup time">
-              <button type="button" className={`chip${pickupWindow === '' ? ' chip-on' : ''}`} aria-pressed={pickupWindow === ''} onClick={() => setPickupWindow('')}>Any time</button>
+              <button type="button" className={`chip${pickupWindow === '' ? ' chip-on' : ''}`} aria-pressed={pickupWindow === ''} disabled={!anyTimeAvailable(pickupDate, operatingHours)} onClick={() => setPickupWindow('')}>Any time</button>
               {pickupWindows.map((entry) => <button key={entry.id} type="button" className={`chip${pickupWindow === entry.id ? ' chip-on' : ''}`}
-                aria-pressed={pickupWindow === entry.id} disabled={!windowAvailable(pickupDate, entry.id)}
+                aria-pressed={pickupWindow === entry.id} disabled={!windowAvailable(pickupDate, entry.id, Date.now(), operatingHours)}
                 onClick={() => setPickupWindow(entry.id)}>{entry.label} {entry.hours}</button>)}
             </div>
             <hr className="pickup-rule" />

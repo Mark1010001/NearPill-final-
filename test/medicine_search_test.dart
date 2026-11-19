@@ -22,6 +22,8 @@ import 'package:nearpill/screens/srch_medicine_detail.dart';
 import 'package:nearpill/features/map/data/location_service.dart';
 import 'package:nearpill/core/api/api_client.dart';
 import 'package:nearpill/core/auth/session_manager.dart';
+import 'package:nearpill/widgets/np_icon.dart';
+import 'support/np_icon_finders.dart';
 
 class _Location extends LocationService {
   LocationResult result = const LocationResult.failure('Location denied');
@@ -119,7 +121,7 @@ void main() {
     await tester.pump();
     expect(
       tester
-          .widget<IconButton>(find.widgetWithIcon(IconButton, Icons.refresh))
+          .widget<IconButton>(findIconButton(NpIcons.refresh))
           .onPressed,
       isNull,
     );

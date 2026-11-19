@@ -103,10 +103,8 @@ List<_Line> _lines(ReceiptFacts facts) {
     _Line('Qty', bold: true, x: 410),
     _Line('Amount', bold: true, x: 465, gap: 4),
   ]);
-  var needsPrescription = false;
   for (final raw in facts.items) {
     if (raw is! Map) continue;
-    if (raw['prescriptionRequired'] == true) needsPrescription = true;
     final quantity = int.tryParse('${raw['quantity']}') ?? 0;
     final unit = int.tryParse('${raw['priceCentavos']}') ?? 0;
     final sellingUnit = raw['sellingUnit']?.toString();
@@ -131,13 +129,6 @@ List<_Line> _lines(ReceiptFacts facts) {
     const _Line('Total', size: 12, bold: true),
     _Line(_php(facts.totalCentavos), size: 12, bold: true, x: 465, gap: 12),
   ]);
-  if (needsPrescription) {
-    out.add(const _Line(
-      'Physical prescription check required. Bring the prescription you uploaded.',
-      bold: true,
-      gap: 12,
-    ));
-  }
   out.addAll(const [
     _Line('Show this receipt and a valid ID to the pharmacy staff when you pick up your order.', size: 9, gap: 4),
     _Line('Capstone test payment, no real money was charged.', size: 9),

@@ -2,12 +2,12 @@
 /// Dates are calendar dates in Philippine time; a customer can pick today up to 7 days ahead.
 const maxPickupDaysAhead = 7;
 
-typedef PickupWindow = ({String id, String label, String hours, int endHour});
+typedef PickupWindow = ({String id, String label, String hours, int startHour, int endHour});
 
 const pickupWindows = <PickupWindow>[
-  (id: 'morning', label: 'Morning', hours: '8–12', endHour: 12),
-  (id: 'afternoon', label: 'Afternoon', hours: '12–5', endHour: 17),
-  (id: 'evening', label: 'Evening', hours: '5–8', endHour: 20),
+  (id: 'morning', label: 'Morning', hours: '8–12', startHour: 8, endHour: 12),
+  (id: 'afternoon', label: 'Afternoon', hours: '12–5', startHour: 12, endHour: 17),
+  (id: 'evening', label: 'Evening', hours: '5–8', startHour: 17, endHour: 20),
 ];
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -48,12 +48,84 @@ List<String> pickupDays([DateTime? now]) {
   ];
 }
 
-/// A window that already ended today cannot be chosen for today.
-bool windowAvailable(String isoDate, String windowId, [DateTime? now]) {
+/// Pickup today stops being offered this many minutes before the pharmacy closes.
+const closingBufferMinutes = 60;
+
+/// Closing time in minutes after midnight from text like "8:00 AM - 6:00 PM".
+/// Null when the text is missing, unreadable or overnight (then nothing is restricted).
+int? closingMinute(String? operatingHours) {
+  final match = RegExp(
+    r'(\d{1,2}):?(\d{2})?\s*(AM|PM)?\s*[-–]\s*(\d{1,2}):?(\d{2})?\s*(AM|PM)?',
+    caseSensitive: false,
+  ).firstMatch((operatingHours ?? '').trim());
+  if (match == null) return null;
+  int minutes(String? hourText, String? minuteText, String? ampm) {
+    var hour = int.parse(hourText!);
+    final period = ampm?.toUpperCase();
+    if (period == 'PM' && hour != 12) hour += 12;
+    if (period == 'AM' && hour == 12) hour = 0;
+    return hour * 60 + (int.tryParse(minuteText ?? '') ?? 0);
+  }
+
+  final open = minutes(match[1], match[2], match[3]);
+  final close = minutes(match[4], match[5], match[6]);
+  if (close <= open || close > 24 * 60) return null;
+  return close;
+}
+
+/// Minutes after midnight in Philippine time when pickup today is no longer offered, or null when unrestricted.
+int? _cutoffMinute(String? operatingHours) {
+  final close = closingMinute(operatingHours);
+  return close == null ? null : close - closingBufferMinutes;
+}
+
+bool _isToday(String isoDate, DateTime manila) => isoDate == _iso(manila);
+
+/// A day can be chosen unless it is today and the pharmacy closes within the hour (or already closed).
+bool dayAvailable(String isoDate, [String? operatingHours, DateTime? now]) {
   final manila = _manila(now ?? DateTime.now());
-  if (isoDate != _iso(manila)) return true;
-  final end = pickupWindows.firstWhere((w) => w.id == windowId).endHour;
-  return manila.hour < end;
+  final cutoff = _cutoffMinute(operatingHours);
+  if (cutoff == null || !_isToday(isoDate, manila)) return true;
+  return manila.hour * 60 + manila.minute < cutoff;
+}
+
+/// "Any time" is never allowed for today when the pharmacy's hours are known: pick a window that fits.
+bool anyTimeAvailable(String isoDate, [String? operatingHours, DateTime? now]) {
+  final manila = _manila(now ?? DateTime.now());
+  return _cutoffMinute(operatingHours) == null || !_isToday(isoDate, manila);
+}
+
+/// A window that already ended today cannot be chosen for today, nor one that starts at or after the closing cutoff.
+bool windowAvailable(String isoDate, String windowId, [DateTime? now, String? operatingHours]) {
+  final manila = _manila(now ?? DateTime.now());
+  if (!_isToday(isoDate, manila)) return true;
+  final window = pickupWindows.firstWhere((w) => w.id == windowId);
+  if (manila.hour >= window.endHour) return false;
+  final cutoff = _cutoffMinute(operatingHours);
+  return cutoff == null || window.startHour * 60 < cutoff;
+}
+
+/// First day that can be chosen (today, unless the pharmacy is about to close).
+String firstPickupDay([String? operatingHours, DateTime? now]) => pickupDays(now).firstWhere(
+  (day) => dayAvailable(day, operatingHours, now),
+  orElse: () => pickupDays(now).last,
+);
+
+/// The window to select for [isoDate]: none ("Any time") when allowed, otherwise the first one that fits.
+String? defaultWindow(String isoDate, [String? operatingHours, DateTime? now]) {
+  if (anyTimeAvailable(isoDate, operatingHours, now)) return null;
+  for (final w in pickupWindows) {
+    if (windowAvailable(isoDate, w.id, now, operatingHours)) return w.id;
+  }
+  return null;
+}
+
+/// Keeps a chosen window valid when the day changes.
+String? windowForDay(String isoDate, String? window, [String? operatingHours, DateTime? now]) {
+  if (window == null) return defaultWindow(isoDate, operatingHours, now);
+  return windowAvailable(isoDate, window, now, operatingHours)
+      ? window
+      : defaultWindow(isoDate, operatingHours, now);
 }
 
 String windowText(String? windowId) {

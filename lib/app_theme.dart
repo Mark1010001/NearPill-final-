@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 
 /// NearPill design tokens. Every screen reads from these so headers, cards,
 /// chips, tabs and the bottom navigation stay visually consistent.
@@ -65,6 +66,10 @@ final appThemeData = ThemeData(
     bodyMedium: TextStyle(color: NpColors.muted),
     labelLarge: TextStyle(fontWeight: FontWeight.w700),
   ),
+  actionIconTheme: ActionIconThemeData(
+    backButtonIconBuilder: (context) => const NpIcon(NpIcons.arrow_back),
+    closeButtonIconBuilder: (context) => const NpIcon(NpIcons.close),
+  ),
   appBarTheme: const AppBarTheme(
     backgroundColor: NpColors.background,
     surfaceTintColor: Colors.transparent,
@@ -108,7 +113,8 @@ final appThemeData = ThemeData(
     height: 68,
     backgroundColor: Colors.white,
     surfaceTintColor: Colors.transparent,
-    indicatorColor: Colors.transparent,
+    indicatorColor: NpColors.primarySoft,
+    indicatorShape: const StadiumBorder(),
     elevation: 0,
     labelTextStyle: WidgetStateProperty.resolveWith(
       (states) => TextStyle(
@@ -117,16 +123,16 @@ final appThemeData = ThemeData(
             ? FontWeight.w800
             : FontWeight.w500,
         color: states.contains(WidgetState.selected)
-            ? NpColors.primary
-            : NpColors.faint,
+            ? NpColors.primaryDark
+            : NpColors.muted,
       ),
     ),
     iconTheme: WidgetStateProperty.resolveWith(
       (states) => IconThemeData(
         size: 24,
         color: states.contains(WidgetState.selected)
-            ? NpColors.primary
-            : NpColors.faint,
+            ? NpColors.primaryDark
+            : NpColors.muted,
       ),
     ),
   ),

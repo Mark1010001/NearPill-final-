@@ -19,6 +19,8 @@ import 'package:nearpill/screens/orders/orders.dart';
 import 'package:nearpill/screens/orders/prescription_review.dart';
 import 'package:nearpill/screens/profile_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:nearpill/widgets/np_icon.dart';
+import 'support/np_icon_finders.dart';
 
 PharmacyInventory inventory({
   bool published = true,
@@ -265,7 +267,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
-    final increase = find.widgetWithIcon(IconButton, Icons.add);
+    final increase = findIconButton(NpIcons.add);
     await tester.scrollUntilVisible(
       increase,
       100,
@@ -282,7 +284,7 @@ void main() {
     await tester.tap(increase);
     await tester.pumpAndSettle();
     expect(cart.items.single.quantity, 3);
-    final decrease = find.widgetWithIcon(IconButton, Icons.remove);
+    final decrease = findIconButton(NpIcons.remove);
     await tester.ensureVisible(decrease);
     await tester.pumpAndSettle();
     await tester.tap(decrease);

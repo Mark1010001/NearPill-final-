@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../features/auth/presentation/auth_view_model.dart';
@@ -58,14 +59,14 @@ class SettingsScreen extends StatelessWidget {
           child: Column(
             children: [
               _SettingsRow(
-                icon: Icons.mail_outline,
+                icon: NpIcons.mail_outline,
                 title: 'Email',
                 subtitle: email.isEmpty ? 'Not available' : email,
               ),
               const _RowDivider(),
               _SettingsRow(
                 key: const Key('change-password'),
-                icon: Icons.key_outlined,
+                icon: NpIcons.key_outlined,
                 title: 'Change password',
                 subtitle: 'We email you a link to set a new one.',
                 onTap: () => Navigator.of(context).push(
@@ -77,14 +78,14 @@ class SettingsScreen extends StatelessWidget {
               const _RowDivider(),
               _SettingsRow(
                 key: const Key('sign-out-all'),
-                icon: Icons.devices_outlined,
+                icon: NpIcons.devices_outlined,
                 title: 'Sign out of all devices',
                 subtitle: 'Ends every session on every device.',
                 onTap: () => _signOutEverywhere(context),
               ),
               const _RowDivider(),
               _SettingsRow(
-                icon: Icons.delete_outline,
+                icon: NpIcons.delete_outline,
                 iconColor: profileDanger,
                 iconBackground: const Color(0xFFFFE4E1),
                 title: 'Delete account',
@@ -107,7 +108,7 @@ class SettingsScreen extends StatelessWidget {
           decoration: profileCardDecoration(),
           clipBehavior: Clip.antiAlias,
           child: _SettingsRow(
-            icon: Icons.privacy_tip_outlined,
+            icon: NpIcons.privacy_tip_outlined,
             title: 'Privacy and service information',
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const PoliciesScreen()),
@@ -128,7 +129,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               onPressed: () => onSignOut!(),
-              icon: const Icon(Icons.logout),
+              icon: const NpIcon(NpIcons.logout),
               label: const Text(
                 'Sign out',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
@@ -153,7 +154,7 @@ class _SettingsRow extends StatelessWidget {
     this.titleColor = profileInk,
   });
 
-  final IconData icon;
+  final NpIconData icon;
   final String title;
   final String? subtitle;
   final VoidCallback? onTap;
@@ -177,7 +178,7 @@ class _SettingsRow extends StatelessWidget {
                 color: iconBackground,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: iconColor, size: 22),
+              child: NpIcon(icon, color: iconColor, size: 22),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -201,8 +202,8 @@ class _SettingsRow extends StatelessWidget {
               ),
             ),
             if (onTap != null)
-              Icon(
-                Icons.chevron_right,
+              NpIcon(
+                NpIcons.chevron_right,
                 color: titleColor == profileDanger
                     ? profileDanger
                     : profileMuted,
@@ -355,7 +356,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             suffixIcon: IconButton(
               tooltip: _show ? 'Hide password' : 'Show password',
-              icon: Icon(_show ? Icons.visibility_off : Icons.visibility),
+              icon: NpIcon(_show ? NpIcons.visibility_off : NpIcons.visibility),
               onPressed: () => setState(() => _show = !_show),
             ),
           ),

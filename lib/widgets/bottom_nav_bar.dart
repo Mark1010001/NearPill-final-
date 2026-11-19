@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:nearpill/widgets/np_icon.dart';
 
 import '../app_theme.dart';
 
 /// The single bottom navigation used by every main tab. Styling comes from
-/// `navigationBarTheme` in app_theme.dart; icons are outlined when idle and
-/// filled when selected so all five tabs behave the same way.
+/// `navigationBarTheme` in app_theme.dart. Every tab uses the same stroke icon;
+/// the selected tab turns green and sits on a soft green pill. The website's
+/// bottom bar (.shop-nav) is built to the same measurements.
 class BttmNaviBar extends StatelessWidget {
   const BttmNaviBar({
     super.key,
@@ -38,29 +40,15 @@ class BttmNaviBar extends StatelessWidget {
         onDestinationSelected: onTap,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.search_rounded),
-            selectedIcon: Icon(Icons.search_rounded, weight: 700),
-            label: 'Search',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.map_outlined),
-            selectedIcon: Icon(Icons.map_rounded),
-            label: 'Map',
-          ),
+          const NavigationDestination(icon: NpIcon(NpIcons.home), label: 'Home'),
+          const NavigationDestination(icon: NpIcon(NpIcons.search), label: 'Search'),
+          const NavigationDestination(icon: NpIcon(NpIcons.map), label: 'Map'),
           NavigationDestination(
-            icon: _badge(const Icon(Icons.receipt_long_outlined)),
-            selectedIcon: _badge(const Icon(Icons.receipt_long_rounded)),
+            icon: _badge(const NpIcon(NpIcons.receipt_long)),
             label: 'Orders',
           ),
           NavigationDestination(
-            icon: _dot(const Icon(Icons.person_outline_rounded), profileBadge),
-            selectedIcon: _dot(const Icon(Icons.person_rounded), profileBadge),
+            icon: _dot(const NpIcon(NpIcons.person), profileBadge),
             label: 'Profile',
           ),
         ],

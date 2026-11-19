@@ -12,6 +12,7 @@ class PickupPicker extends StatelessWidget {
     required this.onChanged,
     this.dateLabel = 'Pickup date',
     this.timeLabel = 'Pickup time',
+    this.operatingHours,
   });
 
   final String date;
@@ -19,6 +20,9 @@ class PickupPicker extends StatelessWidget {
   final void Function(String date, String? window) onChanged;
   final String dateLabel;
   final String timeLabel;
+
+  /// The pharmacy's opening hours; pickup today is not offered in the last hour before closing.
+  final String? operatingHours;
 
   @override
   Widget build(BuildContext context) {
@@ -37,13 +41,10 @@ class PickupPicker extends StatelessWidget {
                   label: chipLabel(day),
                   tooltip: shortDate(day),
                   selected: day == date,
-                  enabled: true,
-                  onSelected: (_) => onChanged(
-                    day,
-                    window != null && !windowAvailable(day, window!)
-                        ? null
-                        : window,
-                  ),
+                  enabled: dayAvailable(day, operatingHours),
+                  onSelected: dayAvailable(day, operatingHours)
+                      ? (_) => onChanged(day, windowForDay(day, window, operatingHours))
+                      : null,
                 ),
             ],
           ),
@@ -59,15 +60,17 @@ class PickupPicker extends StatelessWidget {
               _AnimatedPickupChip(
                 label: 'Any time',
                 selected: window == null,
-                enabled: true,
-                onSelected: (_) => onChanged(date, null),
+                enabled: anyTimeAvailable(date, operatingHours),
+                onSelected: anyTimeAvailable(date, operatingHours)
+                    ? (_) => onChanged(date, null)
+                    : null,
               ),
               for (final entry in pickupWindows)
                 _AnimatedPickupChip(
                   label: '${entry.label} ${entry.hours}',
                   selected: window == entry.id,
-                  enabled: windowAvailable(date, entry.id),
-                  onSelected: windowAvailable(date, entry.id)
+                  enabled: windowAvailable(date, entry.id, null, operatingHours),
+                  onSelected: windowAvailable(date, entry.id, null, operatingHours)
                       ? (_) => onChanged(date, entry.id)
                       : null,
                 ),

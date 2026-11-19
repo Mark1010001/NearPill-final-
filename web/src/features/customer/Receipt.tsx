@@ -16,8 +16,6 @@ export function OrderReceipt({ order, user, balanceDue = 0, checkingPayment = fa
     <p className="shop-muted">Show this to the pharmacy staff when you pick up your order.</p>
     <div className="receipt-claim"><span>PICKUP CLAIM CODE</span>
       <p className="receipt-reference" aria-label="Order reference">{order.reference}</p></div>
-    {order.items.some((item) => item.prescriptionRequired) && <p className="receipt-rx" role="note">
-      <strong>Physical prescription check required.</strong> Bring the prescription you uploaded when you claim your order.</p>}
     <dl className="receipt-facts">
       <div><dt>Pharmacy</dt><dd>{order.storeName}</dd></div>
       <div><dt>Customer</dt><dd>{user.fullName || user.name || user.email}</dd></div>
