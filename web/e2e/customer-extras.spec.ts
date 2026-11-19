@@ -7,7 +7,7 @@ const stores = [
   { store_id: 12, store_name: 'Test Central Pharmacy', verified: true, openNow: true, address: 'Cebu City', latitude: '10.3170', longitude: '123.8910' },
   { store_id: 21, store_name: 'Test West Pharmacy', verified: true, openNow: false, address: 'Guadalupe, Cebu City', latitude: '10.3300', longitude: '123.9000' },
 ];
-const customer = { id: 7, email: 'first@example.test', fullName: 'First Customer', role: 'customer', phone: '09171234567', birthDate: '01/02/1990' };
+const customer = { id: 7, email: 'first@example.test', fullName: 'First Customer', role: 'customer', phone: '09171234567' };
 const order = (id: number, stage: string) => ({
   id, reference: `NP-${id}`, storeName: 'Test Central Pharmacy', itemSummary: 'Test Paracetamol 500 mg x2', totalCentavos: 1100, total: 11,
   status: stage, stage, placedOn: 'Nov 1, 2026', createdAt: '2026-11-01T00:00:00Z', items: [],

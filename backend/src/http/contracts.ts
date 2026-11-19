@@ -56,6 +56,7 @@ export const RefreshSchema = z.object({ refreshToken: z.string().min(1) }).stric
 export const LogoutSchema = z.object({ refreshToken: z.string().min(1).optional() }).strict();
 export const ProfileUpdateSchema = z.object({
   phone: z.string().max(40).nullable().optional(),
+  // Birthdate is no longer collected. Older app builds may still send it, so it is accepted and ignored.
   birthDate: z.string().max(40).nullable().optional(),
   birthdate: z.string().max(40).nullable().optional(),
 }).strict();

@@ -147,10 +147,7 @@ void main() {
     },
   );
 
-  test('birthdate validation rejects malformed and impossible dates', () {
-    expect(validateBirthdate('1234567890'), 'Use MM/DD/YYYY');
-    expect(validateBirthdate('02/31/2000'), 'Invalid birthdate');
-    expect(validateBirthdate('02/29/2000'), isNull);
+  test('date text formatter rejects letters', () {
     const previous = TextEditingValue(text: '02/29/2000');
     expect(
       DateTextFormatter().formatEditUpdate(

@@ -3,7 +3,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 const skipIntro = (context: BrowserContext) => context.addInitScript(() => { try { localStorage.setItem('np-onboarding-done', '1'); } catch { /* ignore */ } });
 test.beforeEach(({ context }) => { void skipIntro(context); return context.route('https://maps.googleapis.com/**', (route) => route.abort()); });
 
-const customer = { id: 7, email: 'first@example.test', fullName: 'First Customer', role: 'customer', phone: '09171234567', birthDate: '01/02/1990' };
+const customer = { id: 7, email: 'first@example.test', fullName: 'First Customer', role: 'customer', phone: '09171234567' };
 
 async function mock(page: Page, opts: { signedIn?: boolean; deleteStatus?: number } = {}) {
   let user: typeof customer | null = opts.signedIn ? customer : null;

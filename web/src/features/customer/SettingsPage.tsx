@@ -83,7 +83,7 @@ export function SettingsPage({ user, signOutButton }: { user: SessionUser; signO
     </section>
     <section className="card settings-card settings-danger" aria-labelledby="settings-delete">
       <h2 id="settings-delete" className="card-title">Delete account</h2>
-      <p>This removes your name, email, phone number and birthdate, and signs you out everywhere. It cannot be undone.</p>
+      <p>This removes your name, email and phone number, and signs you out everywhere. It cannot be undone.</p>
       <p className="shop-muted">Past orders stay on record for the pharmacies, without your name or contact details. You can’t delete your account while you have active orders.</p>
       {!open ? <button type="button" className="secondary text-danger-button" onClick={() => setOpen(true)}>Delete account</button>
         : confirming ? <div className="settings-confirm" role="group" aria-label="Confirm account deletion">

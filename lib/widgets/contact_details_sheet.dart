@@ -5,20 +5,17 @@ import 'package:provider/provider.dart';
 
 import '../features/auth/presentation/auth_view_model.dart';
 import '../screens/profile_style.dart';
-import '../utils/formatters.dart';
 
 /// Opens the full-screen "Edit Account Details" page. Returns the saved phone
-/// and birthdate, or null when the person leaves without saving.
-Future<({String phone, String birthDate})?> showContactDetailsSheet(
+/// number, or null when the person leaves without saving.
+Future<({String phone})?> showContactDetailsSheet(
   BuildContext context, {
   required String? phone,
-  required String? birthDate,
   String? fullName,
-}) => Navigator.of(context).push<({String phone, String birthDate})>(
+}) => Navigator.of(context).push<({String phone})>(
   MaterialPageRoute(
     builder: (_) => _ContactDetailsPage(
       phone: phone,
-      birthDate: birthDate,
       fullName: fullName,
     ),
   ),
@@ -27,12 +24,10 @@ Future<({String phone, String birthDate})?> showContactDetailsSheet(
 class _ContactDetailsPage extends StatefulWidget {
   const _ContactDetailsPage({
     required this.phone,
-    required this.birthDate,
     required this.fullName,
   });
 
   final String? phone;
-  final String? birthDate;
   final String? fullName;
 
   @override
@@ -42,24 +37,19 @@ class _ContactDetailsPage extends StatefulWidget {
 class _ContactDetailsPageState extends State<_ContactDetailsPage> {
   final _form = GlobalKey<FormState>();
   late final _phone = TextEditingController(text: widget.phone);
-  late final _birthDate = TextEditingController(text: widget.birthDate);
   bool _saving = false;
   String? _error;
 
   @override
   void dispose() {
     _phone.dispose();
-    _birthDate.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (_saving || !(_form.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    final details = (
-      phone: _phone.text.trim(),
-      birthDate: _birthDate.text.trim(),
-    );
+    final details = (phone: _phone.text.trim());
     setState(() {
       _saving = true;
       _error = null;
@@ -67,7 +57,6 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
     try {
       await context.read<AuthViewModel>().updateProfile(
         phone: details.phone,
-        birthDate: details.birthDate,
       );
       if (mounted) Navigator.of(context).pop(details);
     } catch (_) {
@@ -216,7 +205,8 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
                       controller: _phone,
                       readOnly: _saving,
                       keyboardType: TextInputType.phone,
-                      textInputAction: TextInputAction.next,
+                      textInputAction: TextInputAction.done,
+                      onFieldSubmitted: (_) => _save(),
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(11),
@@ -229,24 +219,6 @@ class _ContactDetailsPageState extends State<_ContactDetailsPage> {
                           RegExp(r'^09\d{9}$').hasMatch(value ?? '')
                           ? null
                           : 'Enter an 11-digit mobile number starting with 09.',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _label('Birthdate', null),
-                  Semantics(
-                    label: 'Birthdate, month, day, year',
-                    child: TextFormField(
-                      controller: _birthDate,
-                      readOnly: _saving,
-                      keyboardType: TextInputType.datetime,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _save(),
-                      inputFormatters: [DateTextFormatter()],
-                      decoration: _decoration(
-                        NpIcons.calendar_today_outlined,
-                        floatingLabel: 'MM/DD/YYYY',
-                      ),
-                      validator: validateBirthdate,
                     ),
                   ),
                   const SizedBox(height: 16),

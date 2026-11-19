@@ -366,7 +366,7 @@ export function CheckoutPage({ cart: allLines, user, onReserved }: { cart: CartL
           <p className="info-row info-strong"><MaterialIcon name="personOutline" size={18} />{user.fullName || user.name || user.email}</p>
           <p className="info-row"><MaterialIcon name="phoneOutlined" size={18} />{user.phone || 'No mobile number saved'}</p>
           <button type="button" className="shop-text-link" onClick={() => setEditingContact(true)}><MaterialIcon name="editOutlined" size={18} />Edit contact details</button>
-          {editingContact && <ContactSheet phone={user.phone ?? ''} birthDate={user.birthDate ?? ''} onClose={() => setEditingContact(false)}
+          {editingContact && <ContactSheet phone={user.phone ?? ''} onClose={() => setEditingContact(false)}
             onSaved={(saved) => { queryClient.setQueryData(['session'], { ...user, ...saved }); setEditingContact(false); }} />}
         </section>
         <section className="card shop-panel shop-summary" aria-labelledby="payment-title">

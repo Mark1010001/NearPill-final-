@@ -333,7 +333,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Your name, email, phone number, birthdate and any uploaded '
+          'Your name, email, phone number and any uploaded '
           'prescription photos are removed and you are signed out on every '
           'device. Past order records stay with the pharmacies without your '
           'personal details.',

@@ -40,7 +40,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Personal Info State
   String _fullName = '';
   String _phone = '';
-  String _birthdate = '';
   String _email = '';
   bool _isLoadingUser = true;
   bool _profileLoadFailed = false;
@@ -66,7 +65,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _fullName = user.fullName;
         _email = user.email;
         _phone = user.phone ?? '';
-        _birthdate = user.birthDate ?? '';
         _isLoadingUser = false;
         _profileLoadFailed = false;
       });
@@ -84,13 +82,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final saved = await showContactDetailsSheet(
       context,
       phone: _phone,
-      birthDate: _birthdate,
       fullName: _fullName,
     );
     if (!mounted || saved == null) return;
     setState(() {
       _phone = saved.phone;
-      _birthdate = saved.birthDate;
     });
     ScaffoldMessenger.of(
       context,
@@ -444,12 +440,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildIdentityTile(
             label: 'Phone Number',
             value: _phone,
-            editable: true,
-          ),
-          const Divider(height: 1, color: Color(0xFFD6F0E1)),
-          _buildIdentityTile(
-            label: 'Birthdate',
-            value: _birthdate,
             editable: true,
           ),
         ],

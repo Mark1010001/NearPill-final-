@@ -126,10 +126,10 @@ export function createPostgresIdentityRepository(postgresPool) {
       return Number(result.affectedRows ?? 0);
     },
 
-    async updateProfile(userId, { phone, birthDate }) {
+    async updateProfile(userId, { phone }) {
       await pool.query(
-        `UPDATE users SET phone = ?, birthdate = ? WHERE id = ?`,
-        [phone, birthDate, userId],
+        `UPDATE users SET phone = ? WHERE id = ?`,
+        [phone, userId],
       );
       return this.findProfileById(userId);
     },

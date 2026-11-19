@@ -175,15 +175,11 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
         return;
       }
       if (!mounted) return;
-      if (user.phone == null ||
-          user.phone!.isEmpty ||
-          user.birthDate == null ||
-          user.birthDate!.isEmpty) {
+      if (user.phone == null || user.phone!.isEmpty) {
         if (!mounted) return;
         final saved = await showContactDetailsSheet(
           context,
           phone: user.phone,
-          birthDate: user.birthDate,
         );
         if (mounted && saved != null) await _placeOrderCore(user, previous);
         return;
@@ -813,7 +809,6 @@ class _CheckoutFlowScreenState extends State<CheckoutFlowScreen> {
                 final saved = await showContactDetailsSheet(
                   context,
                   phone: user.phone,
-                  birthDate: user.birthDate,
                 );
                 if (mounted && saved != null) setState(() => _profile = null);
               },

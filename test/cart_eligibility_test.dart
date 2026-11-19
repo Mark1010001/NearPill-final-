@@ -111,19 +111,16 @@ class _OrderRepository implements OrderRepository {
 class _AuthRepository implements AuthRepository {
   String phone = '09170000000';
   bool saveFails = false;
-  static const birthDate = '01/01/2000';
 
   @override
   Future<UserModel> getMe() async => UserModel(
     fullName: 'Example Customer',
     email: 'customer@example.test',
     phone: phone,
-    birthDate: birthDate,
   );
 
   @override
-  Future<void> updateProfile({String? phone, String? birthDate}) async {
-    expect(birthDate, _AuthRepository.birthDate);
+  Future<void> updateProfile({String? phone}) async {
     if (saveFails) throw StateError('Offline');
     this.phone = phone!;
   }
@@ -413,7 +410,7 @@ void main() {
     await tester.tap(edit);
     await tester.pumpAndSettle();
     final fields = find.byType(TextFormField);
-    expect(fields, findsNWidgets(2));
+    expect(fields, findsOneWidget);
     await tester.enterText(fields.first, '09171234567');
     final save = find.text('Save Changes');
     await tester.ensureVisible(save);

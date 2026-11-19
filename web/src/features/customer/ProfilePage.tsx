@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import type { Order, SessionUser } from '../../api/types';
 import { SkeletonCards, pesos } from '../../components/States';
-import { policiesLabel, formatBirthdateInput, validateBirthdate, validatePhone } from './copy';
+import { policiesLabel, validatePhone } from './copy';
 import { useToast } from './toast';
 import { MaterialIcon } from './MaterialIcon';
 import { useOrderUpdates } from './notifications';
@@ -23,24 +23,23 @@ function statusChip(order: Order): { label: string; tone: 'ready' | 'done' | 'ba
   }
 }
 
-export function ContactSheet({ phone, birthDate, fullName, onClose, onSaved }: { phone: string; birthDate: string; fullName?: string; onClose: () => void; onSaved: (v: { phone: string; birthDate: string }) => void }) {
+export function ContactSheet({ phone, fullName, onClose, onSaved }: { phone: string; fullName?: string; onClose: () => void; onSaved: (v: { phone: string }) => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [phoneValue, setPhone] = useState(phone);
-  const [birth, setBirth] = useState(birthDate);
-  const [errors, setErrors] = useState<{ phone?: string; birth?: string }>({});
+  const [errors, setErrors] = useState<{ phone?: string }>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { dialog.current?.showModal(); }, []);
 
   async function save() {
     if (saving) return;
-    const next = { phone: validatePhone(phoneValue) ?? undefined, birth: validateBirthdate(birth) ?? undefined };
+    const next = { phone: validatePhone(phoneValue) ?? undefined };
     setErrors(next);
-    if (next.phone || next.birth) return;
+    if (next.phone) return;
     setSaving(true); setError(null);
     try {
-      await api.updateProfile({ phone: phoneValue.trim(), birthDate: birth.trim() });
-      onSaved({ phone: phoneValue.trim(), birthDate: birth.trim() });
+      await api.updateProfile({ phone: phoneValue.trim() });
+      onSaved({ phone: phoneValue.trim() });
     } catch {
       setSaving(false);
       setError('Could not save your contact details. Try again.');
@@ -69,14 +68,6 @@ export function ContactSheet({ phone, birthDate, fullName, onClose, onSaved }: {
             onChange={(event) => setPhone(event.target.value.replace(/\D/g, '').slice(0, 11))} /></span>
       </div>
       {errors.phone && <p className="form-error" id="contact-phone-error" role="alert">{errors.phone}</p>}
-      <div className="sheet-field">
-        <label htmlFor="contact-birth" className="sheet-label"><span>Birthdate</span></label>
-        <span className="sheet-input"><MaterialIcon name="eventOutlined" size={22} />
-          <span className="sheet-inner"><span className="sheet-float" aria-hidden="true">MM/DD/YYYY</span>
-          <input id="contact-birth" aria-label="Birthdate" inputMode="numeric" value={birth} readOnly={saving} aria-describedby={errors.birth ? 'contact-birth-error' : undefined}
-            aria-invalid={!!errors.birth} onChange={(event) => setBirth((previous) => formatBirthdateInput(event.target.value, previous))} /></span></span>
-      </div>
-      {errors.birth && <p className="form-error" id="contact-birth-error" role="alert">{errors.birth}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       <button type="submit" className="primary sheet-save" disabled={saving} aria-live={saving ? 'polite' : undefined}>{saving ? 'Saving…' : 'Save Changes'}</button>
       <button type="button" className="sheet-cancel" disabled={saving} onClick={onClose}>Cancel</button>
@@ -166,7 +157,6 @@ export function ProfilePage({ user }: { user: SessionUser }) {
           <h2 id="account-details-title" className="np-card-heading">Account details</h2>
           <Row label="Full Name" value={name} />
           <Row label="Phone Number" value={me.phone ?? ''} onEdit={() => setEditing(true)} />
-          <Row label="Birthdate" value={me.birthDate ?? ''} onEdit={() => setEditing(true)} />
         </section>
       </>}
       {me && <>
@@ -181,7 +171,7 @@ export function ProfilePage({ user }: { user: SessionUser }) {
       </>}
       <p><Link className="shop-text-link" to="/policies.html" reloadDocument>{policiesLabel}</Link></p>
     </>}
-    {editing && me && <ContactSheet phone={me.phone ?? ''} birthDate={me.birthDate ?? ''} fullName={name} onClose={() => setEditing(false)}
+    {editing && me && <ContactSheet phone={me.phone ?? ''} fullName={name} onClose={() => setEditing(false)}
       onSaved={(saved) => {
         queryClient.setQueryData(['customer-profile', accountId], { ...me, ...saved });
         setEditing(false);

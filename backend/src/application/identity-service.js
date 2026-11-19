@@ -35,7 +35,6 @@ function profilePayload(user, memberships = []) {
     fullName: user.name,
     email: user.email,
     phone: user.phone,
-    birthDate: user.birthdate,
     role: user.role,
     memberships,
     createdAt: user.created_at,
@@ -229,9 +228,9 @@ export function createIdentityService({
       return success({ message: 'Your account has been deleted.' });
     },
 
-    async updateProfile(userId, { phone = null, birthDate = null }) {
+    async updateProfile(userId, { phone = null }) {
       const numericUserId = Number(userId);
-      const user = await repository.updateProfile(numericUserId, { phone, birthDate });
+      const user = await repository.updateProfile(numericUserId, { phone });
       if (!user) return failure(404, 'User account not found.');
       const memberships = await securityRepository.listActiveMemberships(numericUserId);
       return success(profilePayload(user, memberships));

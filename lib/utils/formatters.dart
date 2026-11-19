@@ -105,25 +105,3 @@ class DateTextFormatter extends TextInputFormatter {
     );
   }
 }
-
-String? validateBirthdate(String? val) {
-  final date = val?.trim() ?? '';
-  if (date.isEmpty) return 'Enter your birthdate';
-  if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(date)) return 'Use MM/DD/YYYY';
-
-  final parts = date.split('/');
-  final month = int.parse(parts[0]);
-  final day = int.parse(parts[1]);
-  final year = int.parse(parts[2]);
-  if (year < 1955) return 'Year must be 1955 or later';
-
-  final birthdate = DateTime(year, month, day);
-  if (birthdate.month != month || birthdate.day != day) {
-    return 'Invalid birthdate';
-  }
-  final now = DateTime.now();
-  if (birthdate.isAfter(DateTime(now.year - 18, now.month, now.day))) {
-    return 'You must be at least 18 years old';
-  }
-  return null;
-}

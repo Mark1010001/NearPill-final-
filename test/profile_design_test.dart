@@ -38,7 +38,6 @@ class _Auth implements AuthRepository {
     fullName: 'Mark Test',
     email: 'mark@example.test',
     phone: phone,
-    birthDate: null,
   );
 
   @override
@@ -91,7 +90,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Mark Test'), findsWidgets);
-    expect(find.text('Not provided'), findsNWidgets(2));
+    expect(find.text('Not provided'), findsOneWidget);
     expect(find.text('Ready for pickup'), findsOneWidget);
     expect(find.text('Completed'), findsOneWidget);
     expect(find.text('Cancelled'), findsOneWidget);
@@ -121,7 +120,7 @@ void main() {
     expect(find.text('No recent orders.'), findsOneWidget);
     expect(find.text('View all'), findsNothing);
     expect(find.text('09171234567'), findsOneWidget);
-    expect(find.text('Not provided'), findsOneWidget);
+    expect(find.text('Not provided'), findsNothing);
   });
 
   testWidgets('edit account details is a full page with the name shown', (
@@ -135,9 +134,10 @@ void main() {
     expect(find.text('Save Changes'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
     expect(find.text('Required'), findsNothing);
-    expect(find.text('MM/DD/YYYY'), findsOneWidget);
+    expect(find.text('MM/DD/YYYY'), findsNothing);
+    expect(find.text('Birthdate'), findsNothing);
     expect(find.textContaining('order pickup'), findsNothing);
-    expect(find.byType(TextFormField), findsNWidgets(2));
+    expect(find.byType(TextFormField), findsOneWidget);
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(find.text('My Profile'), findsOneWidget);

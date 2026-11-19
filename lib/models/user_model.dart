@@ -4,7 +4,6 @@ class UserModel {
     required this.fullName,
     required this.email,
     this.phone,
-    this.birthDate,
     this.xenditTestCheckout = false,
     this.xenditTestDeposit = false,
   });
@@ -13,7 +12,6 @@ class UserModel {
   final String fullName;
   final String email;
   final String? phone;
-  final String? birthDate;
   final bool xenditTestCheckout;
   final bool xenditTestDeposit;
 
@@ -23,7 +21,6 @@ class UserModel {
       fullName: json['fullName']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       phone: json['phone']?.toString(),
-      birthDate: json['birthDate']?.toString(),
       xenditTestCheckout: json['xenditTestCheckout'] == true,
       xenditTestDeposit: json['xenditTestDeposit'] == true,
     );
@@ -34,6 +31,5 @@ class UserModel {
     'fullName': fullName,
     'email': email,
     if (phone != null) 'phone': phone,
-    if (birthDate != null) 'birthDate': birthDate,
   };
 }

@@ -31,7 +31,7 @@ NEARPILL FACTS
 - Prescription medicines cannot be ordered until the customer uploads a prescription for that pharmacy and the pharmacy approves it. A review waiting over 24 hours expires. The photo is deleted after the decision. Bring the same prescription at pickup.
 - Cancellation and refund status count only after NearPill records the provider's evidence.
 - Location is used on the phone or browser for distances and the map. NearPill does not store it. Map routes share the position with Google while a route is open.
-- Account: Profile shows details; the pencil edits phone and birthdate; Settings has Change password (an email link), Sign out of all devices and Delete account. Forgot password is on the Log In screen.
+- Account: Profile shows details; the pencil edits the phone number; Settings has Change password (an email link), Sign out of all devices and Delete account. Forgot password is on the Log In screen.
 - Order statuses: Reserved, Preparing, Ready for pickup, Completed, Cancelled, Expired. Reorder adds a past order's items to the cart.
 - Support: nearpillemail@gmail.com.`;
 

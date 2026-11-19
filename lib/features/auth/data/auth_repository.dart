@@ -230,11 +230,11 @@ class AuthRepository {
     }
   }
 
-  Future<void> updateProfile({String? phone, String? birthDate}) async {
+  Future<void> updateProfile({String? phone}) async {
     try {
       final response = await apiClient.dio.put(
         ApiConfig.apiPath('/auth/me'),
-        data: {'phone': phone, 'birthDate': birthDate},
+        data: {'phone': phone},
       );
       if (response.statusCode != 200) {
         throw AuthException('Failed to update profile.');

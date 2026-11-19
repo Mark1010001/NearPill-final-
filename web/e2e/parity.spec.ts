@@ -15,7 +15,7 @@ const paracetamol = {
   distanceKm: 0.354, activeIngredients: ['paracetamol'], adultUseReviewed: true, otcEligible: true,
 };
 const rx = { ...paracetamol, id: 9, name: 'Test Prescription Drug', category: 'Prescription (source list)', canOrder: false, activeIngredients: [], distanceKm: undefined };
-const customer = { id: 7, email: 'first@example.test', fullName: 'First Customer', role: 'customer', phone: '09171234567', birthDate: '01/02/1990' };
+const customer = { id: 7, email: 'first@example.test', fullName: 'First Customer', role: 'customer', phone: '09171234567' };
 const pastOrder = {
   id: 31, reference: 'NP-31', storeName: 'Test Central Pharmacy', itemSummary: 'Test Paracetamol 500 mg x2', itemCount: 2, totalCentavos: 1100, total: 11,
   status: 'completed', stage: 'completed', placedOn: 'Nov 1, 2026', createdAt: '2026-11-01T00:00:00Z',
@@ -185,7 +185,7 @@ test('profile shows account details with order chips and edits contact details o
   await expect(page.getByRole('heading', { name: 'Edit Account Details' })).toBeVisible();
   await expect(page.getByText('Required')).toHaveCount(0);
   await expect(page.getByText('Pharmacies use these details for order pickup.')).toHaveCount(0);
-  await expect(page.getByText('MM/DD/YYYY', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('Birthdate')).toHaveCount(0);
   await page.getByLabel('Phone Number').fill('0917');
   await page.getByRole('button', { name: 'Save Changes' }).click();
   await expect(page.getByText('Enter an 11-digit mobile number starting with 09.')).toBeVisible();
@@ -193,7 +193,7 @@ test('profile shows account details with order chips and edits contact details o
   await page.getByRole('button', { name: 'Save Changes' }).click();
   await expect(page.getByText('Contact details saved.')).toBeVisible();
   expect(calls.some((call) => call.startsWith('PUT /auth/me'))).toBe(true);
-  await page.getByRole('button', { name: /^Birthdate/ }).click();
+  await page.getByRole('button', { name: /^Phone Number/ }).click();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('heading', { name: 'Edit Account Details' })).toHaveCount(0);
 });

@@ -46,41 +46,4 @@ export function authErrorMessage(error: unknown, preferServer = false): string {
   return 'Something went wrong. Please try again.';
 }
 
-/** Same rules as lib/utils/formatters.dart: validateBirthdate. */
-export function validateBirthdate(value: string): string | null {
-  const date = value.trim();
-  if (!date) return 'Enter your birthdate';
-  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(date)) return 'Use MM/DD/YYYY';
-  const [month, day, year] = date.split('/').map(Number);
-  if (year < 1955) return 'Year must be 1955 or later';
-  const birth = new Date(year, month - 1, day);
-  if (birth.getMonth() !== month - 1 || birth.getDate() !== day) return 'Invalid birthdate';
-  const now = new Date();
-  if (birth > new Date(now.getFullYear() - 18, now.getMonth(), now.getDate())) return 'You must be at least 18 years old';
-  return null;
-}
-
-/** Same as DateTextFormatter: keeps digits, auto-inserts "/" and clamps month/day while typing. */
-export function formatBirthdateInput(next: string, previous: string): string {
-  if (!/^[0-9/]*$/.test(next)) return previous;
-  let text = next.replaceAll('/', '');
-  if (text.length > 8) return previous;
-  if (next.length < previous.length) return next;
-  if (text.length >= 1 && Number(text[0]) > 1) text = `0${text[0]}${text.slice(1)}`;
-  if (text.length >= 2) {
-    const month = Number(text.slice(0, 2));
-    if (month > 12) text = text[0];
-    else if (month === 0) text = '01';
-  }
-  if (text.length >= 3 && Number(text[2]) > 3) text = `${text.slice(0, 2)}0${text.slice(2)}`;
-  if (text.length >= 4) {
-    const day = Number(text.slice(2, 4));
-    if (day > 31) text = text.slice(0, 3);
-    else if (day === 0) text = `${text.slice(0, 2)}01${text.slice(4)}`;
-  }
-  let out = '';
-  for (let i = 0; i < text.length; i += 1) { if (i === 2 || i === 4) out += '/'; out += text[i]; }
-  return out;
-}
-
 export const validatePhone = (value: string) => /^09\d{9}$/.test(value) ? null : 'Enter an 11-digit mobile number starting with 09.';

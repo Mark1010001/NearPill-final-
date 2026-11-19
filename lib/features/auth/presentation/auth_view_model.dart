@@ -52,7 +52,7 @@ class AuthViewModel extends ChangeNotifier {
   Future<void> logoutAll() => _repository.logoutAll();
   Future<void> logout() => _repository.logout();
   Future<UserModel> getMe() => _repository.getMe();
-  Future<void> updateProfile({String? phone, String? birthDate}) =>
-      _repository.updateProfile(phone: phone, birthDate: birthDate);
+  Future<void> updateProfile({String? phone}) =>
+      _repository.updateProfile(phone: phone);
   Future<bool> isLoggedIn() => _repository.isLoggedIn();
 }

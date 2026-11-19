@@ -83,7 +83,7 @@ export const api = {
   sendOtp: (email: string) => request<{ devCode?: string; testInbox?: boolean }>('/auth/send-otp', { method: 'POST', body: JSON.stringify({ email }) }),
   verifyOtp: (email: string, code: string) => request('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ email, code }) }),
   forgotPassword: (email: string) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
-  updateProfile: (body: { phone: string | null; birthDate: string | null }) =>
+  updateProfile: (body: { phone: string | null }) =>
     request('/auth/me', { method: 'PUT', body: JSON.stringify(body) }),
   me: (signal?: AbortSignal) => request<SessionUser>('/auth/me', { signal }),
   changePassword: (currentPassword: string, password: string) => request('/auth/change-password', {
