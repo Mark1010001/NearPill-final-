@@ -7,6 +7,7 @@ class SessionManager {
   static const _accessTokenKey = 'access_token';
   static const _refreshTokenKey = 'refresh_token';
   static const _userIdKey = 'user_id';
+  static const _rememberKey = 'remember_me';
 
   final FlutterSecureStorage _storage;
   Future<void> _writes = Future.value();
@@ -76,7 +77,19 @@ class SessionManager {
     await _storage.delete(key: _userIdKey);
   }
 
+  /// "Remember me" choice from the last login. Off = sign in again the next time the app starts.
+  Future<void> setRemember(bool remember) =>
+      _write(() => _storage.write(key: _rememberKey, value: remember ? '1' : '0'));
+
+  /// Checked once when the app starts. If the last login was not remembered, end that session.
   Future<bool> isLoggedIn() async {
+    if (await _writes.then((_) => _storage.read(key: _rememberKey)) == '0') {
+      await _write(() async {
+        await _clear();
+        await _storage.delete(key: _rememberKey);
+      });
+      return false;
+    }
     final accessToken = await getAccessToken();
     final refreshToken = await getRefreshToken();
     return (accessToken?.isNotEmpty ?? false) &&

@@ -34,6 +34,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _password2 = TextEditingController();
   final _otp = TextEditingController();
   final _otpFocus = FocusNode();
 
@@ -43,6 +44,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
   bool _showRegisterPassword = false;
   bool _loading = false;
   bool _testInbox = false;
+  bool _remember = true;
   bool _agreed = false;
   bool _agreedError = false;
   DateTime _formStart = DateTime.now();
@@ -101,6 +103,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
       _name,
       _email,
       _password,
+      _password2,
       _otp,
     ]) {
       controller.dispose();
@@ -121,6 +124,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
       await context.read<AuthViewModel>().login(
         email: _loginEmail.text.trim(),
         password: _loginPassword.text,
+        remember: _remember,
       );
       if (mounted) await _goHome();
     } on AuthException catch (error) {
@@ -405,22 +409,55 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
           validator: (value) =>
               value == null || value.isEmpty ? 'Enter your password' : null,
         ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: _loading
-                ? null
-                : () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          ForgotPasswordScreen(email: _loginEmail.text.trim()),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            InkWell(
+              key: const Key('login-remember'),
+              onTap: _loading
+                  ? null
+                  : () => setState(() => _remember = !_remember),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Checkbox(
+                    value: _remember,
+                    onChanged: _loading
+                        ? null
+                        : (value) => setState(() => _remember = value ?? true),
+                  ),
+                  const Flexible(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Text(
+                        'Remember me',
+                        style: TextStyle(fontSize: 14),
+                      ),
                     ),
                   ),
-            child: const Text(
-              'Forgot Password?',
-              style: TextStyle(color: _deepGreen, fontWeight: FontWeight.w700),
+                ],
+              ),
             ),
-          ),
+            TextButton(
+              onPressed: _loading
+                  ? null
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ForgotPasswordScreen(
+                          email: _loginEmail.text.trim(),
+                        ),
+                      ),
+                    ),
+              child: const Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  color: _deepGreen,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         _primaryButton('Log In', _loading ? null : _login),
@@ -523,6 +560,25 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
                   validateNewPassword(value, _email.text, _name.text),
             ),
             _StrengthMeter(password: _password.text),
+            const SizedBox(height: 16),
+            TextFormField(
+              key: const Key('signup-password-repeat'),
+              controller: _password2,
+              obscureText: !_showRegisterPassword,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.newPassword],
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              onFieldSubmitted: (_) => _continueSignup(),
+              decoration: _decoration('Repeat password', NpIcons.lock_outline),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Repeat your password';
+                }
+                return value == _password.text
+                    ? null
+                    : 'Passwords do not match';
+              },
+            ),
           ],
           if (_step == 1) ...[
             TextFormField(

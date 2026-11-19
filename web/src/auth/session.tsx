@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, type PropsWithChildren 
 import { api, ApiError } from '../api/client';
 import type { SessionUser } from '../api/types';
 import { clearCheckoutAttempts } from '../features/customer/cart';
+import { clearRemember, rememberExpired, setRemember, touchAlive } from './remember';
 
 interface SessionContextValue {
   user: SessionUser | null;
@@ -12,7 +13,7 @@ interface SessionContextValue {
   error: Error | null;
   retry: () => void;
   clearSession: () => void;
-  login: (email: string, password: string) => Promise<SessionUser>;
+  login: (email: string, password: string, remember?: boolean) => Promise<SessionUser>;
   logout: () => Promise<void>;
 }
 
@@ -53,6 +54,12 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const session = useQuery({
     queryKey: ['session'],
     queryFn: async ({ signal }) => {
+      // "Remember me" was off and the site has been closed for a while: end the session.
+      if (rememberExpired()) {
+        await api.logout().catch(() => undefined);
+        clearRemember();
+        return null;
+      }
       const user = await api.me(signal).catch((error: unknown) => {
         if (error instanceof ApiError && [401, 403].includes(error.status)) return null;
         throw error;
@@ -69,6 +76,16 @@ export function SessionProvider({ children }: PropsWithChildren) {
     refetchIntervalInBackground: true,
     retry: 1,
   });
+
+  // Heartbeat so a not-remembered session can tell when the site was closed.
+  const signedIn = Boolean(session.data);
+  useEffect(() => {
+    if (!signedIn) return;
+    touchAlive();
+    const timer = window.setInterval(touchAlive, 15_000);
+    window.addEventListener('pagehide', touchAlive);
+    return () => { window.clearInterval(timer); window.removeEventListener('pagehide', touchAlive); };
+  }, [signedIn]);
 
   const lifetime = session.data?.sessionExpiresInMs;
   useEffect(() => {
@@ -106,9 +123,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
       error: session.error,
       retry: () => { void session.refetch(); },
       clearSession,
-      login: async (email, password) => {
+      login: async (email, password, remember = true) => {
         await queryClient.cancelQueries({ queryKey: ['session'] });
         await api.login(email, password);
+        setRemember(remember);
         announceSessionChange('sign-in');
         const user = await api.me();
         await queryClient.cancelQueries({ queryKey: ['session'] });

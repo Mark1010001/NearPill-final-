@@ -59,8 +59,10 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
   const [testInbox, setTestInbox] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [remember, setRemember] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -84,6 +86,9 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
   const loginPasswordError = touched.loginPassword && loginPassword === '' ? 'Enter your password' : null;
   const emailError = touched.email ? validateEmailAddress(email) : null;
   const passwordError = touched.password ? validateNewPassword(password, email, name) : null;
+  // Live check: shows as soon as something is typed in the repeat box.
+  const password2Error = password2 !== '' && password2 !== password ? 'Passwords do not match'
+    : touched.password2 && password2 === '' ? 'Repeat your password' : null;
   const trimmedName = name.trim();
   const termsError = touched.terms && !agreed ? 'Agree to the Terms and Conditions and Privacy Policy to continue.' : null;
   const nameError = touched.name ? (trimmedName === '' ? 'Enter your full name' : trimmedName.length > 100 ? 'Use at most 100 characters' : null) : null;
@@ -94,7 +99,7 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
     setTouched((t) => ({ ...t, loginEmail: true, loginPassword: true }));
     if (validateEmailAddress(loginEmail) || loginPassword === '') return;
     setLoading(true); setError(null);
-    try { await login(loginEmail.trim(), loginPassword); }
+    try { await login(loginEmail.trim(), loginPassword, remember); }
     catch (err) { setError(authErrorMessage(err)); }
     finally { setLoading(false); }
   }
@@ -125,8 +130,9 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
     event?.preventDefault();
     if (busy) return;
     if (step === 0) {
-      setTouched((t) => ({ ...t, email: true, password: true }));
+      setTouched((t) => ({ ...t, email: true, password: true, password2: true }));
       if (validateEmailAddress(email) || validateNewPassword(password, email, name)) return;
+      if (password2 === '' || password2 !== password) return;
       setStep(1);
     } else if (step === 1) {
       setTouched((t) => ({ ...t, name: true, terms: true }));
@@ -167,7 +173,7 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
   }
 
   function switchMode() {
-    setIsLogin(!isLogin); setStep(0); setError(null); setStatus(null); setTouched({});
+    setIsLogin(!isLogin); setStep(0); setPassword2(''); setError(null); setStatus(null); setTouched({});
     startedAt.current = Date.now();
   }
 
@@ -192,7 +198,8 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
         {loginEmailError && <small className="auth-error" role="alert">{loginEmailError}</small>}
       </div>
       <PasswordField label="Password" value={loginPassword} onChange={setLoginPassword} autoComplete="current-password" error={loginPasswordError} disabled={busy} />
-      <div className="auth-right">
+      <div className="auth-right auth-remember-row">
+        <label className="auth-check"><input type="checkbox" checked={remember} disabled={busy} onChange={(e) => setRemember(e.target.checked)} /><span>Remember me</span></label>
         <Link className="shop-text-link" to="/app/forgot-password" state={{ email: loginEmail.trim() }} aria-disabled={busy}>Forgot Password?</Link>
       </div>
       <button className="primary auth-primary" type="submit" disabled={busy}>{loading && <span className="auth-spinner" aria-hidden="true" />}{loading ? 'Please wait…' : 'Log In'}</button>
@@ -213,6 +220,7 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
         </div>
         <PasswordField label="Create password" value={password} onChange={setPassword} autoComplete="new-password" error={passwordError} onEnter={() => void continueSignup()} />
         <StrengthMeter password={password} />
+        <PasswordField label="Repeat password" value={password2} onChange={setPassword2} autoComplete="new-password" error={password2Error} onEnter={() => void continueSignup()} />
       </>}
       {step === 1 && <div className="auth-field">
         <label>Full name

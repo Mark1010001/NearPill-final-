@@ -43,8 +43,9 @@ class AuthViewModel extends ChangeNotifier {
   Future<AuthResponseModel> login({
     required String email,
     required String password,
+    bool remember = true,
   }) =>
-      _repository.login(email: email, password: password);
+      _repository.login(email: email, password: password, remember: remember);
 
   Future<void> deleteAccount({required String password}) =>
       _repository.deleteAccount(password: password);

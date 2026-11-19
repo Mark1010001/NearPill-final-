@@ -58,11 +58,13 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'ana@example');
     await tester.enterText(fields.at(1), 'Strong1!pass');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     expect(find.text(emailErrorText), findsOneWidget);
     await tester.enterText(fields.at(0), 'ana@example.com');
     await tester.enterText(fields.at(1), 'short1');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     expect(find.text(passwordRuleText), findsWidgets);
@@ -86,6 +88,8 @@ void main() {
     final fields = find.byType(TextFormField);
     await tester.enterText(fields.at(0), 'ana@example.com');
     await tester.enterText(fields.at(1), 'Strong1!pass');
+    await tester.enterText(fields.at(2), 'Strong1!pass');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'Ana Cruz');
@@ -105,6 +109,33 @@ void main() {
     expect(repo.sendOtpCalls, 1);
     expect(find.text('Step 1 of 3'), findsOneWidget);
     expect(find.text(emailErrorText), findsWidgets);
+  });
+  testWidgets('a repeat password that does not match is flagged live and blocks Continue', (
+    tester,
+  ) async {
+    final repo = _Repo();
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => AuthViewModel(repository: repo),
+        child: const MaterialApp(home: AuthPortalScreen()),
+      ),
+    );
+    await tester.ensureVisible(find.text('Create account'));
+    await tester.tap(find.text('Create account'));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'ana@example.com');
+    await tester.enterText(fields.at(1), 'Strong1!pass');
+    await tester.enterText(fields.at(2), 'Strong1!pasx');
+    await tester.pumpAndSettle();
+    expect(find.text('Passwords do not match'), findsOneWidget);
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Step 1 of 3'), findsOneWidget);
+    await tester.enterText(fields.at(2), 'Strong1!pass');
+    await tester.pumpAndSettle();
+    expect(find.text('Passwords do not match'), findsNothing);
   });
 }
 

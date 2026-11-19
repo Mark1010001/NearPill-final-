@@ -83,6 +83,7 @@ test('create account uses the app’s three steps with an email code', async ({ 
   await page.getByRole('button', { name: 'Create account' }).click();
   await page.getByLabel('Email address').fill('new@example.test');
   await page.getByLabel('Create password').fill('Strong1!pass');
+  await page.getByLabel('Repeat password').fill('Strong1!pass');
   await expect(page.getByText('Strong', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByText('Step 2 of 3')).toBeVisible();

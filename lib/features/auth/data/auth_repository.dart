@@ -127,6 +127,7 @@ class AuthRepository {
   Future<AuthResponseModel> login({
     required String email,
     required String password,
+    bool remember = true,
   }) async {
     try {
       final response = await apiClient.dio.post(
@@ -151,6 +152,7 @@ class AuthRepository {
           authResponse.refreshToken!,
           userId: authResponse.user?.id,
         );
+        await apiClient.sessionManager.setRemember(remember);
       }
 
       return authResponse;

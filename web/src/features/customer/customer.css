@@ -387,6 +387,9 @@ button.shop-text-link,
 .auth-banner { background: var(--np-danger-soft); color: var(--np-danger-text); border: 1px solid var(--np-danger-line); border-radius: var(--np-radius-sm); padding: var(--np-s3) var(--np-s4); }
 .auth-status { margin: 0; background: var(--np-green-soft); color: var(--np-green-dark); border: 1px solid var(--np-green-line); border-radius: var(--np-radius-sm); padding: .6rem var(--np-s4); }
 .auth-right { text-align: right; }
+.auth-remember-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--np-s2) var(--np-s4); }
+.auth-remember-row .auth-check { align-items: center; cursor: pointer; }
+.auth-remember-row .auth-check input { margin-top: 0; }
 .auth-center { display: flex; flex-wrap: wrap; gap: var(--np-s2) var(--np-s5); justify-content: center; margin: 0; }
 .auth-switch { text-align: center; margin: 0; }
 .auth-primary { min-height: 3.5rem; width: 100%; font-weight: 800; font-size: 1rem; }

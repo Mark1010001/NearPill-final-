@@ -189,6 +189,7 @@ void main() {
       final fields = find.byType(TextFormField);
       await tester.enterText(fields.at(0), 'test@example.com');
       await tester.enterText(fields.at(1), 'Test-password1');
+      await tester.enterText(fields.at(2), 'Test-password1');
       await tester.testTextInput.receiveAction(TextInputAction.next);
       await tester.pumpAndSettle();
       await tester.enterText(fields, 'Test Shopper');
@@ -240,6 +241,7 @@ void main() {
       final fields = find.byType(TextFormField);
       await tester.enterText(fields.at(0), 'test@example.com');
       await tester.enterText(fields.at(1), 'Test-password1');
+      await tester.enterText(fields.at(2), 'Test-password1');
       await tester.ensureVisible(find.text('Continue'));
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
