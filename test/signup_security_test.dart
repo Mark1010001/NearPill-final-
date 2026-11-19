@@ -89,15 +89,17 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField), 'Ana Cruz');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Agree to the Privacy and service information to continue.'),
+      find.text('Agree to the Terms and Conditions and Privacy Policy to continue.'),
       findsOneWidget,
     );
     expect(repo.sendOtpCalls, 0);
     await tester.tap(find.byKey(const Key('signup-terms')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Continue'));
     await tester.tap(find.widgetWithText(FilledButton, 'Continue'));
     await tester.pumpAndSettle();
     expect(repo.sendOtpCalls, 1);

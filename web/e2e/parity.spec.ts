@@ -88,7 +88,7 @@ test('create account uses the app’s three steps with an email code', async ({ 
   await expect(page.getByText('Step 2 of 3')).toBeVisible();
   await page.getByLabel('Full name').fill('New Person');
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page.getByText('Agree to the Privacy and service information to continue.')).toBeVisible();
+  await expect(page.getByText('Agree to the Terms and Conditions and Privacy Policy to continue.')).toBeVisible();
   await page.getByLabel(/I agree to the/).check();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Verify your email' })).toBeVisible();

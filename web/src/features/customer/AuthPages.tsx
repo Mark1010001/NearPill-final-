@@ -85,7 +85,7 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
   const emailError = touched.email ? validateEmailAddress(email) : null;
   const passwordError = touched.password ? validateNewPassword(password, email, name) : null;
   const trimmedName = name.trim();
-  const termsError = touched.terms && !agreed ? 'Agree to the Privacy and service information to continue.' : null;
+  const termsError = touched.terms && !agreed ? 'Agree to the Terms and Conditions and Privacy Policy to continue.' : null;
   const nameError = touched.name ? (trimmedName === '' ? 'Enter your full name' : trimmedName.length > 100 ? 'Use at most 100 characters' : null) : null;
 
   async function submitLogin(event?: FormEvent) {
@@ -224,7 +224,7 @@ export function CustomerAuth({ disabled = false }: { disabled?: boolean }) {
       {step === 1 && <div className="auth-field auth-terms">
         <label className="auth-check"><input type="checkbox" checked={agreed} readOnly={busy} aria-invalid={termsError ? true : undefined}
           onChange={(e) => { setAgreed(e.target.checked); setTouched((t) => ({ ...t, terms: true })); }} />
-          <span>I agree to the <a className="shop-text-link" href="/policies.html" target="_blank" rel="noopener noreferrer">Privacy and service information</a></span></label>
+          <span>I agree to the <a className="shop-text-link" href="/policies.html" target="_blank" rel="noopener noreferrer">Terms and Conditions and Privacy Policy</a></span></label>
         {termsError && <small className="auth-error" role="alert">{termsError}</small>}
       </div>}
       <div className="auth-hp" aria-hidden="true">

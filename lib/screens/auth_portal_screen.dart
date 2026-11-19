@@ -552,12 +552,12 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
                       if (_agreed) _agreedError = false;
                     }),
               title: const Text(
-                'I agree to the Privacy and service information',
+                'I agree to the Terms and Conditions and Privacy Policy',
                 style: TextStyle(fontSize: 14),
               ),
               subtitle: _agreedError
                   ? const Text(
-                      'Agree to the Privacy and service information to continue.',
+                      'Agree to the Terms and Conditions and Privacy Policy to continue.',
                       style: TextStyle(color: Color(0xFFD32F2F), fontSize: 12),
                     )
                   : null,
@@ -570,7 +570,7 @@ class _AuthPortalScreenState extends State<AuthPortalScreen> {
                     builder: (_) => const PoliciesScreen(),
                   ),
                 ),
-                child: const Text('Read the Privacy and service information'),
+                child: const Text('Read the Terms and Conditions and Privacy Policy'),
               ),
             ),
           ],
