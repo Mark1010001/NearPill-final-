@@ -159,7 +159,7 @@ test('on a phone, signed-in users have no top brand row but keep the bottom tabs
   await expect(page.getByRole('button', { name: 'Sign out' }).first()).toBeHidden();
 });
 
-test('on a phone, the sign-in page has no bottom tabs or footer links before login', async ({ page }) => {
+test('on a phone, signed-out pages (sign-in and browsing) have no bottom tabs or footer links', async ({ page }) => {
   await page.route('**/api/v1/**', (route) => route.fulfill({ status: 401, json: { error: 'unauthorized' } }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app/sign-in');
@@ -168,4 +168,8 @@ test('on a phone, the sign-in page has no bottom tabs or footer links before log
   await expect(page.getByRole('navigation', { name: 'NearPill customer navigation' })).toBeHidden();
   await expect(page.getByRole('link', { name: 'Operations Portal' })).toBeHidden();
   await expect(page.getByRole('link', { name: 'Privacy and service information' })).toBeHidden();
+  await page.goto('/app/search');
+  await expect(page.locator('.shop-brand')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'NearPill customer navigation' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Operations Portal' })).toBeHidden();
 });

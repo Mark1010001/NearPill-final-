@@ -162,9 +162,8 @@ function Shop({ customer, staffSession, logoutButton, logoutError }: {
 
   if (intro) return <Navigate to="/app/welcome" replace />;
 
-  // Phones only (see customer.css): signed-in users lose the top brand row; signed-out users on the sign-in pages lose the bottom bar and footer links.
-  const onAuthPage = location.pathname === '/app/sign-in' || location.pathname === '/app/forgot-password';
-  const shopClass = ['shop', customer ? 'shop-signed-in' : onAuthPage ? 'shop-auth' : ''].filter(Boolean).join(' ');
+  // Phones only (see customer.css): signed-in users lose the top brand row; signed-out visitors lose the bottom bar and footer links on every page.
+  const shopClass = ['shop', customer ? 'shop-signed-in' : 'shop-auth'].join(' ');
 
   return <CartContext.Provider value={{ cart, count: cartCount, signedIn: !!customer && !checking && !error, add, addOrderItems }}><div className={shopClass}>
     <a className="skip-link" href="#customer-content" tabIndex={0}>Skip to main content</a>
