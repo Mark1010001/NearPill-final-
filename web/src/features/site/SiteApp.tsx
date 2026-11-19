@@ -116,22 +116,8 @@ function PhoneMockup() {
 
 function MapCard() {
   return <div className="st-mapcard">
-    <svg viewBox="0 0 520 340" role="img" aria-label="Illustration of a map with one blue marker for you and green markers for pharmacies">
-      <rect className="st-map-bg" width="520" height="340" />
-      <path className="st-map-water" d="M360 0h160v120c-50 20-110-10-160-30Z" />
-      <path className="st-map-road" d="M0 220 160 160 330 210 520 140" />
-      <path className="st-map-road" d="M120 340 180 170 250 0" />
-      <path className="st-map-road" d="M330 340 340 200 420 0" />
-      <path className="st-map-route" d="M200 210 270 190 340 215" />
-      <g className="st-map-pin"><circle cx="150" cy="120" r="11" /><circle cx="150" cy="120" r="4" className="st-map-dot" /></g>
-      <g className="st-map-pin"><circle cx="270" cy="190" r="11" /><circle cx="270" cy="190" r="4" className="st-map-dot" /></g>
-      <g className="st-map-pin"><circle cx="340" cy="215" r="11" /><circle cx="340" cy="215" r="4" className="st-map-dot" /></g>
-      <g className="st-map-pin"><circle cx="400" cy="120" r="11" /><circle cx="400" cy="120" r="4" className="st-map-dot" /></g>
-      <circle className="st-map-you-ring" cx="200" cy="210" r="22" />
-      <circle className="st-map-you" cx="200" cy="210" r="11" />
-    </svg>
-    <ul className="st-legend" aria-label="Map legend"><li><i className="st-dot-you" />You</li><li><i className="st-dot-ph" />Pharmacies</li></ul>
-    <p className="st-note">Illustration only. The real map in the web app uses your location and live pharmacy data.</p>
+    <img className="st-map-shot" src="/map-preview.jpg" width="640" height="536" alt="The NearPill app map showing your location and a route to a pharmacy in Cebu City." />
+    <p className="st-note">Route preview from the NearPill app. The map uses your location and live pharmacy data.</p>
   </div>;
 }
 

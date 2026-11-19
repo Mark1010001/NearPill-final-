@@ -13,7 +13,7 @@ export const features: { id: FeatureId; title: string; text: string; detail: str
   { id: 'pickup', title: 'Order and pick up', text: 'Build a cart from one pharmacy, reserve your items and collect them when the order is ready.', detail: 'Each pharmacy has its own order, payment and pickup.' },
   { id: 'pay', title: 'Pay in full or a deposit', text: 'Pay the whole amount, or put down a deposit of at least ₱100 (or half the total, whichever is larger) and pay the rest at pickup.', detail: 'Orders of ₱100 or less are paid in full. A pharmacy order needs at least ₱100.' },
   { id: 'receipt', title: 'Pickup date and PDF receipt', text: 'Choose a pickup date in Manila time, up to a week ahead, with an optional time window, and download a PDF receipt.', detail: 'You can change the pickup date once, before the order is ready.' },
-  { id: 'assistant', title: 'Ask NearPill assistant', text: 'Rule-based in-app help for searching, categories and pickup steps.', detail: 'It never diagnoses, prescribes or advises dosage. Ask a licensed pharmacist or doctor.' },
+  { id: 'assistant', title: 'Ask NearPill assistant', text: 'AI-powered in-app help, built on Google Gemini, for searching medicines, categories, your orders and pickup steps.', detail: 'It never diagnoses, prescribes or advises dosage. Ask a licensed pharmacist or doctor.' },
 ];
 
 export const steps = [
