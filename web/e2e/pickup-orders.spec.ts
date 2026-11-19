@@ -149,3 +149,23 @@ test('pickup today is not offered in the last hour before the pharmacy closes', 
   await expect(days.getByRole('button', { name: /^Today/ })).toBeDisabled();
   await expect(days.getByRole('button', { name: /^Tomorrow/ })).toBeEnabled();
 });
+
+test('on a phone, signed-in users have no top brand row but keep the bottom tabs', async ({ page }) => {
+  await mock(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/orders?tab=orders');
+  await expect(page.getByRole('navigation', { name: 'NearPill customer navigation' })).toBeVisible();
+  await expect(page.locator('.shop-brand')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Sign out' }).first()).toBeHidden();
+});
+
+test('on a phone, the sign-in page has no bottom tabs or footer links before login', async ({ page }) => {
+  await page.route('**/api/v1/**', (route) => route.fulfill({ status: 401, json: { error: 'unauthorized' } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/sign-in');
+  await expect(page.getByLabel('Email address')).toBeVisible();
+  await expect(page.locator('.shop-brand')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'NearPill customer navigation' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Operations Portal' })).toBeHidden();
+  await expect(page.getByRole('link', { name: 'Privacy and service information' })).toBeHidden();
+});

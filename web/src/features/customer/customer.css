@@ -337,6 +337,14 @@ button.shop-text-link,
 }
 @media (max-width: 360px) { .shop-container { width: calc(100% - 1.25rem); } }
 
+/* Phones: no top brand row once signed in; no bottom bar or footer links on the signed-out sign-in pages. */
+@media (max-width: 639px) {
+  .shop-signed-in .shop-brand, .shop-signed-in .shop-account { display: none; }
+  .shop-signed-in .shop-header, .shop-signed-in .shop-header-inner { display: contents; }
+  .shop-auth { --np-bottom-bar-h: 0px; padding-bottom: 0; }
+  .shop-auth .shop-nav, .shop-auth .shop-footer { display: none; }
+}
+
 /* ---------- your location + nearby map ---------- */
 .location-panel { margin: var(--np-s4) 0 1.25rem; padding: var(--np-s4) 1.25rem; display: grid; gap: .625rem; }
 .location-panel h2 { margin: 0; font-size: 1.05rem; }
