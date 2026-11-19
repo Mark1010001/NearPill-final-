@@ -6,7 +6,7 @@ test('public site: landing, navigation and FAQ', async ({ page }) => {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await expect(page).toHaveTitle(/NearPill/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the medicine you need at a pharmacy near you');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Find the medicines you need at a pharmacy near you.');
   await expect(page.getByRole('link', { name: 'Open web app' }).first()).toHaveAttribute('href', '/app/');
   await expect(page.getByText('Verified pharmacies')).toBeVisible();
   await expect(page.getByText('Pay in full or a deposit').first()).toBeVisible();

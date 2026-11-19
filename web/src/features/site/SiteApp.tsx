@@ -157,15 +157,13 @@ function Home() {
     <section aria-labelledby="hero-heading" className="st-hero">
       <div className="st-wrap st-hero-grid">
         <div>
-          <p className="st-eyebrow">Cebu City · Smart Geo Drugstore Finder with AI Support</p>
-          <h1 id="hero-heading">Find the medicine you need at a pharmacy near you</h1>
-          <p className="st-lead">Check each pharmacy’s stock and prices in pesos before you leave home. Reserve your items online, pay in full or put down a deposit, and pick up in store.</p>
+          <p className="st-eyebrow">NearPill: Smart Geo Drugstore Finder with AI Support and Subscription-Based Services (Web &amp; Mobile)</p>
+          <h1 id="hero-heading">Find the medicines you need at a pharmacy near you.</h1>
           <div className="st-actions">
             <a className="st-btn st-btn-primary st-btn-lg" href="/app/">Open web app <Icon name="arrow" size={18} /></a>
             <button type="button" className="st-btn st-btn-outline st-btn-lg" aria-expanded={androidNote} aria-controls="st-android-note" onClick={() => setAndroidNote(!androidNote)}><Icon name="phone" size={18} /> Get the Android app (coming soon)</button>
           </div>
           {androidNote && <p id="st-android-note" className="st-note" role="status">The Android app is not on the Play Store yet. Use the web app for now, or <Link to="/partners">see how pharmacies join</Link>.</p>}
-          <p className="st-note">The phone preview shows the NearPill Android app. Prices are in Philippine pesos (₱) and pickup dates use Manila time (UTC+8).</p>
         </div>
         <div className="st-hero-art"><PhoneMockup /></div>
       </div>
