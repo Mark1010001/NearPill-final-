@@ -3,7 +3,9 @@ import 'package:nearpill/widgets/np_icon.dart';
 import 'package:provider/provider.dart';
 
 import '../features/auth/presentation/auth_view_model.dart';
+import 'account_widgets.dart';
 import 'forgot_password_screen.dart';
+import 'help_support_screen.dart';
 import 'policies_screen.dart';
 import 'profile_style.dart';
 
@@ -50,7 +52,7 @@ class SettingsScreen extends StatelessWidget {
     backgroundColor: profileMint,
     appBar: profileAppBar('Settings'),
     body: ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
         const _SectionLabel('Account & security'),
         Container(
@@ -58,13 +60,15 @@ class SettingsScreen extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
-              _SettingsRow(
+              AccountRow(
                 icon: NpIcons.mail_outline,
                 title: 'Email',
                 subtitle: email.isEmpty ? 'Not available' : email,
+                // Sign-up confirms the address with a code, so it is verified.
+                trailing: email.isEmpty ? null : const VerifiedChip(),
               ),
-              const _RowDivider(),
-              _SettingsRow(
+              const AccountRowDivider(),
+              AccountRow(
                 key: const Key('change-password'),
                 icon: NpIcons.key_outlined,
                 title: 'Change password',
@@ -75,44 +79,43 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              const _RowDivider(),
-              _SettingsRow(
+              const AccountRowDivider(),
+              AccountRow(
                 key: const Key('sign-out-all'),
                 icon: NpIcons.devices_outlined,
                 title: 'Sign out of all devices',
                 subtitle: 'Ends every session on every device.',
                 onTap: () => _signOutEverywhere(context),
               ),
-              const _RowDivider(),
-              _SettingsRow(
-                icon: NpIcons.delete_outline,
-                iconColor: profileDanger,
-                iconBackground: const Color(0xFFFFE4E1),
-                title: 'Delete account',
-                titleColor: profileDanger,
-                subtitle: 'Permanently remove your NearPill account.',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => DeleteAccountScreen(
-                      onAccountDeleted: onAccountDeleted,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ),
         const SizedBox(height: 20),
-        const _SectionLabel('Help'),
+        const _SectionLabel('Help & legal'),
         Container(
           decoration: profileCardDecoration(),
           clipBehavior: Clip.antiAlias,
-          child: _SettingsRow(
-            icon: NpIcons.privacy_tip_outlined,
-            title: 'Privacy and service information',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PoliciesScreen()),
-            ),
+          child: Column(
+            children: [
+              AccountRow(
+                key: const Key('help-support'),
+                icon: NpIcons.chat_bubble_outline,
+                title: 'Help & Support',
+                subtitle: 'Contact us about an order or your account.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+                ),
+              ),
+              const AccountRowDivider(),
+              AccountRow(
+                key: const Key('privacy-terms'),
+                icon: NpIcons.privacy_tip_outlined,
+                title: 'Privacy, cancellations and terms',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PoliciesScreen()),
+                ),
+              ),
+            ],
           ),
         ),
         if (onSignOut != null) ...[
@@ -128,7 +131,9 @@ class SettingsScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(24),
                 ),
               ),
-              onPressed: () => onSignOut!(),
+              onPressed: () async {
+                if (await confirmSignOut(context)) await onSignOut!();
+              },
               icon: const NpIcon(NpIcons.logout),
               label: const Text(
                 'Sign out',
@@ -137,92 +142,34 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ],
+        // Danger zone: far below the everyday actions so it is never tapped by accident.
+        const SizedBox(height: 40),
+        const _SectionLabel('Danger zone'),
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF4F2),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: const Color(0xFFF3C9C4)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: AccountRow(
+            key: const Key('delete-account'),
+            icon: NpIcons.delete_outline,
+            iconColor: profileDanger,
+            iconBackground: const Color(0xFFFFE4E1),
+            title: 'Delete account',
+            titleColor: profileDanger,
+            subtitle: 'Permanently remove your NearPill account.',
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    DeleteAccountScreen(onAccountDeleted: onAccountDeleted),
+              ),
+            ),
+          ),
+        ),
       ],
     ),
-  );
-}
-
-class _SettingsRow extends StatelessWidget {
-  const _SettingsRow({
-    super.key,
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.onTap,
-    this.iconColor = profileDeepGreen,
-    this.iconBackground = const Color(0xFFD6F5E3),
-    this.titleColor = profileInk,
-  });
-
-  final NpIconData icon;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onTap;
-  final Color iconColor;
-  final Color iconBackground;
-  final Color titleColor;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 64),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: iconBackground,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: NpIcon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: titleColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: const TextStyle(color: profileMuted, fontSize: 13),
-                    ),
-                ],
-              ),
-            ),
-            if (onTap != null)
-              NpIcon(
-                NpIcons.chevron_right,
-                color: titleColor == profileDanger
-                    ? profileDanger
-                    : profileMuted,
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-class _RowDivider extends StatelessWidget {
-  const _RowDivider();
-  @override
-  Widget build(BuildContext context) => const Divider(
-    height: 1,
-    indent: 70,
-    endIndent: 16,
-    color: Color(0xFFE3EFE8),
   );
 }
 
@@ -269,23 +216,7 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
   Future<bool> _confirm() async =>
       await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Delete your account?'),
-          content: const Text(
-            'This cannot be undone. You will be signed out everywhere.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Keep account'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: TextButton.styleFrom(foregroundColor: _danger),
-              child: const Text('Delete account'),
-            ),
-          ],
-        ),
+        builder: (_) => const _TypeDeleteDialog(),
       ) ??
       false;
 
@@ -390,4 +321,63 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       ],
     ),
   );
+}
+
+/// Final step of deleting an account: the red button stays off until the
+/// person types DELETE.
+class _TypeDeleteDialog extends StatefulWidget {
+  const _TypeDeleteDialog();
+
+  @override
+  State<_TypeDeleteDialog> createState() => _TypeDeleteDialogState();
+}
+
+class _TypeDeleteDialogState extends State<_TypeDeleteDialog> {
+  final _typed = TextEditingController();
+
+  @override
+  void dispose() {
+    _typed.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = _typed.text.trim() == 'DELETE';
+    return AlertDialog(
+      title: const Text('Delete your account?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('This cannot be undone. You will be signed out everywhere.'),
+          const SizedBox(height: 16),
+          TextField(
+            key: const Key('type-delete'),
+            controller: _typed,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: const InputDecoration(
+              labelText: 'Type DELETE to confirm',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Keep account'),
+        ),
+        TextButton(
+          onPressed: ready ? () => Navigator.of(context).pop(true) : null,
+          style: TextButton.styleFrom(foregroundColor: _danger),
+          child: const Text('Delete account'),
+        ),
+      ],
+    );
+  }
 }

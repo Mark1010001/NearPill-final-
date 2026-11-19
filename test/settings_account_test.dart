@@ -60,8 +60,10 @@ void main() {
       ),
     );
     expect(find.text('ana@example.com'), findsOneWidget);
-    expect(find.text('Privacy and service information'), findsOneWidget);
-    await tester.tap(find.text('Delete account'));
+    expect(find.text('Privacy, cancellations and terms'), findsOneWidget);
+    expect(find.text('Verified'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('delete-account')));
+    await tester.tap(find.byKey(const Key('delete-account')));
     await tester.pumpAndSettle();
     expect(find.text('Delete my account'), findsOneWidget);
     expect(find.text('Use Google instead'), findsNothing);
@@ -101,6 +103,23 @@ void main() {
 
     await tester.tap(find.text('Delete my account'));
     await tester.pumpAndSettle();
+    // The red button stays off until DELETE is typed.
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'Delete account'))
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(find.byKey(const Key('type-delete')), 'delete');
+    await tester.pump();
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, 'Delete account'))
+          .onPressed,
+      isNull,
+    );
+    await tester.enterText(find.byKey(const Key('type-delete')), 'DELETE');
+    await tester.pump();
     await tester.tap(find.widgetWithText(TextButton, 'Delete account'));
     await tester.pumpAndSettle();
     expect(seen.single.data, {'password': 'correct-password'});
@@ -128,6 +147,8 @@ void main() {
     await tester.enterText(find.byType(TextField), 'pw');
     await tester.tap(find.text('Delete my account'));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('type-delete')), 'DELETE');
+    await tester.pump();
     await tester.tap(find.widgetWithText(TextButton, 'Delete account'));
     await tester.pumpAndSettle();
     expect(

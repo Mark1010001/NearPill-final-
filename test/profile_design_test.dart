@@ -143,6 +143,39 @@ void main() {
     expect(find.text('My Profile'), findsOneWidget);
   });
 
+  testWidgets('the whole header card opens edit, and help, legal and sign out are reachable', (
+    tester,
+  ) async {
+    var left = 0;
+    await tester.pumpWidget(
+      _app(ProfileScreen(onLogout: () => left++), _Auth(), []),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-header')));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Account Details'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('profile-help')));
+    expect(find.text('Help & Support'), findsOneWidget);
+    expect(find.text('Privacy, cancellations and terms'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profile-help')));
+    await tester.pumpAndSettle();
+    expect(find.text('Contact support'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('profile-sign-out')));
+    await tester.tap(find.byKey(const Key('profile-sign-out')));
+    await tester.pumpAndSettle();
+    expect(find.text('Sign out?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(left, 0);
+    expect(find.text('My Profile'), findsOneWidget);
+  });
+
   testWidgets('settings has change password, sign out everywhere and sign out', (
     tester,
   ) async {
@@ -162,13 +195,19 @@ void main() {
       ),
     );
     expect(find.text('Change password'), findsOneWidget);
-    expect(find.text('Delete account'), findsOneWidget);
+    expect(find.text('Delete account', skipOffstage: false), findsOneWidget);
     await tester.tap(find.byKey(const Key('sign-out-all')));
     await tester.pumpAndSettle();
     expect(auth.logoutAllCalls, 1);
     expect(everywhere, 1);
     await tester.ensureVisible(find.byKey(const Key('sign-out')));
     await tester.tap(find.byKey(const Key('sign-out')));
+    await tester.pumpAndSettle();
+    // Signing out now asks first.
+    expect(find.text('Sign out?'), findsOneWidget);
+    expect(signedOut, 0);
+    await tester.tap(find.widgetWithText(TextButton, 'Sign out'));
+    await tester.pumpAndSettle();
     expect(signedOut, 1);
     await tester.tap(find.byKey(const Key('change-password')));
     await tester.pumpAndSettle();

@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../models/order_model.dart';
 import '../models/user_model.dart';
 import '../features/auth/presentation/auth_view_model.dart';
+import 'account_widgets.dart';
+import 'help_support_screen.dart';
 import 'policies_screen.dart';
 import '../features/cart/presentation/cart_view_model.dart';
 import '../features/orders/presentation/order_view_model.dart';
@@ -246,13 +248,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _buildLogisticsCard(),
                       const SizedBox(height: 8),
                     ],
-                    TextButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PoliciesScreen(),
-                        ),
-                      ),
-                      child: const Text('Privacy, cancellations and terms'),
+                    _buildSupportCard(),
+                    const SizedBox(height: 24),
+                    SignOutOutlinedButton(
+                      key: const Key('profile-sign-out'),
+                      onPressed: () async {
+                        if (await confirmSignOut(context)) await _logout();
+                      },
                     ),
                   ],
                 ),
@@ -372,8 +374,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildProfileHeader() {
     return Container(
       decoration: profileCardDecoration(),
-      padding: const EdgeInsets.all(16),
-      child: Row(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const Key('profile-header'),
+          borderRadius: BorderRadius.circular(24),
+          onTap: _editContactDetails,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
         children: [
           CircleAvatar(
             radius: 32,
@@ -415,8 +424,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+          ),
+        ),
+      ),
     );
   }
+
+  /// Law of Common Region: help and legal links sit together in one card.
+  Widget _buildSupportCard() => Container(
+    decoration: profileCardDecoration(),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      children: [
+        AccountRow(
+          key: const Key('profile-help'),
+          icon: NpIcons.chat_bubble_outline,
+          title: 'Help & Support',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+          ),
+        ),
+        const AccountRowDivider(),
+        AccountRow(
+          key: const Key('profile-privacy'),
+          icon: NpIcons.privacy_tip_outlined,
+          title: 'Privacy, cancellations and terms',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PoliciesScreen()),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildIdentityCard() {
     return Container(
