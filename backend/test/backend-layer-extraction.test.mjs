@@ -74,7 +74,7 @@ test('MySQL identity adapter implements named persistence operations and keeps S
   assert.deepEqual(await repository.findRecoveryAccountByEmail('a@example.com'), { id: 4, email: 'a@example.com' });
   assert.equal((await repository.findAuthorizationUserById(4)).role, 'admin');
   assert.equal((await repository.findProfileById(4)).id, 4);
-  assert.equal((await repository.updateProfile(4, { phone: '123', birthDate: '2000-01-01' })).id, 4);
+  assert.equal((await repository.updateProfile(4, { phone: '123' })).id, 4);
   assert.ok(calls.length >= 9);
   assert.match(repositorySource, /INSERT INTO users/);
 });
@@ -104,7 +104,7 @@ test('identity use cases preserve registration, durable verification, profile an
     async updateProfile(id, update) {
       const user = users.get(id);
       if (!user) return null;
-      Object.assign(user, { phone: update.phone, birthdate: update.birthDate });
+      Object.assign(user, { phone: update.phone });
       return user;
     },
   };
@@ -158,7 +158,7 @@ test('identity use cases preserve registration, durable verification, profile an
   assert.equal(registered.status, 201);
   assert.equal(users.get(1).password, 'hash:secret1');
   assert.equal((await identity.getProfile(1)).body.email, 'user@example.com');
-  assert.equal((await identity.updateProfile(1, { phone: '0917', birthDate: '2000-01-01' })).body.phone, '0917');
+  assert.equal((await identity.updateProfile(1, { phone: '0917' })).body.phone, '0917');
   const refreshed = await identity.refresh({ refreshToken: registered.body.refreshToken });
   assert.equal(refreshed.status, 200);
   assert.notEqual(refreshed.body.refreshToken, registered.body.refreshToken);

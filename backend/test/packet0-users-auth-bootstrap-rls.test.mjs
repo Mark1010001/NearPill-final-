@@ -295,10 +295,10 @@ test('NP-031 baseline: authenticated profile read scopes users lookup to the cal
 
 test('NP-031 baseline: profile update and reread use the same verified actor in separate transactions', async () => {
   const observed = recordingPool((sql) => sql.includes('FROM users WHERE id = $1 LIMIT 1')
-    ? [{ id: 17, phone: '09998887777', birthdate: '2000-01-01', role: 'customer' }] : []);
+    ? [{ id: 17, phone: '09998887777', role: 'customer' }] : []);
   const repo = createPostgresIdentityRepository(observed.pool);
   const updated = await runWithDatabaseActor({ userId: 17, role: 'customer' }, () =>
-    repo.updateProfile(17, { phone: '09998887777', birthDate: '2000-01-01' }));
+    repo.updateProfile(17, { phone: '09998887777' }));
   assert.equal(updated?.id, 17);
   assert.equal(observed.releases, 2, 'current profile write and reread each use their own transaction');
   const first = observed.calls.slice(0, 5);
@@ -307,8 +307,8 @@ test('NP-031 baseline: profile update and reread use the same verified actor in 
   expectTransaction(second);
   assert.deepEqual(first[1].params, ['17', 'customer', '']);
   assert.deepEqual(second[1].params, ['17', 'customer', '']);
-  assert.match(first[2].sql, /^UPDATE users SET phone = \$1, birthdate = \$2 WHERE id = \$3$/);
-  assert.deepEqual(first[2].params, ['09998887777', '2000-01-01', 17]);
+  assert.match(first[2].sql, /^UPDATE users SET phone = \$1 WHERE id = \$2$/);
+  assert.deepEqual(first[2].params, ['09998887777', 17]);
   assert.match(second[2].sql, /FROM users WHERE id = \$1 LIMIT 1/);
   assert.deepEqual(second[2].params, [17]);
 });
