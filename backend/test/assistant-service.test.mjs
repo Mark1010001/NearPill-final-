@@ -85,3 +85,16 @@ test('a retired model name falls through to the next one', async () => {
   assert.match(urls[0], /gemini-2\.5-flash:/);
   assert.match(urls[1], /gemini-flash-latest:/);
 });
+
+test('an overloaded model (503) falls through to the next one', async () => {
+  const urls = [];
+  const fetchImpl = async (url) => {
+    urls.push(url);
+    return urls.length === 1 ? { ok: false, status: 503, json: async () => ({}) }
+      : { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) };
+  };
+  const service = createAssistantService({ apiKey: 'k', orders, catalog, fetchImpl });
+  const result = await service.chat(1, { messages: [{ role: 'user', content: 'hello there' }] });
+  assert.equal(result.body.reply, 'ok');
+  assert.match(urls[1], /gemini-flash-latest:/);
+});

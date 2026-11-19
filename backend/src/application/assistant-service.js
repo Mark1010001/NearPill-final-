@@ -135,8 +135,11 @@ export function createAssistantService({
         },
       });
       let response;
-      // Google retires model names; if one is gone (404) try the next one.
-      for (const name of [...new Set([model, ...fallbackModels])]) {
+      // Google retires model names (404) and sometimes a model is overloaded (503/500/429);
+      // in those cases try the next model before giving up.
+      const names = [...new Set([model, ...fallbackModels])];
+      for (const [index, name] of names.entries()) {
+        const last = index === names.length - 1;
         try {
           response = await fetchImpl(`${GEMINI_URL}/${encodeURIComponent(name)}:generateContent`, {
             method: 'POST',
@@ -145,11 +148,12 @@ export function createAssistantService({
             signal: AbortSignal.timeout(20_000),
           });
         } catch (error) {
-          console.error('assistant_provider_unreachable', { name: error?.name });
-          return failure(503, 'The assistant is not available right now.');
+          console.error('assistant_provider_unreachable', { name: error?.name, model: name });
+          if (last) return failure(503, 'The assistant is not available right now.');
+          continue;
         }
-        if (response.status !== 404) break;
-        console.error('assistant_model_not_found', { model: name });
+        if (response.ok || ![404, 429, 500, 502, 503, 504].includes(response.status)) break;
+        console.error('assistant_model_skipped', { model: name, status: response.status });
       }
       if (!response.ok) {
         console.error('assistant_provider_error', { status: response.status });
