@@ -25,6 +25,8 @@ import { createStockSubmissionService } from '../application/stock-submission-se
 import { createOrderService } from '../application/order-service.js';
 import { createPaymentSubscriptionService } from '../application/payment-subscription-service.js';
 import { createReportService } from '../application/report-service.js';
+import { createRetentionService } from '../application/retention-service.js';
+import { createPostgresRetentionRepository } from '../infrastructure/postgres/retention-repository.js';
 import { createPaymentProviderRegistry } from '../ports/payment-provider.js';
 import { createPaymentPolicy, minimumPharmacyCheckoutCentavos } from '../domain/payments/policy.js';
 import { createHttpApp } from '../http/app.ts';
@@ -140,6 +142,7 @@ const assistant = createAssistantService({
   apiKey: env.assistant.geminiApiKey, model: env.assistant.model, orders, catalog,
 });
 const reports = createReportService({ repository: createPostgresReportRepository(pool) });
+const retention = createRetentionService({ repository: createPostgresRetentionRepository(pool) });
 
 const services = Object.freeze({
   auth, loginSecurity, recoverySecurity, recovery, identity, login, memberships,
@@ -163,6 +166,17 @@ const prescriptionTimer = prescriptions ? setInterval(() => {
   void expirePrescriptionPhotos();
 }, 60_000) : undefined;
 prescriptionTimer?.unref();
+async function purgeOldLogs() {
+  try {
+    const result = await runWithDatabaseActor({ role: 'system' }, () => retention.run());
+    console.log('log_retention_done', { cutoff: result.cutoff, ...result.counts });
+  } catch (error: any) {
+    console.error('log_retention_failed', { code: error?.code });
+  }
+}
+await purgeOldLogs();
+const retentionTimer = setInterval(() => { void purgeOldLogs(); }, 24 * 60 * 60 * 1000);
+retentionTimer.unref();
 let paymentCursor = 0;
 let expiryRunning = false;
 const expirationTimer = setInterval(
@@ -187,6 +201,7 @@ const server = serve({ fetch: app.fetch, port: env.port, hostname: env.host }, (
 async function shutdown(signal: string) {
   console.log(`${signal} received. Shutting down server...`);
   clearInterval(expirationTimer);
+  clearInterval(retentionTimer);
   clearInterval(prescriptionTimer);
   await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   recovery.close();
