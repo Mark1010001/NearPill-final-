@@ -26,7 +26,7 @@ test('a question reaches the model with the rules, the customer\'s orders, cart 
   assert.equal(result.status, 200);
   assert.equal(result.body.reply, 'Your order NP-31 is ready for pickup.');
   const [call] = calls;
-  assert.match(call.url, /gemini-2\.5-flash:generateContent$/);
+  assert.match(call.url, /gemini-3\.8-flash:generateContent$/);
   assert.equal(call.init.headers['x-goog-api-key'], 'test-key');
   assert.ok(!call.url.includes('test-key'));
   const system = call.body.systemInstruction.parts[0].text;
@@ -82,8 +82,8 @@ test('a retired model name falls through to the next one', async () => {
   const service = createAssistantService({ apiKey: 'k', orders, catalog, fetchImpl });
   const result = await service.chat(1, { messages: [{ role: 'user', content: 'hello there' }] });
   assert.equal(result.body.reply, 'ok');
-  assert.match(urls[0], /gemini-2\.5-flash:/);
-  assert.match(urls[1], /gemini-flash-latest:/);
+  assert.match(urls[0], /gemini-3\.8-flash:/);
+  assert.match(urls[1], /gemini-3\.6-flash:/);
 });
 
 test('an overloaded model (503) falls through to the next one', async () => {
@@ -96,5 +96,19 @@ test('an overloaded model (503) falls through to the next one', async () => {
   const service = createAssistantService({ apiKey: 'k', orders, catalog, fetchImpl });
   const result = await service.chat(1, { messages: [{ role: 'user', content: 'hello there' }] });
   assert.equal(result.body.reply, 'ok');
-  assert.match(urls[1], /gemini-flash-latest:/);
+  assert.match(urls[1], /gemini-3\.6-flash:/);
+});
+
+test('a model that rejects the thinking setting is asked again without it', async () => {
+  const bodies = [];
+  const fetchImpl = async (url, init) => {
+    bodies.push(JSON.parse(init.body));
+    return bodies.length === 1 ? { ok: false, status: 400, json: async () => ({}) }
+      : { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }) };
+  };
+  const service = createAssistantService({ apiKey: 'k', orders, catalog, fetchImpl });
+  const result = await service.chat(1, { messages: [{ role: 'user', content: 'hello there' }] });
+  assert.equal(result.body.reply, 'ok');
+  assert.ok(bodies[0].generationConfig.thinkingConfig);
+  assert.equal(bodies[1].generationConfig.thinkingConfig, undefined);
 });
