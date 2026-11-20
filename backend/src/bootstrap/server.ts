@@ -10,10 +10,11 @@ import { createPostgresOrderRepository } from '../infrastructure/postgres/order-
 import { createPrescriptionReviews } from '../infrastructure/postgres/prescription-reviews.js';
 import { createPostgresPaymentSubscriptionRepository } from '../infrastructure/postgres/payment-subscription-repository.js';
 import { createPostgresReportRepository } from '../infrastructure/postgres/report-repository.js';
-import { createAuthService } from '../application/auth-service.js';
+import { createAuthService, useSecureCookies } from '../application/auth-service.js';
 import { createDurableLoginSecurity } from '../application/durable-login-security.js';
 import { createIdentityService } from '../application/identity-service.js';
 import { createLoginService } from '../application/login-service.js';
+import { createAdminSecondFactor } from '../application/admin-second-factor.js';
 import { createPasswordRecoveryService } from '../application/password-recovery-service.js';
 import { createMembershipService } from '../application/membership-service.js';
 import { createAssistantService } from '../application/assistant-service.js';
@@ -94,7 +95,7 @@ async function verifyDatabase() {
 
 const identityRepository = createPostgresIdentityRepository(pool);
 const securityRepository = createPostgresSecurityRepository(pool);
-const auth = createAuthService({ repository: securityRepository, production: env.nodeEnv === 'production' });
+const auth = createAuthService({ repository: securityRepository, production: useSecureCookies(env.nodeEnv, process.env.PUBLIC_APP_URL) });
 const loginSecurity = createDurableLoginSecurity({ repository: securityRepository, namespace: 'login' });
 const recoverySecurity = createDurableLoginSecurity({ repository: securityRepository, namespace: 'recovery' });
 const recovery = createPasswordRecoveryService({
@@ -105,7 +106,18 @@ const recovery = createPasswordRecoveryService({
   publicUrl: env.publicAppUrl,
 });
 const identity = createIdentityService({ repository: identityRepository, securityRepository, auth, hashPassword, sendVerificationEmail, sendExistingAccountNotice, signupLimits: securityRepository });
-const login = createLoginService({ repository: identityRepository, auth, security: loginSecurity, recovery });
+// Administrators confirm each sign-in with an emailed code. On by default on the public (staging/production) deployments;
+// set ADMIN_SECOND_FACTOR=off there only as an emergency switch if email delivery is down.
+const secondFactor = createAdminSecondFactor({
+  securityRepository,
+  enabled: (env.nodeEnv === 'staging' || env.nodeEnv === 'production') && process.env.ADMIN_SECOND_FACTOR !== 'off',
+  sendCodeEmail: async (to: string, code: string) => {
+    const sent = await sendEmail(to, 'Your NearPill admin sign-in code',
+      `Your NearPill administrator sign-in code is ${code}. It expires in 10 minutes and works once.\n\nIf you did not try to sign in, change your password now: someone has your password.`);
+    if (!sent) throw new Error('Sign-in code email could not be sent.');
+  },
+});
+const login = createLoginService({ repository: identityRepository, auth, security: loginSecurity, recovery, secondFactor });
 const memberships = createMembershipService({ repository: securityRepository, hashPassword, sendSetupEmail: (user: { id: number; email: string }) => recovery.invite(user) });
 const catalog = createCatalogService({
   repository: createPostgresCatalogRepository(pool), routePlanner: createGoogleRoutePlanner(env.routesApiKey),
@@ -148,7 +160,10 @@ const retention = createRetentionService({ repository: createPostgresRetentionRe
 const partnerships = createPartnershipLifecycleService({
   repository: createPostgresPartnershipRepository(pool),
   listMembers: (drugstoreId: number) => securityRepository.listDrugstoreMemberships(drugstoreId),
-  sendEmail,
+  // sendEmail answers false when Brevo refuses; throwing keeps that reminder unrecorded so the next run retries it.
+  sendEmail: async (to: string, subject: string, text: string) => {
+    if (!(await sendEmail(to, subject, text))) throw new Error('Reminder email could not be sent.');
+  },
 });
 
 const services = Object.freeze({

@@ -63,3 +63,21 @@ test('emailing login details sends a set-password link to an active partner and 
   const unavailable = createMembershipService({ repository, hashPassword: async () => 'h' });
   assert.equal((await unavailable.sendLoginEmail(1, 4, 77)).status, 503);
 });
+
+test('without a password the server makes a random one that nobody sees, and the partner is told to use the emailed link', async () => {
+  const { repository, calls } = repo();
+  const hashed = [];
+  const service = createMembershipService({ repository, hashPassword: async (password) => { hashed.push(password); return `hashed:${password.length}`; } });
+  const first = await service.createPartnerAccount(1, 4, { email: 'owner@pharmacy.ph' });
+  const second = await service.createPartnerAccount(1, 4, { email: 'other@pharmacy.ph' });
+  assert.equal(first.status, 201);
+  assert.equal(hashed.length, 2);
+  assert.ok(hashed[0].length >= 30, 'a long random password');
+  assert.notEqual(hashed[0], hashed[1], 'a different password every time');
+  assert.equal(JSON.stringify(first.body).includes(hashed[0]), false, 'never returned');
+  assert.equal(JSON.stringify(calls).includes(hashed[0]), false, 'only the hash reaches the repository');
+  assert.deepEqual(first.body, { userId: 77, drugstoreId: 4, email: 'owner@pharmacy.ph', membershipRole: 'owner', role: 'partner' });
+  assert.equal(second.status, 201);
+  assert.equal(PartnerAccountSchema.safeParse({ email: 'owner@pharmacy.ph' }).success, true);
+  assert.equal(PartnerAccountSchema.safeParse({ email: 'owner@pharmacy.ph', password: 'short' }).success, false, 'a supplied password is still checked');
+});

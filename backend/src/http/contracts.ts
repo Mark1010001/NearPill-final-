@@ -36,7 +36,7 @@ export const RegisterSchema = z.object({
     context.addIssue({ code: 'custom', path: ['password'], message: 'Do not use your name or email as your password.' });
   }
 });
-export const LoginSchema = z.object({ email, password: loginPassword }).strict();
+export const LoginSchema = z.object({ email, password: loginPassword, code: z.string().regex(/^\d{6}$/).optional() }).strict();
 export const ChangePasswordSchema = z.object({ currentPassword: loginPassword, password: signupPassword }).strict();
 export const DeleteAccountSchema = z.object({
   password: z.string().min(1).max(255),
@@ -72,7 +72,7 @@ export const StockSubmissionQuerySchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
 });
 export const GoLiveSchema = z.object({ live: z.boolean() }).strict();
-export const PartnerAccountSchema = z.object({ email, password: signupPassword }).strict();
+export const PartnerAccountSchema = z.object({ email, password: signupPassword.optional() }).strict();
 export const MembershipUpsertSchema = z.object({
   userId: z.coerce.number().int().positive(),
   membershipRole: z.enum(['owner', 'manager', 'staff']),
@@ -271,7 +271,7 @@ export const SalesQuerySchema = z.object({
   endDate: z.string().max(80).optional(),
 }).passthrough();
 
-export const LoginResponseSchema = z.object({
+const LoginSessionResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
   csrfToken: z.string(),
@@ -282,7 +282,10 @@ export const LoginResponseSchema = z.object({
     role: z.string(),
   }),
   passwordNeedsUpdate: z.boolean().optional(),
-}).openapi('LoginResponse');
+});
+// Administrators get this first: a code was emailed, and the same request must be repeated with that code.
+const LoginCodeRequiredSchema = z.object({ verificationRequired: z.literal(true), message: z.string() });
+export const LoginResponseSchema = z.union([LoginSessionResponseSchema, LoginCodeRequiredSchema]).openapi('LoginResponse');
 export const RefreshResponseSchema = z.object({ accessToken: z.string(), refreshToken: z.string() })
   .openapi('RefreshResponse');
 export const HealthSchema = z.object({ status: z.string(), database: z.string().optional() })

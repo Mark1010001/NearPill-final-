@@ -36,7 +36,6 @@ export function StaffAccountsPage() {
   const [createdId, setCreatedId] = useState(0);
   const [justAdded, setJustAdded] = useState<{ drugstoreId: number; userId: number; email: string } | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
-  const [accountPassword, setAccountPassword] = useState('');
   const [done, setDone] = useState('');
   const pharmacies = useQuery({ queryKey: ['admin', 'pharmacies', user?.id], queryFn: api.pharmacies });
   const selected = Number(drugstoreId);
@@ -55,7 +54,7 @@ export function StaffAccountsPage() {
         id = Number(created.store_id ?? created.id);
         setCreatedId(id);
       }
-      const account = await api.createPartnerAccount(id, { email: accountEmail.trim(), password: accountPassword });
+      const account = await api.createPartnerAccount(id, { email: accountEmail.trim() });
       return { drugstoreId: id, userId: Number(account.userId) };
     },
     onSuccess: async ({ drugstoreId: id, userId }) => {
@@ -67,7 +66,7 @@ export function StaffAccountsPage() {
       setDone(mailed
         ? `${name} was added. A login email with a sign-in link and a link to choose a password was sent to ${email}.`
         : `${name} was added with a partner account for ${email}, but the login email could not be sent. Use "Email login details" to try again.`);
-      setForm({ name: '', address: '', latitude: '', longitude: '' }); setCreatedId(0); setAccountEmail(''); setAccountPassword('');
+      setForm({ name: '', address: '', latitude: '', longitude: '' }); setCreatedId(0); setAccountEmail('');
       setDrugstoreId(String(id));
       await Promise.all([pharmacies.refetch(), refresh()]);
     },
@@ -113,8 +112,7 @@ export function StaffAccountsPage() {
           <label>Latitude<input required type="number" min={-90} max={90} step="any" disabled={createdId > 0} value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} /></label>
           <label>Longitude<input required type="number" min={-180} max={180} step="any" disabled={createdId > 0} value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} /></label>
           <label>Email<input type="email" required autoComplete="off" maxLength={254} value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} /></label>
-          <label>Password<input type="password" required minLength={10} maxLength={128} autoComplete="new-password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} /></label>
-          <p className="muted">At least 10 characters with a letter and a number. The pharmacy signs in to the partner portal with this email and password, and can change the password there.</p>
+          <p className="muted">You do not set a password. NearPill emails the pharmacy a sign-in link and a link to choose their own password.</p>
           <button disabled={save.isPending}>{save.isPending ? 'Adding…' : createdId > 0 ? 'Retry partner account' : 'Add pharmacy'}</button>
           <FormFeedback error={save.error} success={done} />
           {justAdded && <button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: justAdded.drugstoreId, userId: justAdded.userId })}>{mail.isPending ? 'Sending…' : `Email login details again to ${justAdded.email}`}</button>}

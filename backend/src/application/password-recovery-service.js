@@ -52,8 +52,10 @@ export function createPasswordRecoveryService({
     });
     const link = new URL(page);
     link.hash = `token=${token}`;
-    await sendEmail(user.email, 'Your NearPill pharmacy account is ready',
+    // sendEmail answers false (it does not throw) when Brevo refuses; an invitation that was not sent must say so.
+    const sent = await sendEmail(user.email, 'Your NearPill pharmacy account is ready',
       `A NearPill pharmacy partner account was created for this email address.\n\nSign in to the partner portal: ${portal.href}\n\nTo choose your own password, use this single-use link, which expires in 3 days:\n${link.href}\n\nIf you were not expecting this email, you can ignore it. Contact nearpillemail.business@gmail.com with any questions.`);
+    if (sent === false) throw new Error('Invitation email could not be sent.');
   }
 
   return Object.freeze({

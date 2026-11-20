@@ -13,7 +13,7 @@ interface SessionContextValue {
   error: Error | null;
   retry: () => void;
   clearSession: () => void;
-  login: (email: string, password: string, remember?: boolean) => Promise<SessionUser>;
+  login: (email: string, password: string, remember?: boolean, code?: string) => Promise<SessionUser>;
   logout: () => Promise<void>;
 }
 
@@ -123,9 +123,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
       error: session.error,
       retry: () => { void session.refetch(); },
       clearSession,
-      login: async (email, password, remember = true) => {
+      login: async (email, password, remember = true, code) => {
         await queryClient.cancelQueries({ queryKey: ['session'] });
-        await api.login(email, password);
+        await api.login(email, password, code);
         setRemember(remember);
         announceSessionChange('sign-in');
         const user = await api.me();

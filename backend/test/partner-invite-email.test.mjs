@@ -10,7 +10,7 @@ test('the partner invitation links to the portal and a single-use password link 
     repository: {},
     securityRepository: { createPasswordResetChallenge: async (challenge) => { challenges.push(challenge); } },
     security: {},
-    sendEmail: async (to, subject, text) => { mails.push({ to, subject, text }); },
+    sendEmail: async (to, subject, text) => { mails.push({ to, subject, text }); return true; },
     publicUrl: 'https://nearpill.xyz',
     now: () => now,
   });
@@ -26,4 +26,16 @@ test('the partner invitation links to the portal and a single-use password link 
   assert.match(mails[0].text, /expires in 3 days/);
   assert.equal(/password:/i.test(mails[0].text), false);
   assert.notEqual(challenges[0].tokenHash, mails[0].text.match(/token=([0-9a-f]{64})/)[1], 'only the hash is stored');
+});
+
+test('an invitation that Brevo refuses to send is reported as a failure, not silently dropped', async () => {
+  const service = createPasswordRecoveryService({
+    repository: {},
+    securityRepository: { createPasswordResetChallenge: async () => {} },
+    security: {},
+    sendEmail: async () => false,
+    publicUrl: 'https://nearpill.xyz',
+    now: () => 1_700_000_000_000,
+  });
+  await assert.rejects(() => service.invite({ id: 77, email: 'owner@pharmacy.ph' }), /could not be sent/);
 });

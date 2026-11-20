@@ -35,6 +35,12 @@ function safeHashEqual(raw, expectedHash) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
+// Session cookies use the Secure flag and the __Host- prefix on production AND on any deployment reached over https.
+// Render runs this app with NODE_ENV=staging behind https://nearpill.xyz, so NODE_ENV alone would leave them off.
+export function useSecureCookies(nodeEnv, publicAppUrl) {
+  return nodeEnv === 'production' || /^https:\/\//i.test(String(publicAppUrl ?? '').trim());
+}
+
 export function createAuthService({ repository, now = Date.now, production = process.env.NODE_ENV === 'production' }) {
   assertSecurityRepository(repository);
 

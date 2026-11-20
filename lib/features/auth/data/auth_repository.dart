@@ -141,9 +141,15 @@ class AuthRepository {
         );
       }
 
-      final authResponse = AuthResponseModel.fromJson(
-        Map<String, dynamic>.from(response.data as Map),
-      );
+      final loginBody = Map<String, dynamic>.from(response.data as Map);
+      // Administrators confirm sign-in with an emailed code, which only the website asks for.
+      if (loginBody['verificationRequired'] == true) {
+        throw AuthException(
+          'Administrator accounts sign in on the NearPill website.',
+        );
+      }
+
+      final authResponse = AuthResponseModel.fromJson(loginBody);
 
       if (authResponse.accessToken != null &&
           authResponse.refreshToken != null) {

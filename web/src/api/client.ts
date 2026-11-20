@@ -26,6 +26,14 @@ import type {
 const API_BASE = '/api/v1';
 type TestPayment = { payment: { paymentStatus: string; paymentPlan?: 'full' | 'deposit' | 'balance'; amountCentavos?: number; checkoutUrl?: string } | null };
 
+/** An administrator's password was right and a code was emailed; sign in again with the same password plus that code. */
+export class CodeRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CodeRequiredError';
+  }
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string, public details?: unknown) {
     super(message);
@@ -70,10 +78,12 @@ function queryString(params: Record<string, string | number | undefined | null>)
 }
 
 export const api = {
-  login: (email: string, password: string) =>
-    request('/auth/login', {
-      method: 'POST', body: JSON.stringify({ email, password }),
-    }),
+  login: async (email: string, password: string, code?: string) => {
+    const result = await request<{ verificationRequired?: boolean; message?: string } | null>('/auth/login', {
+      method: 'POST', body: JSON.stringify(code ? { email, password, code } : { email, password }),
+    });
+    if (result?.verificationRequired) throw new CodeRequiredError(result.message || 'Enter the code we emailed you.');
+  },
   assistantChat: (accountId: string, body: { messages: { role: 'user' | 'assistant'; content: string }[]; cart?: { name: string; quantity: number; pharmacy: string }[] }, signal?: AbortSignal) =>
     request<{ reply: string }>('/assistant/chat', { method: 'POST', signal, headers: { 'X-NearPill-Account': accountId }, body: JSON.stringify(body) }),
   deleteAccount: (accountId: string, body: { password: string }) =>
@@ -149,7 +159,7 @@ export const api = {
     request(`/partner/prescription-reviews/${id}${queryString({ drugstoreId })}`, { method: 'PUT', headers: { 'X-NearPill-Account': accountId }, body: JSON.stringify(reason ? { decision, version, reason } : { decision, version }) }),
   metrics: () => request<Metrics>('/admin/metrics'),
   sendLoginEmail: (drugstoreId: number, userId: number) => request(`/admin/pharmacies/${drugstoreId}/memberships/${userId}/login-email`, { method: 'POST' }),
-  createPartnerAccount: (drugstoreId: number, body: { email: string; password: string }) => request<{ userId: number }>(`/admin/pharmacies/${drugstoreId}/partner-accounts`, { method: 'POST', body: JSON.stringify(body) }),
+  createPartnerAccount: (drugstoreId: number, body: { email: string; password?: string }) => request<{ userId: number }>(`/admin/pharmacies/${drugstoreId}/partner-accounts`, { method: 'POST', body: JSON.stringify(body) }),
   pharmacies: () => request<Pharmacy[]>('/admin/pharmacies'),
   createPharmacy: (body: Record<string, unknown>) => request('/admin/pharmacies', { method: 'POST', body: JSON.stringify(body) }),
   goLiveChecklist: (id: number) => request<GoLiveChecklist>(`/admin/pharmacies/${id}/go-live`),
