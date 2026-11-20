@@ -3,21 +3,20 @@ import 'package:dio/dio.dart';
 import '../../../config/api_config.dart';
 import '../../../core/api/api_client.dart';
 import '../../../models/order_model.dart';
+import '../order_payment.dart';
+import '../prescription_source.dart';
 
-typedef OrderPayment = ({
-  String? status,
-  String? plan,
-  int? amountCentavos,
-  String? orderStatus,
-});
+export '../order_payment.dart';
 
-class OrderRepository {
+class OrderRepository implements PrescriptionSource {
   OrderRepository({required this.apiClient});
 
   final ApiClient apiClient;
 
+  @override
   Future<int?> currentAccountId() => apiClient.sessionManager.getUserId();
 
+  @override
   Future<({String? status, String? reason})> prescriptionStatus(
     int account,
     int pharmacy,
@@ -35,6 +34,7 @@ class OrderRepository {
     );
   }
 
+  @override
   Future<void> submitPrescription(
     int account,
     int pharmacy,

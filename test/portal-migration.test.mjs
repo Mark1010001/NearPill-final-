@@ -36,10 +36,18 @@ test('web surface is React/TypeScript/Vite and legacy browser globals are retire
 test('portal has no editable browser role/tenant authority or unsafe HTML rendering', async () => {
   const sourceFiles = (await walk('web/src')).filter((file) => /\.(?:ts|tsx)$/.test(file));
   const source = (await Promise.all(sourceFiles.map(read))).join('\n');
-  assert.doesNotMatch(source, /localStorage|sessionStorage/);
+  // Browser storage is allowed for harmless preferences (cart, favourites, sidebar,
+  // Remember me, onboarding). It must never hold role, tenant, token or session authority.
+  const storageKeys = [...source.matchAll(/(?:local|session)Storage\.(?:get|set|remove)Item\(\s*([^,)]*)/g)].map((match) => match[1]);
+  assert.ok(storageKeys.length > 0);
+  for (const key of storageKeys) assert.doesNotMatch(key, /role|tenant|token|session|drugstore|admin|auth/i, `storage key ${key}`);
+  assert.doesNotMatch(source, /(?:local|session)Storage\.(?:get|set)Item\([^)]*,\s*[^)]*(?:accessToken|refreshToken|role|tenantId|drugstoreId)/);
   assert.doesNotMatch(source, /dangerouslySetInnerHTML|\.innerHTML\s*=/);
   assert.doesNotMatch(source, /CoreDB|TenantEvent|tenant-engine/i);
-  assert.doesNotMatch(source, /password123|demo@|admin@nearpill/i);
+  assert.doesNotMatch(source, /demo@|admin@nearpill/i);
+  // "password123" is allowed only inside the list of weak passwords the sign-up form rejects.
+  const withoutWeakList = source.replace(/const COMMON_PASSWORDS = new Set\(\[[^\]]*\]\)/, '');
+  assert.doesNotMatch(withoutWeakList, /password123/i);
 });
 
 test('web API uses same-origin v1 session and CSRF semantics', async () => {
@@ -78,7 +86,13 @@ test('partner order repository avoids parent orders table so membership RLS rema
   const method = repository.slice(start, repository.indexOf('\n    },', start) + 7);
   assert.match(method, /order_drugstores/);
   assert.match(method, /order_items/);
-  assert.doesNotMatch(method, /\bFROM\s+orders\b|\bJOIN\s+orders\b/i);
+  // Migration 0024 gives partners an explicit, membership-scoped read of the
+  // orders they fulfil (orders_partner_pickup_select), so the query may join
+  // orders for pickup and payment details. It must still start from
+  // order_drugstores and stay scoped to the pharmacy.
+  assert.doesNotMatch(method, /\bFROM\s+orders\b/i);
+  assert.match(method, /FROM\s+order_drugstores\s+od/i);
+  assert.match(method, /WHERE\s+od\.drugstore_id\s*=\s*\?/i);
 });
 
 test('web production path builds an artifact and Compose no longer mounts raw source', async () => {

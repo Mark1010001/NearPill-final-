@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:nearpill/widgets/np_icon.dart';
 import 'package:flutter/services.dart';
 
-import '../../features/orders/data/order_repository.dart';
+import '../../features/orders/prescription_source.dart';
 
 class PrescriptionReview extends StatefulWidget {
   const PrescriptionReview({
@@ -18,7 +18,7 @@ class PrescriptionReview extends StatefulWidget {
     this.onStatus,
   });
 
-  final OrderRepository repository;
+  final PrescriptionSource repository;
   final int pharmacy, medicine;
   final String pharmacyName;
 

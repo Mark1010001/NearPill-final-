@@ -56,8 +56,8 @@ test('refresh is single-flight and atomically persists both rotated credentials'
   assert.match(apiClient, /ApiConfig\.apiPath\('\/auth\/refresh'\)/);
   assert.match(apiClient, /newAccessToken/);
   assert.match(apiClient, /newRefreshToken/);
-  assert.match(apiClient, /saveTokens\(\s*newAccessToken,\s*newRefreshToken/s);
-  assert.doesNotMatch(apiClient, /saveTokens\(\s*newAccessToken,\s*refreshToken/s);
+  assert.match(apiClient, /replaceTokensIfCurrent\(\s*refreshToken,\s*newAccessToken,\s*newRefreshToken/s);
+  assert.doesNotMatch(apiClient, /replaceTokensIfCurrent\(\s*refreshToken,\s*newAccessToken,\s*refreshToken/s);
 });
 
 test('cart and checkout are user-scoped, centavo based, one-pharmacy and idempotent', () => {

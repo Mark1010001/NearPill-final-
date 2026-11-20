@@ -13,12 +13,21 @@ class AssistantUnavailable implements Exception {
   final String message;
 }
 
+/// What the chat screen needs, so the screen does not depend on the data layer.
+abstract interface class AssistantChat {
+  Future<String> ask(
+    List<ChatTurn> turns, {
+    List<ChatCartLine> cart = const [],
+  });
+}
+
 /// Sends the conversation to NearPill's server, which answers about NearPill only.
-class AssistantRepository {
+class AssistantRepository implements AssistantChat {
   AssistantRepository({required this.apiClient});
 
   final ApiClient apiClient;
 
+  @override
   Future<String> ask(
     List<ChatTurn> turns, {
     List<ChatCartLine> cart = const [],

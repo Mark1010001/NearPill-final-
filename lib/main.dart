@@ -74,7 +74,7 @@ Future<void> main() async {
   runApp(
     MultiProvider(
       providers: [
-        Provider<AssistantRepository>.value(value: assistantRepository),
+        Provider<AssistantChat>.value(value: assistantRepository),
         ChangeNotifierProvider<AuthViewModel>.value(value: authViewModel),
         ChangeNotifierProvider<CatalogViewModel>.value(value: catalogViewModel),
         ChangeNotifierProvider<PharmacyViewModel>.value(

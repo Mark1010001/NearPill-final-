@@ -9,7 +9,7 @@ import '../../config/service_notices.dart';
 import 'package:dio/dio.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../../features/orders/data/order_repository.dart';
+import '../../features/orders/order_payment.dart';
 import '../../features/orders/pickup.dart';
 import '../../features/orders/receipt_pdf.dart';
 import '../../widgets/pickup_picker.dart';

@@ -12,7 +12,7 @@ const _muted = Color(0xFF55655F);
 class AssistantScreen extends StatefulWidget {
   const AssistantScreen({super.key, this.repository});
 
-  final AssistantRepository? repository;
+  final AssistantChat? repository;
 
   @override
   State<AssistantScreen> createState() => _AssistantScreenState();
@@ -49,8 +49,8 @@ class _AssistantScreenState extends State<AssistantScreen> {
     }
   }
 
-  AssistantRepository _repository() =>
-      widget.repository ?? context.read<AssistantRepository>();
+  AssistantChat _repository() =>
+      widget.repository ?? context.read<AssistantChat>();
 
   void _scrollDown() {
     WidgetsBinding.instance.addPostFrameCallback((_) {

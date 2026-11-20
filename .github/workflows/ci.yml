@@ -19,6 +19,8 @@ jobs:
         run: npm run check:lockfile
       - name: Clean root engineering install
         run: npm ci --ignore-scripts
+      - name: Backend packages for the TypeScript check
+        run: npm ci --prefix backend --ignore-scripts
       - name: Foundation contract tests
         run: npm run test:foundation
       - name: Environment contract tests
