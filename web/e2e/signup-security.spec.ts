@@ -131,5 +131,8 @@ test('a login without Remember me ends the session after the site was closed for
   await page.addInitScript(() => { try { localStorage.setItem('nearpill-alive', String(Date.now() - 10 * 60_000)); } catch { /* ignore */ } });
   await page.reload();
   await expect.poll(() => calls.some((call) => call.path === '/auth/logout')).toBe(true);
+  // The session is gone: the sign-in page stays on the form instead of sending us into the app.
+  await page.goto('/app/sign-in');
   await expect(page.getByLabel('Remember me')).toBeVisible();
+  await expect(page).toHaveURL(/\/app\/sign-in/);
 });

@@ -47,7 +47,7 @@ export function createIdentityService({
   auth,
   hashPassword,
   sendVerificationEmail,
-  sendExistingAccountNotice = async () => {},
+  sendExistingAccountNotice = async (_email) => {},
   signupLimits = null,
   now = Date.now,
   createCode = createOtpCode,

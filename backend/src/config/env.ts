@@ -31,8 +31,8 @@ export interface BackendEnvironment {
     from?: string;
   };
   assistant: {
-    geminiApiKey?: string;
-    model?: string;
+    geminiApiKey?: string | undefined;
+    model?: string | undefined;
   };
 }
 

@@ -84,6 +84,13 @@ function describeListings(rows) {
   }).join('\n');
 }
 
+/**
+ * @param {{
+ *   apiKey?: string, model?: string, orders?: any, catalog?: any,
+ *   fetchImpl?: typeof fetch, fallbackModels?: string[], now?: () => number,
+ *   perTenMinutes?: number, perDay?: number,
+ * }} [options]
+ */
 export function createAssistantService({
   apiKey, model = 'gemini-3.8-flash', orders, catalog, fetchImpl = globalThis.fetch,
   fallbackModels = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash'], now = () => Date.now(), perTenMinutes = 20, perDay = 150,
