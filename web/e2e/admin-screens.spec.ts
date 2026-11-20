@@ -54,7 +54,7 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
   await expect(page.getByRole('option', { name: 'Closed Pharmacy' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Add partner pharmacy' })).toBeVisible();
   await expect(page.getByLabel('Role')).toHaveCount(0);
-  await page.getByLabel('Pharmacy', { exact: true }).selectOption('12');
+  await page.getByRole('combobox').selectOption('12');
   await expect(page.getByText('Pat Staff')).toBeVisible();
   await expect(page.getByText('Account ID 1')).toBeVisible();
   await page.getByLabel('Pharmacy name').fill('Beta Pharmacy');
