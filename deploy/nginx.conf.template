@@ -33,6 +33,18 @@ http {
   # Client-side routes that answer 200 with the app shell. Everything else under
   # location / is a genuine 404 (still rendered by the SPA's "Page not found" screen).
   # Keep in sync with SITE_PATHS and PORTAL_PATHS in web/src/app/App.tsx.
+  # Customer app routes that answer 200. Any other /app/... path is a genuine 404 (the app still
+  # shows its own "Page unavailable" screen). Keep in sync with the <Routes> in
+  # web/src/features/customer/CustomerApp.tsx.
+  map $uri $nearpill_known_app_route {
+    default 0;
+    ~^/app/?$ 1;
+    ~^/app/(welcome|search|pharmacies|map|assistant|forgot-password|sign-in|cart|checkout|orders|profile|settings|help|notifications)/?$ 1;
+    ~^/app/pharmacies/[^/]+/?$ 1;
+    ~^/app/pharmacies/[^/]+/medicines/[^/]+/?$ 1;
+    ~^/app/profile/orders/?$ 1;
+  }
+
   map $uri $nearpill_known_route {
     default 0;
     ~^/$ 1;
@@ -84,6 +96,14 @@ http {
     }
 
     location @app_index {
+      include /etc/nginx/snippets/nginx-headers-app.conf;
+      error_page 404 =404 @app_404;
+      if ($nearpill_known_app_route = 0) { return 404; }
+      rewrite ^ /index.html break;
+    }
+
+    # Unknown /app/... paths: the same app shell with the app headers, but a real 404 status.
+    location @app_404 {
       include /etc/nginx/snippets/nginx-headers-app.conf;
       rewrite ^ /index.html break;
     }

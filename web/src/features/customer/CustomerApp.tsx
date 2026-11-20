@@ -199,6 +199,7 @@ function Shop({ customer, staffSession, logoutButton, confirmedSignOut, outlined
     </header>
     <main className="shop-container shop-main" id="customer-content" ref={main} tabIndex={-1}>
       <FormFeedback error={logoutError} />
+      {/* nginx answers 404 for /app/ paths that are not listed here: keep $nearpill_known_app_route in deploy/nginx.conf.template and web/nginx.conf in sync. */}
       <Routes>
         <Route index element={<HomePage />} />
         <Route path="welcome" element={<OnboardingPage />} />
