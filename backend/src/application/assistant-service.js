@@ -86,9 +86,9 @@ function describeListings(rows) {
 
 /**
  * @param {{
- *   apiKey?: string, model?: string, orders?: any, catalog?: any,
- *   fetchImpl?: typeof fetch, fallbackModels?: string[], now?: () => number,
- *   perTenMinutes?: number, perDay?: number,
+ *   apiKey?: string | undefined, model?: string | undefined, orders?: any, catalog?: any,
+ *   fetchImpl?: typeof fetch | undefined, fallbackModels?: string[] | undefined, now?: (() => number) | undefined,
+ *   perTenMinutes?: number | undefined, perDay?: number | undefined,
  * }} [options]
  */
 export function createAssistantService({
