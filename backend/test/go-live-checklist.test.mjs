@@ -19,7 +19,7 @@ test('each missing item blocks go-live', () => {
     [{ duplicateNames: 1 }, 'account'], [{ accountNo: null }, 'account'],
     [{ verificationStatus: 'pending' }, 'verified'], [{ isActive: 0 }, 'verified'],
     [{ partnerAccounts: 0 }, 'login'], [{ activePlans: 0 }, 'plan'],
-    [{ stockedItems: 0 }, 'stock'], [{ pendingSubmissions: 2 }, 'review'],
+    [{ stockedItems: 0 }, 'stock'],
   ]) {
     const result = evaluateGoLive({ ...ready, ...override });
     assert.equal(result.canGoLive, false, id);

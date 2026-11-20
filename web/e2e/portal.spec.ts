@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 function json(body: unknown, status = 200) { return { status, contentType: 'application/json', body: JSON.stringify(body) }; }
 
-test('partner sends a medicine that follows the template for admin review', async ({ page }) => {
+test('partner adds a medicine that follows the template and it goes on sale at once', async ({ page }) => {
   const submissions: unknown[] = [];
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
@@ -11,13 +11,13 @@ test('partner sends a medicine that follows the template for admin review', asyn
       memberships: [{ drugstoreId: 12, membershipRole: 'staff', isActive: true }] }));
     if (url.pathname.endsWith('/partner/inventory/catalog')) return route.fulfill(json([{ id: 90, brandName: 'Test Item', genericName: 'Testgen', dosageForm: 'Unit', category: 'Non-medicine' }]));
     if (url.pathname.endsWith('/partner/stock-submissions') && request.method() === 'GET') {
-      return route.fulfill(json({ pharmacyName: 'Test Pharmacy', submissions: submissions.length ? [{ id: 1, drugstoreId: 12, drugstoreName: 'Test Pharmacy', accountNo: 1, source: 'single', status: 'pending', fileName: null, rowCount: 1, reviewNote: null, createdAt: '2098-01-01T00:00:00Z', reviewedAt: null }] : [] }));
+      return route.fulfill(json({ pharmacyName: 'Test Pharmacy', submissions: submissions.length ? [{ id: 1, drugstoreId: 12, drugstoreName: 'Test Pharmacy', accountNo: 1, source: 'single', status: 'approved', fileName: null, rowCount: 1, reviewNote: null, createdAt: '2098-01-01T00:00:00Z', reviewedAt: null }] : [] }));
     }
     if (url.pathname.endsWith('/partner/stock-submissions') && request.method() === 'POST') {
       const body = request.postDataJSON();
       if (body.row.price === '0') return route.fulfill(json({ error: 'The stock does not follow the template.', rowErrors: [{ line: 1, message: 'price must be above zero with at most 2 decimals, for example 12.50.' }] }, 400));
       submissions.push(body);
-      return route.fulfill(json({ id: 1, status: 'pending', rowCount: 1, newMedicines: 0 }, 201));
+      return route.fulfill(json({ id: 1, status: 'approved', rowCount: 1, newMedicines: 0 }, 201));
     }
     if (url.pathname.endsWith('/partner/inventory')) return route.fulfill(json([]));
     return route.fulfill(json({ error: 'Not mocked' }, 404));
@@ -29,13 +29,13 @@ test('partner sends a medicine that follows the template for admin review', asyn
   await page.getByLabel('Selling unit', { exact: true }).fill('Box of 10');
   await page.getByLabel('Price per unit (₱)', { exact: true }).fill('0');
   await page.getByLabel('Stock quantity', { exact: true }).fill('8');
-  await page.getByRole('button', { name: 'Send for review' }).click();
+  await page.getByRole('button', { name: 'Add stock' }).click();
   await expect(page.getByRole('alert')).toContainText('Line 1: price must be above zero');
   await page.getByLabel('Price per unit (₱)', { exact: true }).fill('7.50');
-  await page.getByRole('button', { name: 'Send for review' }).click();
-  await expect(page.getByText(/Sent for admin review \(1 row\)/)).toBeVisible();
+  await page.getByRole('button', { name: 'Add stock' }).click();
+  await expect(page.getByText(/Stock added \(1 row\)/)).toBeVisible();
   expect(submissions).toEqual([{ drugstoreId: 12, row: { pharmacy: 'Test Pharmacy', catalog_id: '90', brand: 'Test Item', generic_name: 'Testgen', strength: '', form: 'Unit', category: 'Non-medicine', selling_unit: 'Box of 10', price: '7.50', stock_quantity: '8' } }]);
-  await expect(page.getByRole('cell', { name: 'pending' })).toBeVisible();
+  await expect(page.getByRole('cell', { name: 'approved' })).toBeVisible();
 });
 
 test('admin order actions follow pickup stage and display server payment separately', async ({ page }) => {

@@ -329,7 +329,7 @@ export function PartnerInventoryPage() {
     out_of_stock: 'Out of stock. Add units when stock is available.',
     unavailable: 'Listing unavailable. Ask an admin to check its availability.',
   };
-  return <><Heading title="Pharmacy inventory" subtitle="Send new stock for admin review, or edit stock and price of approved items below." />
+  return <><Heading title="Pharmacy inventory" subtitle="Add new stock with a CSV or one medicine at a time, or edit stock and price of your items below." />
     <StockSubmitCard drugstoreId={drugstoreId} />
     <section className="card">
       {lastChange && <p className="notice" role="status">

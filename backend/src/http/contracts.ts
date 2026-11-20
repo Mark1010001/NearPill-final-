@@ -71,7 +71,6 @@ export const StockSubmissionQuerySchema = z.object({
   drugstoreId: z.coerce.number().int().positive().optional(),
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
 });
-export const StockDecisionSchema = z.object({ decision: z.enum(['approve', 'reject']), note: z.string().max(500).optional() }).strict();
 export const GoLiveSchema = z.object({ live: z.boolean() }).strict();
 export const PartnerAccountSchema = z.object({ email, password: signupPassword }).strict();
 export const MembershipUpsertSchema = z.object({

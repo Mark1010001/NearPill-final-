@@ -1459,7 +1459,7 @@ test('the reviewed migrations define no custom public view or RPC function contr
 
 
 test('read-only migrator verification compares the complete reviewed migration history', async () => {
-  assert.equal(sourceMigrationRows.length, 45, 'review the expected migration count when migration history changes');
+  assert.equal(sourceMigrationRows.length, 46, 'review the expected migration count when migration history changes');
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
   const journal = fixture.reads.find(({ sql }) => sql.includes('FROM public.nearpill_schema_migrations'));
@@ -1559,7 +1559,7 @@ test('migration journal refuses duplicate rows even when total count and checksu
 
 
 test('policy audit covers all reviewed PostgreSQL RLS policy roles and commands', async () => {
-  assert.equal(reviewedPolicyRows.length, 121); // 118 + 3 retention DELETE policies from 0045_log_retention.sql
+  assert.equal(reviewedPolicyRows.length, 122); // 118 + 3 retention DELETE policies from 0045 + 1 auto-approved stock insert policy from 0046
   assert.equal(reviewedPolicyRows.filter((row) => row.policyname === 'migrator_all').length, 30);
   assert.equal(reviewedPolicyRows.filter((row) => row.policyname === 'identity_security_app').length, 7);
   const fixture = pools();

@@ -31,7 +31,7 @@ export const categories = [
 
 export const partnerPoints = [
   { title: 'Manage your own stock and prices', text: 'Update quantities and ₱ prices from the Partner portal whenever a delivery arrives.' },
-  { title: 'Add medicines', text: 'Send stock with the CSV template, or one medicine at a time. An admin reviews it before it goes on sale.' },
+  { title: 'Add medicines', text: 'Send stock with the CSV template, or one medicine at a time. If every row is complete it goes on sale right away; if not, you see what to fix.' },
   { title: 'Handle pickup orders', text: 'See each order’s pickup date, prepare it, mark it ready and complete the handover.' },
   { title: 'Review prescriptions', text: 'Open uploaded prescriptions, then approve or reject with a reason the customer can read.' },
 ];

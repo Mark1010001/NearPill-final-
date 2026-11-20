@@ -6,8 +6,49 @@ import { failure, success } from './result.js';
 const rejected = (error, rowErrors) => Object.freeze({ ok: false, status: 400, body: { error, rowErrors: rowErrors.slice(0, 50) } });
 const lower = (value) => String(value ?? '').trim().toLowerCase();
 
+
+const AUTO_NOTE = 'Passed the template check and was applied automatically.';
+
+/** Adds or updates one pharmacy's inventory from checked rows. Returns { line, message } for the first row that cannot be applied. */
+async function applyRows(transaction, { actorId, drugstoreId, rows, reason }) {
+  const ordered = [...rows].sort((a, b) => a.line - b.line);
+  for (const row of ordered) {
+    const priceCentavos = pesosToCentavos(row.price);
+    const stock = Number(row.stock);
+    if (priceCentavos === null || priceCentavos < 1 || !Number.isSafeInteger(stock) || stock < 0) {
+      return { line: row.line, message: 'The price or stock is invalid.' };
+    }
+    let medicineId = row.medicineId ? Number(row.medicineId) : null;
+    if (!medicineId) {
+      medicineId = await transaction.createPharmacyProduct({ brandName: row.name, genericName: row.genericName, dosageForm: row.form, category: row.category });
+      if (!medicineId) return { line: row.line, message: 'The medicine could not be created.' };
+    }
+    const existing = await transaction.findInventoryForUpdate(drugstoreId, medicineId);
+    let inventoryId; let before = 0;
+    if (existing) {
+      inventoryId = Number(existing.id);
+      before = Number(existing.stockOnHand);
+      const reserved = Number(existing.reservedQuantity);
+      if (stock < reserved) return { line: row.line, message: `Stock cannot be below the ${reserved} units reserved for orders.` };
+      if (reserved > 0 && (existing.sellingUnit ?? null) !== row.sellingUnit) {
+        return { line: row.line, message: 'The selling unit cannot change while stock is reserved.' };
+      }
+      await transaction.updateInventoryStock(drugstoreId, medicineId, stock, stock - reserved > 0 ? 1 : 0);
+      if (Number(existing.priceCentavos) !== priceCentavos) await transaction.updateInventoryPrice(inventoryId, priceCentavos);
+      if ((existing.sellingUnit ?? null) !== row.sellingUnit) await transaction.updateInventoryUnits(inventoryId, row.sellingUnit, existing.packageSize ?? null);
+    } else {
+      inventoryId = await transaction.insertReviewedListing(drugstoreId, medicineId, stock, priceCentavos, row.sellingUnit, Number(actorId));
+      if (!inventoryId) return { line: row.line, message: 'The pharmacy must be verified and active, and the medicine must exist.' };
+    }
+    if (stock - before !== 0) {
+      await transaction.appendStockMovement({ inventoryId, actorId, countDelta: stock - before, reason });
+    }
+  }
+  return null;
+}
+
 export function createStockSubmissionService({ repository }) {
-  for (const method of ['withTransaction', 'findDrugstoreName', 'findCatalogMatches', 'createStockSubmission', 'listStockSubmissions']) {
+  for (const method of ['withTransaction', 'findDrugstoreName', 'findCatalogMatches', 'listStockSubmissions']) {
     if (typeof repository?.[method] !== 'function') throw new TypeError(`Stock submission repository must implement ${method}().`);
   }
 
@@ -49,10 +90,19 @@ export function createStockSubmissionService({ repository }) {
       });
       if (problems.length) return rejected('The stock does not match the catalog.', problems);
 
+      // The template and catalog checks above are the whole review. A file that passes goes on sale at once,
+      // all or nothing: if any row cannot be applied, nothing is changed and the pharmacy sees what to fix.
       const fileName = hasCsv ? String(body.fileName ?? '').trim().slice(0, 120) || null : null;
-      const id = await repository.createStockSubmission({ drugstoreId, userId: Number(actorId), source: hasCsv ? 'csv' : 'single', fileName, rows: checked });
-      if (!id) return failure(409, 'The submission could not be saved.');
-      return success({ id, status: 'pending', rowCount: checked.length, newMedicines: checked.filter((row) => row.match === 'new').length }, 201);
+      const source = hasCsv ? 'csv' : 'single';
+      const result = await repository.withTransaction(async (transaction) => {
+        const failed = await applyRows(transaction, { actorId, drugstoreId, rows: checked, reason: 'Stock upload' });
+        if (failed) return { rollback: true, value: rejected('The stock could not be applied.', [failed]) };
+        const id = await transaction.recordApprovedSubmission({ drugstoreId, userId: Number(actorId), source, fileName, rows: checked, note: AUTO_NOTE });
+        if (!id) return { rollback: true, value: failure(409, 'The stock could not be saved.') };
+        await transaction.appendAudit(actorId, 'AUTO_APPROVE_STOCK_SUBMISSION', `Stock upload ${id} (${checked.length} rows) passed the template check for pharmacy ${drugstoreId} and was applied.`);
+        return { value: success({ id, status: 'approved', rowCount: checked.length, newMedicines: checked.filter((row) => row.match === 'new').length }, 201) };
+      }, { asSystem: true });
+      return result;
     },
 
     async listForPartner(actor, query = {}) {
@@ -66,64 +116,6 @@ export function createStockSubmissionService({ repository }) {
 
     async listForAdmin(query = {}) {
       return success(await repository.listStockSubmissions({ status: query.status ?? null, withRows: true }));
-    },
-
-    async decide(actorId, idValue, body = {}) {
-      const id = Number(idValue);
-      if (!Number.isInteger(id) || id <= 0) return failure(400, 'Invalid submission ID.');
-      const note = String(body.note ?? '').trim() || null;
-      if (body.decision === 'reject' && (!note || note.length < 3)) return failure(400, 'Tell the pharmacy why it was rejected.');
-      if (body.decision !== 'approve' && body.decision !== 'reject') return failure(400, 'Choose approve or reject.');
-
-      return repository.withTransaction(async (transaction) => {
-        const submission = await transaction.lockStockSubmission(id);
-        if (!submission) return { rollback: true, value: failure(404, 'Submission not found.') };
-        if (submission.status !== 'pending') return { rollback: true, value: failure(409, 'This submission was already reviewed.') };
-        const drugstoreId = Number(submission.drugstoreId);
-
-        if (body.decision === 'approve') {
-          const rows = [...(Array.isArray(submission.rows) ? submission.rows : [])].sort((a, b) => a.line - b.line);
-          for (const row of rows) {
-            const priceCentavos = pesosToCentavos(row.price);
-            const stock = Number(row.stock);
-            if (priceCentavos === null || priceCentavos < 1 || !Number.isSafeInteger(stock) || stock < 0) {
-              return { rollback: true, value: failure(409, `Line ${row.line} has an invalid price or stock.`) };
-            }
-            let medicineId = row.medicineId ? Number(row.medicineId) : null;
-            if (!medicineId) {
-              medicineId = await transaction.createPharmacyProduct({ brandName: row.name, genericName: row.genericName, dosageForm: row.form, category: row.category });
-              if (!medicineId) return { rollback: true, value: failure(409, `Line ${row.line}: the medicine could not be created.`) };
-            }
-            const existing = await transaction.findInventoryForUpdate(drugstoreId, medicineId);
-            let inventoryId; let before = 0;
-            if (existing) {
-              inventoryId = Number(existing.id);
-              before = Number(existing.stockOnHand);
-              const reserved = Number(existing.reservedQuantity);
-              if (stock < reserved) return { rollback: true, value: failure(409, `Line ${row.line}: stock cannot be below the ${reserved} units reserved for orders.`) };
-              if (reserved > 0 && (existing.sellingUnit ?? null) !== row.sellingUnit) {
-                return { rollback: true, value: failure(409, `Line ${row.line}: the selling unit cannot change while stock is reserved.`) };
-              }
-              await transaction.updateInventoryStock(drugstoreId, medicineId, stock, stock - reserved > 0 ? 1 : 0);
-              if (Number(existing.priceCentavos) !== priceCentavos) await transaction.updateInventoryPrice(inventoryId, priceCentavos);
-              if ((existing.sellingUnit ?? null) !== row.sellingUnit) await transaction.updateInventoryUnits(inventoryId, row.sellingUnit, existing.packageSize ?? null);
-            } else {
-              inventoryId = await transaction.insertReviewedListing(drugstoreId, medicineId, stock, priceCentavos, row.sellingUnit, Number(actorId));
-              if (!inventoryId) return { rollback: true, value: failure(409, `Line ${row.line}: the pharmacy must be verified and active, and the medicine must exist.`) };
-            }
-            if (stock - before !== 0) {
-              await transaction.appendStockMovement({ inventoryId, actorId, countDelta: stock - before, reason: `Approved stock submission #${id}` });
-            }
-          }
-          await transaction.appendAudit(actorId, 'APPROVE_STOCK_SUBMISSION', `Approved stock submission ${id} (${rows.length} rows) for pharmacy ${drugstoreId}.`);
-        } else {
-          await transaction.appendAudit(actorId, 'REJECT_STOCK_SUBMISSION', `Rejected stock submission ${id} for pharmacy ${drugstoreId}.`);
-        }
-        if (!(await transaction.decideStockSubmission(id, body.decision === 'approve' ? 'approved' : 'rejected', note, Number(actorId)))) {
-          return { rollback: true, value: failure(409, 'This submission was already reviewed.') };
-        }
-        return { value: success({ id, status: body.decision === 'approve' ? 'approved' : 'rejected' }) };
-      });
     },
   });
 }

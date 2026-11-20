@@ -191,7 +191,5 @@ export const api = {
     request<{ id: number; status: string; rowCount: number; newMedicines: number }>('/partner/stock-submissions', { method: 'POST', body: JSON.stringify(body) }),
   partnerStockSubmissions: (drugstoreId: number) => request<{ pharmacyName: string | null; submissions: StockSubmission[] }>(`/partner/stock-submissions${queryString({ drugstoreId })}`),
   adminStockSubmissions: (status?: string) => request<StockSubmission[]>(`/admin/stock-submissions${queryString({ status })}`),
-  decideStockSubmission: (id: number, body: { decision: 'approve' | 'reject'; note?: string }) =>
-    request(`/admin/stock-submissions/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   partnerSales: (startDate?: string, endDate?: string) => request<SalesRow[]>(`/partner/reports/sales${queryString({ startDate, endDate })}`),
 };

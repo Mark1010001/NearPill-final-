@@ -42,12 +42,7 @@ export function evaluateGoLive(facts) {
     {
       id: 'stock', label: 'At least one approved item has stock, a price and a selling unit',
       ok: Number(facts.stockedItems) > 0,
-      hint: 'Approve the pharmacy stock file (Stock submissions).',
-    },
-    {
-      id: 'review', label: 'No stock submission is waiting for review',
-      ok: Number(facts.pendingSubmissions ?? 0) === 0,
-      hint: 'Approve or reject the pending stock submissions first.',
+      hint: 'Ask the pharmacy to upload its stock file in the partner portal.',
     },
   ];
   return { checks, canGoLive: checks.every((check) => check.ok) };

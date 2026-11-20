@@ -401,8 +401,7 @@ export function createPostgresCatalogRepository(postgresPool) {
                 (SELECT COUNT(*) FROM subscriptions s WHERE s.drugstore_id = d.id AND s.status = 'active'
                    AND (s.end_date IS NULL OR s.end_date >= CURRENT_DATE)) AS "activePlans",
                 (SELECT COUNT(*) FROM inventory i WHERE i.drugstore_id = d.id AND i.stock_on_hand > 0
-                   AND i.price_centavos > 0 AND i.selling_unit IS NOT NULL) AS "stockedItems",
-                (SELECT COUNT(*) FROM stock_submissions q WHERE q.drugstore_id = d.id AND q.status = 'pending') AS "pendingSubmissions"
+                   AND i.price_centavos > 0 AND i.selling_unit IS NOT NULL) AS "stockedItems"
          FROM drugstores d WHERE d.id = ? LIMIT 1`, [drugstoreId]);
       return rows[0] ?? null;
     },

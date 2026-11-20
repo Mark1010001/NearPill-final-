@@ -50,8 +50,8 @@ export function StockSubmitCard({ drugstoreId }: { drugstoreId: number }) {
 
   const rows = list.data?.submissions ?? [];
   return <section className="card" aria-busy={send.isPending}>
-    <h2>Add stock for admin review</h2>
-    <p className="notice">New stock is not sold until an admin approves it. Upload a CSV that follows the template, or add one medicine below. Both use the same columns.</p>
+    <h2>Add stock</h2>
+    <p className="notice">Upload a CSV that follows the template, or add one medicine below. Both use the same columns. If every row has its required values, the stock is added right away. If anything is missing or wrong, nothing is saved and you see what to fix.</p>
     {list.isLoading && <LoadingState label="Loading…" />}
     {list.error && <ErrorState error={list.error} retry={() => void list.refetch()} />}
     {list.data && <>
@@ -95,14 +95,14 @@ export function StockSubmitCard({ drugstoreId }: { drugstoreId: number }) {
           <label>Selling unit<input required maxLength={48} placeholder="Tablet or Box of 10" value={form.selling_unit} onChange={set('selling_unit')} /></label>
           <label>Price per unit (₱)<input required inputMode="decimal" maxLength={13} placeholder="3.50" value={form.price} onChange={set('price')} /></label>
           <label>Stock quantity<input required inputMode="numeric" maxLength={10} placeholder="120" value={form.stock_quantity} onChange={set('stock_quantity')} /></label>
-          <button className="primary">{send.isPending ? 'Sending…' : 'Send for review'}</button>
+          <button className="primary">{send.isPending ? 'Adding…' : 'Add stock'}</button>
         </fieldset>
       </form>
       <RowErrors error={send.error} />
-      <FormFeedback success={send.isSuccess ? `Sent for admin review (${send.data.rowCount} ${send.data.rowCount === 1 ? 'row' : 'rows'}). It will not be sold until it is approved.` : undefined} />
+      <FormFeedback success={send.isSuccess ? `Stock added (${send.data.rowCount} ${send.data.rowCount === 1 ? 'row' : 'rows'}). It is on sale now.` : undefined} />
 
-      <h3>Your submissions</h3>
-      <DataTable label="Stock submissions" headers={['Sent', 'Type', 'Rows', 'Status', 'Admin note']} empty="Nothing sent yet."
+      <h3>Your uploads</h3>
+      <DataTable label="Stock uploads" headers={['Sent', 'Type', 'Rows', 'Status', 'Note']} empty="Nothing uploaded yet."
         rows={rows.map((item: StockSubmission) => [item.id, displayDate(item.createdAt), item.source === 'csv' ? (item.fileName || 'CSV file') : 'Single medicine', item.rowCount, <Status key={item.id} value={item.status} />, item.reviewNote ?? ''])} />
     </>}
   </section>;

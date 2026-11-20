@@ -25,7 +25,7 @@ const expectedApi = new Set([
   'POST /inventory/update','GET /admin/inventory','PUT /admin/inventory/:id/price',
   'POST /assistant/chat','POST /orders','GET /orders','GET /orders/:id','GET /admin/orders','GET /admin/orders/:id',
   'PUT /orders/:id/status','PUT /orders/:id/cancel','PUT /orders/:id/pickup',
-  'GET /partner/dashboard','GET /partner/orders','PUT /partner/orders/:id/pickup','GET /partner/inventory','GET /partner/inventory/catalog','POST /partner/stock-submissions','GET /partner/stock-submissions','GET /admin/stock-submissions','PUT /admin/stock-submissions/:id','GET /partner/subscription','GET /partner/entitlements','GET /partner/reports/sales',
+  'GET /partner/dashboard','GET /partner/orders','PUT /partner/orders/:id/pickup','GET /partner/inventory','GET /partner/inventory/catalog','POST /partner/stock-submissions','GET /partner/stock-submissions','GET /admin/stock-submissions','GET /partner/subscription','GET /partner/entitlements','GET /partner/reports/sales',
   'GET /admin/subscriptions','GET /subscription-plans','POST /admin/subscriptions','PUT /admin/subscriptions/:id',
   'POST /orders/:id/payments','POST /payments/webhooks/:provider','GET /orders/:id/payment','POST /orders/:id/payment','GET /payments/:id',
   'POST /admin/payments/:id/refunds','POST /admin/payments/:id/reconcile',

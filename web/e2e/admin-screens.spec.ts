@@ -129,34 +129,23 @@ test('admin cannot publish a pharmacy until its go-live checklist passes', async
   await expect(page.getByRole('button', { name: 'Take down' })).toBeVisible();
 });
 
-test('admin reviews a stock submission: approve needs confirmation, reject needs a reason', async ({ page }) => {
-  const state = { decisions: [] as unknown[], status: 'pending' };
+test('admin sees uploaded stock as a read-only record with nothing to approve', async ({ page }) => {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const { pathname } = new URL(request.url());
     if (pathname.endsWith('/auth/me')) return route.fulfill(json(admin));
     if (pathname.endsWith('/admin/stock-submissions') && request.method() === 'GET') {
-      return route.fulfill(json(state.status === 'pending' ? [{ id: 31, drugstoreId: 21, drugstoreName: 'New Pharmacy', accountNo: 4, source: 'csv', status: 'pending', fileName: 'stock.csv', rowCount: 2, reviewNote: null, createdAt: '2098-01-01T00:00:00Z', reviewedAt: null,
+      return route.fulfill(json([{ id: 31, drugstoreId: 21, drugstoreName: 'New Pharmacy', accountNo: 4, source: 'csv', status: 'approved', fileName: 'stock.csv', rowCount: 2, reviewNote: 'Passed the template check and was applied automatically.', createdAt: '2098-01-01T00:00:00Z', reviewedAt: '2098-01-01T00:00:00Z',
         rows: [{ line: 2, catalogId: 5, medicineId: 5, name: 'Neozep', genericName: null, form: 'Tablet', category: 'Non-prescription', sellingUnit: 'Tablet', price: '2.50', stock: 9, match: 'existing' },
-          { line: 3, catalogId: null, name: 'Brand New 10 mg', genericName: null, form: 'Syrup', category: 'Non-prescription', sellingUnit: 'Bottle', price: '20.00', stock: 4, match: 'new' }] }] : []));
-    }
-    if (pathname.endsWith('/admin/stock-submissions/31') && request.method() === 'PUT') {
-      state.decisions.push(request.postDataJSON()); state.status = 'approved';
-      return route.fulfill(json({ id: 31, status: 'approved' }));
+          { line: 3, catalogId: null, name: 'Brand New 10 mg', genericName: null, form: 'Syrup', category: 'Non-prescription', sellingUnit: 'Bottle', price: '20.00', stock: 4, match: 'new' }] }]));
     }
     return route.fulfill(json([]));
   });
   await page.goto('/stock-submissions');
   await expect(page.getByRole('heading', { name: 'Stock submissions', level: 1 })).toBeVisible();
   await expect(page.getByText('Account No. 4')).toBeVisible();
-  await expect(page.getByText('Add new medicine')).toBeVisible();
-  await expect(page.getByText('Update catalog item')).toBeVisible();
-  await page.getByRole('button', { name: 'Reject' }).click();
-  await expect(page.getByRole('dialog').getByRole('button', { name: 'Reject' })).toBeDisabled();
-  await page.getByRole('dialog').getByRole('button', { name: 'Keep reviewing' }).click();
-  expect(state.decisions).toEqual([]);
-  await page.getByRole('button', { name: 'Approve' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Approve and add stock' }).click();
-  await expect(page.getByText('Approved the stock for New Pharmacy.')).toBeVisible();
-  expect(state.decisions).toEqual([{ decision: 'approve' }]);
+  await expect(page.getByText('Added new medicine')).toBeVisible();
+  await expect(page.getByText('Updated catalog item')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(0);
 });

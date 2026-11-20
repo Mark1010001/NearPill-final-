@@ -129,23 +129,15 @@ export function AdminExtraReports() {
 }
 
 export function StockSubmissionsPage() {
-  const qc = useQueryClient();
   const { user } = useSession();
-  const [filter, setFilter] = useState('pending');
-  const [done, setDone] = useState('');
-  const [confirm, confirmDialog, askReason] = useConfirm();
+  const [filter, setFilter] = useState('');
   const query = useQuery({ queryKey: ['admin', 'stock-submissions', filter, user?.id], queryFn: () => api.adminStockSubmissions(filter || undefined) });
-  const decide = useMutation({
-    mutationFn: ({ id, body }: { id: number; body: { decision: 'approve' | 'reject'; note?: string } }) => api.decideStockSubmission(id, body),
-    onSuccess: async () => { await Promise.all([qc.invalidateQueries({ queryKey: ['admin', 'stock-submissions'] }), qc.invalidateQueries({ queryKey: ['admin', 'go-live'] })]); },
-  });
   const items = query.data ?? [];
-  return <><PageTitle title="Stock submissions" subtitle="Check that each file follows the template, then approve it to put the stock on sale." />
+  return <><PageTitle title="Stock submissions" subtitle="A record of the stock files pharmacies uploaded. A file that follows the template goes on sale at once, so there is nothing to approve." />
     <section className="card">
-      <label>Show<select value={filter} onChange={(event) => { setFilter(event.target.value); setDone(''); decide.reset(); }}>
-        <option value="pending">Waiting for review</option><option value="approved">Approved</option><option value="rejected">Rejected</option><option value="">All</option>
+      <label>Show<select value={filter} onChange={(event) => setFilter(event.target.value)}>
+        <option value="">All</option><option value="approved">Added</option>
       </select></label>
-      <FormFeedback error={decide.error} success={done || undefined} />
       {query.isLoading && <LoadingState label="Loading stock submissions…" />}
       {query.error && <ErrorState error={query.error} retry={() => void query.refetch()} />}
       {query.data && items.length === 0 && <p>No stock submissions here.</p>}
@@ -155,26 +147,8 @@ export function StockSubmissionsPage() {
         <h2>{item.drugstoreName}</h2>
         <p className="section-hint">Account No. {item.accountNo ?? '—'} · {item.source === 'csv' ? (item.fileName || 'CSV file') : 'Single medicine'} · {item.rowCount} {item.rowCount === 1 ? 'row' : 'rows'} · sent {showDateTime(item.createdAt)}</p>
       </div><Status value={item.status} /></div>
-      <p className="muted">Format check passed: the header matches the template, every row has valid values and the pharmacy column is this pharmacy. {(item.rows ?? []).filter((row) => row.match === 'new').length} new {(item.rows ?? []).filter((row) => row.match === 'new').length === 1 ? 'medicine' : 'medicines'} will be added to the catalog on approval.</p>
       <DataTable label={`Rows of submission ${item.id}`} headers={['Catalog ID', 'Medicine', 'Generic', 'Form', 'Category', 'Unit', 'Price', 'Stock', 'Result']} pageSize={10}
         rows={(item.rows ?? []).map((row) => [row.line, row.catalogId ?? 'New', row.name, row.genericName ?? '—', row.form, row.category, row.sellingUnit, currency.format(Number(row.price)), row.stock,
-          row.match === 'existing' ? 'Update catalog item' : (row.note ?? 'Add new medicine')])} />
-      {item.reviewNote && <p>Note: {item.reviewNote}</p>}
-      {item.status === 'pending' && <div className="stack-actions">
-        <button className="primary" disabled={decide.isPending} onClick={async () => {
-          if (!(await confirm({ title: `Approve stock for ${item.drugstoreName}?`, confirmLabel: 'Approve and add stock', cancelLabel: 'Keep reviewing',
-            message: <>This adds or updates {item.rowCount} {item.rowCount === 1 ? 'item' : 'items'} in {item.drugstoreName}'s inventory. New medicines are added to the catalog. The pharmacy still stays hidden from customers until you take it live.</> }))) return;
-          setDone('');
-          decide.mutate({ id: item.id, body: { decision: 'approve' } }, { onSuccess: () => setDone(`Approved the stock for ${item.drugstoreName}.`) });
-        }}>Approve</button>
-        <button className="danger" disabled={decide.isPending} onClick={async () => {
-          const note = await askReason({ title: `Reject stock for ${item.drugstoreName}?`, danger: true, confirmLabel: 'Reject', cancelLabel: 'Keep reviewing', reasonLabel: 'Tell the pharmacy what to fix', maxLength: 500,
-            message: <>The pharmacy sees this note and can send a corrected file. Nothing is added to their inventory.</> });
-          if (!note) return;
-          setDone('');
-          decide.mutate({ id: item.id, body: { decision: 'reject', note } }, { onSuccess: () => setDone(`Rejected the stock for ${item.drugstoreName}.`) });
-        }}>Reject</button>
-      </div>}
-    </section>)}
-    {confirmDialog}</>;
+          row.match === 'existing' ? 'Updated catalog item' : (row.note ?? 'Added new medicine')])} />
+    </section>)}</>;
 }

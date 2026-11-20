@@ -11,15 +11,14 @@ const line = (over = {}) => {
 };
 
 function fake({ catalog = [], inventory = new Map() } = {}) {
-  const state = { saved: [], created: [], movements: [], audits: [], updated: [], inserted: [], decided: null, submission: null };
+  const state = { recorded: [], created: [], movements: [], audits: [], updated: [], inserted: [], rolledBack: false, options: null };
   const repository = new Proxy({}, { get: (_, name) => {
     switch (name) {
       case 'findDrugstoreName': return async (id) => (id === 7 ? 'ALV Pharmacy' : null);
       case 'findCatalogMatches': return async () => catalog;
-      case 'createStockSubmission': return async (input) => { state.saved.push(input); return 41; };
-      case 'withTransaction': return async (work) => {
+      case 'withTransaction': return async (work, options) => {
+        state.options = options ?? null;
         const tx = {
-          lockStockSubmission: async () => state.submission,
           createPharmacyProduct: async (input) => { state.created.push(input); return 900 + state.created.length; },
           findInventoryForUpdate: async (_d, medicineId) => inventory.get(medicineId) ?? null,
           updateInventoryStock: async (...a) => state.updated.push(['stock', ...a]),
@@ -28,9 +27,10 @@ function fake({ catalog = [], inventory = new Map() } = {}) {
           insertReviewedListing: async (...a) => { state.inserted.push(a); return 500 + state.inserted.length; },
           appendStockMovement: async (m) => state.movements.push(m),
           appendAudit: async (...a) => state.audits.push(a),
-          decideStockSubmission: async (...a) => { state.decided = a; return true; },
+          recordApprovedSubmission: async (input) => { state.recorded.push(input); return 41; },
         };
         const result = await work(tx);
+        if (result?.rollback === true) state.rolledBack = true;
         return result?.value;
       };
       default: return async () => null;
@@ -39,13 +39,17 @@ function fake({ catalog = [], inventory = new Map() } = {}) {
   return { service: createStockSubmissionService({ repository }), state };
 }
 
-test('a file that follows the template is saved as a pending submission', async () => {
+test('a file that follows the template goes on sale at once, with no admin approval', async () => {
   const { service, state } = fake();
   const result = await service.submit(9, partner, { drugstoreId: 7, fileName: 'stock.csv', csv: `${H}\n${line()}` });
   assert.equal(result.status, 201);
-  assert.deepEqual(result.body, { id: 41, status: 'pending', rowCount: 1, newMedicines: 1 });
-  assert.equal(state.saved[0].source, 'csv');
-  assert.equal(state.saved[0].rows[0].name, 'Biogesic 500 mg');
+  assert.deepEqual(result.body, { id: 41, status: 'approved', rowCount: 1, newMedicines: 1 });
+  assert.deepEqual(state.options, { asSystem: true });
+  assert.equal(state.created.length, 1);
+  assert.equal(state.inserted.length, 1);
+  assert.equal(state.recorded[0].source, 'csv');
+  assert.equal(state.recorded[0].rows[0].name, 'Biogesic 500 mg');
+  assert.equal(state.audits[0][1], 'AUTO_APPROVE_STOCK_SUBMISSION');
 });
 
 test('files that break the template, the pharmacy or the catalog are rejected without saving', async () => {
@@ -56,7 +60,8 @@ test('files that break the template, the pharmacy or the catalog are rejected wi
   assert.match(wrongBrand.body.rowErrors[0].message, /catalog_id 3 is Neozep/);
   const duplicate = await service.submit(9, partner, { drugstoreId: 7, csv: `${H}\n${line()}` });
   assert.match(duplicate.body.rowErrors[0].message, /already in the catalog as catalog_id 4/);
-  assert.equal(state.saved.length, 0);
+  assert.equal(state.recorded.length, 0);
+  assert.equal(state.inserted.length, 0);
 });
 
 test('only a member of the pharmacy can submit, and exactly one of csv or row', async () => {
@@ -73,35 +78,41 @@ test('a single add uses the same template rules', async () => {
   assert.equal(bad.status, 400);
   const ok = await service.submit(9, partner, { drugstoreId: 7, row: { brand: 'Neozep', form: 'Tablet', category: 'Non-medicine', selling_unit: 'Tablet', price: '5', stock_quantity: '2' } });
   assert.equal(ok.status, 201);
-  assert.equal(state.saved[0].source, 'single');
+  assert.equal(state.recorded[0].source, 'single');
 });
 
-test('approval creates new medicines, updates existing stock and records movements', async () => {
+test('an accepted file creates new medicines, updates existing stock and records movements', async () => {
   const inventory = new Map([[3, { id: 60, stockOnHand: 5, reservedQuantity: 2, priceCentavos: 100, sellingUnit: 'Tablet', packageSize: null }]]);
-  const { service, state } = fake({ inventory });
-  state.submission = { id: 41, drugstoreId: 7, status: 'pending', rows: [
-    { line: 3, medicineId: null, name: 'New Thing 10 mg', genericName: null, form: 'Syrup', category: 'Non-prescription', sellingUnit: 'Bottle', price: '20.00', stock: 4 },
-    { line: 2, medicineId: 3, name: 'Neozep', form: 'Tablet', category: 'Non-prescription', sellingUnit: 'Tablet', price: '2.50', stock: 9 },
-  ] };
-  const result = await service.decide(1, 41, { decision: 'approve' });
-  assert.equal(result.status, 200);
-  assert.deepEqual(state.created, [{ brandName: 'New Thing 10 mg', genericName: null, dosageForm: 'Syrup', category: 'Non-prescription' }]);
+  const { service, state } = fake({ inventory, catalog: [{ id: 3, brandName: 'Neozep', dosageForm: 'Tablet' }] });
+  const csv = `${H}\n${line({ brand: 'New Thing 10 mg', generic_name: '', form: 'Syrup', selling_unit: 'Bottle', price: '20.00', stock_quantity: '4' })}\n${line({ catalog_id: '3', brand: 'Neozep', price: '2.50', stock_quantity: '9' })}`;
+  const result = await service.submit(9, partner, { drugstoreId: 7, csv });
+  assert.equal(result.status, 201);
+  assert.equal(state.created.length, 1);
+  assert.equal(state.created[0].dosageForm, 'Syrup');
   assert.deepEqual(state.updated.map((item) => item[0]), ['stock', 'price']);
   assert.deepEqual(state.inserted[0].slice(0, 5), [7, 901, 4, 2000, 'Bottle']);
   assert.deepEqual(state.movements.map((m) => m.countDelta), [4, 4]);
-  assert.deepEqual(state.decided.slice(0, 3), [41, 'approved', null]);
+  assert.equal(state.rolledBack, false);
 });
 
-test('approval refuses to drop stock below reserved units, repeat a decision, or reject without a reason', async () => {
+test('one row that cannot be applied rejects the whole file and changes nothing', async () => {
   const inventory = new Map([[3, { id: 60, stockOnHand: 5, reservedQuantity: 4, priceCentavos: 100, sellingUnit: 'Tablet' }]]);
-  const { service, state } = fake({ inventory });
-  state.submission = { id: 41, drugstoreId: 7, status: 'pending', rows: [{ line: 2, medicineId: 3, name: 'Neozep', sellingUnit: 'Tablet', price: '1', stock: 1 }] };
-  assert.equal((await service.decide(1, 41, { decision: 'approve' })).status, 409);
-  assert.equal(state.decided, null);
-  state.submission = { ...state.submission, status: 'approved' };
-  assert.equal((await service.decide(1, 41, { decision: 'approve' })).status, 409);
-  assert.equal((await service.decide(1, 41, { decision: 'reject', note: '' })).status, 400);
-  state.submission = { ...state.submission, status: 'pending' };
-  assert.equal((await service.decide(1, 41, { decision: 'reject', note: 'Wrong prices' })).status, 200);
-  assert.deepEqual(state.decided.slice(0, 3), [41, 'rejected', 'Wrong prices']);
+  const { service, state } = fake({ inventory, catalog: [{ id: 3, brandName: 'Neozep', dosageForm: 'Tablet' }] });
+  const csv = `${H}\n${line({ brand: 'Fine One', price: '5', stock_quantity: '3' })}\n${line({ catalog_id: '3', brand: 'Neozep', stock_quantity: '1' })}`;
+  const result = await service.submit(9, partner, { drugstoreId: 7, csv });
+  assert.equal(result.status, 400);
+  assert.match(result.body.rowErrors[0].message, /below the 4 units reserved/);
+  assert.equal(result.body.rowErrors[0].line, 3);
+  assert.equal(state.rolledBack, true);
+  assert.equal(state.recorded.length, 0);
+});
+
+test('every missing or invalid value is reported before anything is saved', async () => {
+  const { service, state } = fake();
+  const csv = `${H}\n${line({ brand: '' })}\n${line({ price: 'abc' })}\n${line({ stock_quantity: '' })}`;
+  const result = await service.submit(9, partner, { drugstoreId: 7, csv });
+  assert.equal(result.status, 400);
+  assert.deepEqual([...new Set(result.body.rowErrors.map((e) => e.line))], [2, 3, 4]);
+  assert.equal(state.options, null);
+  assert.equal(state.recorded.length, 0);
 });

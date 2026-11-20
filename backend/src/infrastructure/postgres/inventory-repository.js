@@ -1,6 +1,7 @@
 import { assertInventoryRepository } from '../../ports/inventory-repository.js';
 import { eligibleForStandardCheckout, listingEligibleForCheckout, pharmacyCanConfirmSale, productIdentity } from './catalog-orderability.js';
 import { createPostgresCompatPool } from './compat-pool.js';
+import { currentDatabaseActor, runWithDatabaseActor } from './context.js';
 
 function createTransactionRepository(connection) {
   return {
@@ -39,11 +40,6 @@ function createTransactionRepository(connection) {
         [stock, priceCentavos, sellingUnit, packageSize, actorId, drugstoreId, medicineId]);
       return Number(result.insertId) || null;
     },
-    async lockStockSubmission(id) {
-      const [rows] = await connection.query(
-        `SELECT id, drugstore_id AS "drugstoreId", status, rows FROM stock_submissions WHERE id = ? LIMIT 1 FOR UPDATE`, [id]);
-      return rows[0] ?? null;
-    },
     async insertReviewedListing(drugstoreId, medicineId, stock, priceCentavos, sellingUnit, actorId) {
       // Admin approval may list stock for a verified pharmacy that is not live yet, so (unlike partner intake) this
       // does not require the public profile to be published. Going live is a separate, checklist-gated step.
@@ -60,11 +56,13 @@ function createTransactionRepository(connection) {
         [stock, priceCentavos, stock > 0 ? 1 : 0, sellingUnit, actorId, drugstoreId, medicineId]);
       return Number(result.insertId) || null;
     },
-    async decideStockSubmission(id, status, note, reviewerId) {
+    async recordApprovedSubmission({ drugstoreId, userId, source, fileName, rows, note }) {
+      // A file that passed the template check is applied at once; this keeps the history of what was uploaded.
       const [result] = await connection.query(
-        `UPDATE stock_submissions SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND status = 'pending'`, [status, note, reviewerId, id]);
-      return Number(result.affectedRows ?? 0) === 1;
+        `INSERT INTO stock_submissions (drugstore_id, submitted_by, source, status, file_name, rows, row_count, review_note, reviewed_at)
+         VALUES (?, ?, ?, 'approved', ?, ?::jsonb, ?, ?, CURRENT_TIMESTAMP)`,
+        [drugstoreId, userId, source, fileName, JSON.stringify(rows), rows.length, note]);
+      return Number(result.insertId) || null;
     },
     async findInventoryForUpdate(drugstoreId, medicineId) {
       const [rows] = await connection.query(
@@ -127,17 +125,23 @@ export function createPostgresInventoryRepository(postgresPool) {
   const submitPool = createPostgresCompatPool(postgresPool, { capability: 'stock_submission' });
   if (!pool || typeof pool.query !== 'function' || typeof pool.getConnection !== 'function') throw new TypeError('A PostgreSQL query-capable pool is required.');
   const repository = {
-    async withTransaction(work, { intake = false } = {}) {
-      const connection = await (intake ? intakePool : pool).getConnection();
-      try {
-        await connection.beginTransaction();
-        const result = await work(createTransactionRepository(connection));
-        if (result?.rollback === true) { await connection.rollback(); return result.value; }
-        await connection.commit(); return result?.value;
-      } catch (error) {
-        try { await connection.rollback(); } catch {}
-        throw error;
-      } finally { connection.release(); }
+    async withTransaction(work, { intake = false, asSystem = false } = {}) {
+      const run = async () => {
+        const connection = await (intake ? intakePool : pool).getConnection();
+        try {
+          await connection.beginTransaction();
+          const result = await work(createTransactionRepository(connection));
+          if (result?.rollback === true) { await connection.rollback(); return result.value; }
+          await connection.commit(); return result?.value;
+        } catch (error) {
+          try { await connection.rollback(); } catch {}
+          throw error;
+        } finally { connection.release(); }
+      };
+      // asSystem: the service has already checked the person's permission and the template; the writes then run as the
+      // system actor (still carrying the person's id for the audit trail), because partners cannot write the catalog directly.
+      if (asSystem) return runWithDatabaseActor({ role: 'system', userId: currentDatabaseActor().userId }, run);
+      return run();
     },
     async findInventoryForUpdate() { throw new Error('findInventoryForUpdate() is transaction-scoped.'); },
     async updateInventoryStock() { throw new Error('updateInventoryStock() is transaction-scoped.'); },
@@ -156,12 +160,6 @@ export function createPostgresInventoryRepository(postgresPool) {
          WHERE id IN (${idList.map(() => '?').join(',')}) OR lower(brand_name) IN (${nameList.map(() => '?').join(',')})`,
         [...idList, ...nameList.map((name) => name.toLowerCase())]);
       return rows;
-    },
-    async createStockSubmission({ drugstoreId, userId, source, fileName, rows }) {
-      const [result] = await submitPool.query(
-        `INSERT INTO stock_submissions (drugstore_id, submitted_by, source, file_name, rows, row_count) VALUES (?, ?, ?, ?, ?::jsonb, ?)`,
-        [drugstoreId, userId, source, fileName, JSON.stringify(rows), rows.length]);
-      return Number(result.insertId) || null;
     },
     async listStockSubmissions({ drugstoreId = null, status = null, withRows = false } = {}) {
       let sql = `SELECT s.id, s.drugstore_id AS "drugstoreId", d.name AS "drugstoreName", d.account_no AS "accountNo", s.source, s.status,
