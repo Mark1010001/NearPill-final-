@@ -64,16 +64,20 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
   await page.getByLabel('Email').fill('new@example.test');
   await page.getByLabel('Password').fill('Sunrise2026ok');
   await page.getByRole('button', { name: 'Add pharmacy' }).click();
-  await expect(page.getByText(/Beta Pharmacy was added with a partner account for new@example.test/)).toBeVisible();
+  await expect(page.getByText(/Beta Pharmacy was added. A login email .* was sent to new@example.test/)).toBeVisible();
   expect(state.posted).toEqual([
     { name: 'Beta Pharmacy', address: '2 Main St', latitude: 14.5, longitude: 121, status: 'active' },
     { email: 'new@example.test', password: 'Sunrise2026ok' },
   ]);
   await expect(page.getByText('New Person')).toBeVisible();
-  await page.getByRole('button', { name: 'Email login details to new@example.test' }).click();
+  await page.getByRole('button', { name: 'Email login details again to new@example.test' }).click();
   await expect(page.getByText(/Login details emailed/)).toBeVisible();
   await page.getByRole('row', { name: /Pat Staff/ }).getByRole('button', { name: 'Email login details' }).click();
-  expect(state.mailed).toEqual(['/api/v1/admin/pharmacies/12/memberships/90/login-email', '/api/v1/admin/pharmacies/12/memberships/7/login-email']);
+  expect(state.mailed).toEqual([
+    '/api/v1/admin/pharmacies/12/memberships/90/login-email',
+    '/api/v1/admin/pharmacies/12/memberships/90/login-email',
+    '/api/v1/admin/pharmacies/12/memberships/7/login-email',
+  ]);
   await page.getByRole('row', { name: /Pat Staff/ }).getByRole('button', { name: 'Remove access' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Remove access' }).click();
   await expect(page.getByText('Access removed.')).toBeVisible();

@@ -61,7 +61,12 @@ export function StaffAccountsPage() {
     onSuccess: async ({ drugstoreId: id, userId }) => {
       const email = accountEmail.trim().toLowerCase();
       setJustAdded({ drugstoreId: id, userId, email });
-      setDone(`${form.name.trim()} was added with a partner account for ${email}. Use "Email login details" so they can set their own password.`);
+      const name = form.name.trim();
+      // The login email goes out straight away; if it cannot be sent the pharmacy is still added and the button below retries.
+      const mailed = await api.sendLoginEmail(id, userId).then(() => true, () => false);
+      setDone(mailed
+        ? `${name} was added. A login email with a sign-in link and a link to choose a password was sent to ${email}.`
+        : `${name} was added with a partner account for ${email}, but the login email could not be sent. Use "Email login details" to try again.`);
       setForm({ name: '', address: '', latitude: '', longitude: '' }); setCreatedId(0); setAccountEmail(''); setAccountPassword('');
       setDrugstoreId(String(id));
       await Promise.all([pharmacies.refetch(), refresh()]);
@@ -112,7 +117,7 @@ export function StaffAccountsPage() {
           <p className="muted">At least 10 characters with a letter and a number. The pharmacy signs in to the partner portal with this email and password, and can change the password there.</p>
           <button disabled={save.isPending}>{save.isPending ? 'Adding…' : createdId > 0 ? 'Retry partner account' : 'Add pharmacy'}</button>
           <FormFeedback error={save.error} success={done} />
-          {justAdded && <button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: justAdded.drugstoreId, userId: justAdded.userId })}>{mail.isPending ? 'Sending…' : `Email login details to ${justAdded.email}`}</button>}
+          {justAdded && <button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: justAdded.drugstoreId, userId: justAdded.userId })}>{mail.isPending ? 'Sending…' : `Email login details again to ${justAdded.email}`}</button>}
           <FormFeedback error={mail.error} />
         </form></section></aside>
       <div><section className="card">
