@@ -330,15 +330,6 @@ export function createCatalogService({ repository, now = () => new Date(), route
       return success({ drugstoreId, live: body.live });
     },
 
-    async deactivatePharmacy(actorId, idValue) {
-      const drugstoreId = validId(idValue);
-      if (!drugstoreId) return failure(400, 'Invalid drugstore ID.');
-      const affected = await repository.deactivateDrugstore(drugstoreId);
-      if (affected === 0) return failure(404, 'Drugstore not found.');
-      await repository.appendAudit(actorId, 'DEACTIVATE_DRUGSTORE', `Deactivated drugstore ${drugstoreId}.`);
-      return success({ success: true, id: drugstoreId, status: 'inactive' });
-    },
-
     async listMasterMedicines() {
       const rows = await repository.listMasterMedicines();
       return success(stagingTestLabels ? rows.map((row) => ({ ...row, testLabelsAllowed: true })) : rows);

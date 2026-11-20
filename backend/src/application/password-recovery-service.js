@@ -38,8 +38,27 @@ export function createPasswordRecoveryService({
       `${intro}\n\nReset your password using this single-use link, which expires in 15 minutes:\n${link.href}\n\nIf you did not request this, you can ignore this email. Contact nearpillemail.business@gmail.com if you need help.`);
   }
 
+  // A new partner pharmacy login: tells the owner their account exists and lets them choose their own password.
+  // The link is single-use like a reset link, but stays valid for 3 days because the owner may not read it at once.
+  const inviteDuration = 3 * 24 * 60 * 60_000;
+  const portal = new URL('/portal', publicUrl);
+  async function invite(user) {
+    const token = randomBytes(32).toString('hex');
+    await securityRepository.createPasswordResetChallenge({
+      userId: Number(user.id),
+      email: user.email.trim().toLowerCase(),
+      tokenHash: tokenHash(token),
+      expiresAt: now() + inviteDuration,
+    });
+    const link = new URL(page);
+    link.hash = `token=${token}`;
+    await sendEmail(user.email, 'Your NearPill pharmacy account is ready',
+      `A NearPill pharmacy partner account was created for this email address.\n\nSign in to the partner portal: ${portal.href}\n\nTo choose your own password, use this single-use link, which expires in 3 days:\n${link.href}\n\nIf you were not expecting this email, you can ignore it. Contact nearpillemail.business@gmail.com with any questions.`);
+  }
+
   return Object.freeze({
     notify,
+    invite,
     async requestReset({ email }) {
       try {
         const user = await repository.findRecoveryAccountByEmail(email);

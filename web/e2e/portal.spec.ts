@@ -352,15 +352,13 @@ test('admin reports and subscriptions use readable tables on a tablet', async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(768);
 });
 
-test('admin pharmacy removal supports cancellation, failure retry, and retained inactive records', async ({ page, context, baseURL }) => {
+test('admin cannot remove a pharmacy by hand, can still edit a storefront, and inactive records stay hidden by default', async ({ page, context, baseURL }) => {
   const pharmacies = [
     { id: 41, name: 'Removal test pharmacy', address: 'Cebu City', latitude: 10.3, longitude: 123.8, status: 'active', verificationStatus: 'verified' },
     { id: 42, name: 'Other pharmacy', address: 'Cebu City', status: 'active', verificationStatus: 'pending' },
     { id: 43, name: 'Previously removed pharmacy', address: 'Cebu City', status: 'inactive', verificationStatus: 'verified' },
   ];
   let deleteAttempts = 0;
-  let finishRemoval!: () => void;
-  const pendingRemoval = new Promise<void>((resolve) => { finishRemoval = resolve; });
   await context.addCookies([{ name: 'nearpill_csrf', value: 'removal-test-token', url: baseURL! }]);
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
@@ -370,11 +368,7 @@ test('admin pharmacy removal supports cancellation, failure retry, and retained 
     }
     if (pathname === '/api/v1/admin/pharmacies/41' && request.method() === 'DELETE') {
       deleteAttempts++;
-      expect(request.headers()['x-csrf-token']).toBe('removal-test-token');
-      if (deleteAttempts === 1) return route.fulfill(json({ error: 'Removal unavailable. Please try again.' }, 503));
-      await pendingRemoval;
-      pharmacies[0].status = 'inactive';
-      return route.fulfill(json({ success: true, id: 41, status: 'inactive' }));
+      return route.fulfill(json({ error: 'Not found' }, 404));
     }
     if (pathname === '/api/v1/admin/pharmacies/41' && request.method() === 'PUT') {
       expect(request.postDataJSON()).toEqual({ address: 'Updated staging address', latitude: 10.3, longitude: 123.8, operatingHours: null });
@@ -389,8 +383,9 @@ test('admin pharmacy removal supports cancellation, failure retry, and retained 
 
   await page.goto('/pharmacies');
   const targetRow = page.getByRole('row').filter({ hasText: 'Removal test pharmacy' });
-  const remove = page.getByRole('button', { name: 'Remove Removal test pharmacy', exact: true });
   await expect(targetRow).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Remove / })).toHaveCount(0);
+  await expect(page.getByText(/hidden from the app automatically the day after its partnership expires/)).toBeVisible();
   await expect(page.getByText('Previously removed pharmacy', { exact: true })).toHaveCount(0);
   await page.getByLabel('Show inactive pharmacies').check();
   await expect(page.getByText('Previously removed pharmacy', { exact: true })).toBeVisible();
@@ -400,33 +395,5 @@ test('admin pharmacy removal supports cancellation, failure retry, and retained 
   await targetRow.getByRole('button', { name: 'Save storefront' }).click();
   await expect(targetRow.getByText('Storefront saved.')).toBeVisible();
   await expect(targetRow.getByText('Updated staging address', { exact: true })).toBeVisible();
-  await remove.click();
-  const confirmation = page.getByRole('dialog', { name: 'Remove Removal test pharmacy?' });
-  await expect(confirmation).toContainText('Existing orders and records will be kept.');
-  await confirmation.getByRole('button', { name: 'Keep pharmacy' }).click();
   expect(deleteAttempts).toBe(0);
-  await expect(targetRow).toBeVisible();
-
-  await remove.click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Remove pharmacy' }).click();
-  await expect(page.getByRole('alert')).toHaveText('Removal unavailable. Please try again.');
-  await expect(targetRow).toBeVisible();
-  await expect(remove).toBeEnabled();
-
-  await remove.click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Remove pharmacy' }).click();
-  try {
-    await expect(remove).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Remove Other pharmacy', exact: true })).toBeDisabled();
-  } finally {
-    finishRemoval();
-  }
-  await expect(targetRow).toHaveCount(0);
-  await expect(page.getByText('Other pharmacy', { exact: true })).toBeVisible();
-  expect(deleteAttempts).toBe(2);
-  expect(pharmacies).toHaveLength(3);
-  expect(pharmacies[0].status).toBe('inactive');
-  await page.reload();
-  await expect(page.getByText('Other pharmacy', { exact: true })).toBeVisible();
-  await expect(page.getByText('Removal test pharmacy', { exact: true })).toHaveCount(0);
 });

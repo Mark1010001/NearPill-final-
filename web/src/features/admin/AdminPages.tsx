@@ -143,13 +143,6 @@ export function PharmaciesPage() {
   const query = useQuery({ queryKey: ['admin', 'pharmacies', user?.id], queryFn: api.pharmacies });
   const create = useMutation({ mutationFn: api.createPharmacy, onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'pharmacies'] }) });
   const profile = useMutation({ mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) => api.updatePharmacy(id, body), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'pharmacies'] }) });
-  const remove = useMutation({
-    mutationFn: api.removePharmacy,
-    onSuccess: () => Promise.all([
-      qc.invalidateQueries({ queryKey: ['admin', 'pharmacies'] }),
-      qc.invalidateQueries({ queryKey: ['admin', 'metrics'] }),
-    ]),
-  });
   const [form, setForm] = useState({ name: '', address: '', latitude: '', longitude: '' });
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
@@ -169,8 +162,8 @@ export function PharmaciesPage() {
         <button className="primary">{create.isPending ? 'Creating…' : 'Create pharmacy'}</button>
       </fieldset>
     </form><FormFeedback error={create.error} success={create.isSuccess ? 'Pharmacy created and verified. It stays hidden from the app until you complete its go-live checklist.' : undefined} /></section></aside>
-    <div><section className="card" aria-busy={remove.isPending}>
-      <p className="notice">Removing a pharmacy hides it from the app. Existing orders and records are kept.</p>
+    <div><section className="card">
+      <p className="notice">A pharmacy is hidden from the app automatically the day after its partnership expires. Its orders and records are kept.</p>
       <div className="chip-row" aria-label="Pharmacy summary">
         {(() => { const live = (query.data || []).filter((p) => p.status !== 'inactive'); const isPublic = (p: Pharmacy) => p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt;
           return [['Verified', live.filter((p) => p.verificationStatus === 'verified').length], ['Pending', live.filter((p) => (p.verificationStatus || 'pending') !== 'verified').length], ['Not public', live.filter((p) => !isPublic(p)).length]]
@@ -178,7 +171,6 @@ export function PharmaciesPage() {
       </div>
       <label>Find pharmacy<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <label><input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} /> Show inactive pharmacies</label>
-      <FormFeedback success={remove.isSuccess ? 'Pharmacy removed from the app.' : undefined} />
       <DataTable label="Partner pharmacies" headers={['Pharmacy', 'Verification', 'Public state', 'Actions']} empty="No matching pharmacy profiles." columnMenu
         exportCsv={{ filename: 'pharmacies.csv', rows: pharmacies.map((p) => [p.name, p.verificationStatus || 'pending', p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt ? 'Public' : 'Not public', '']) }}
         sortKeys={pharmacies.map((p) => [p.name, p.verificationStatus || 'pending', p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt ? 'Public' : 'Not public', undefined])} rows={pharmacies.map((p) => [
@@ -192,7 +184,7 @@ export function PharmaciesPage() {
           <details><summary>Edit storefront</summary>
             <form className="mini-form" key={JSON.stringify([p.address, p.latitude, p.longitude, p.operatingHours])} onSubmit={(event) => {
               event.preventDefault();
-              if (profile.isPending || remove.isPending) return;
+              if (profile.isPending) return;
               const fields = new FormData(event.currentTarget);
               profile.mutate({ id: Number(p.store_id || p.id), body: {
                 address: String(fields.get('address')), latitude: Number(fields.get('latitude')),
@@ -203,17 +195,10 @@ export function PharmaciesPage() {
               <label>Latitude<input name="latitude" type="number" required min="-90" max="90" step="any" defaultValue={p.latitude ?? ''} /></label>
               <label>Longitude<input name="longitude" type="number" required min="-180" max="180" step="any" defaultValue={p.longitude ?? ''} /></label>
               <label>Operating hours<input name="hours" maxLength={255} defaultValue={p.operatingHours ?? ''} /></label>
-              <button className="secondary" disabled={profile.isPending || remove.isPending}>Save storefront</button>
+              <button className="secondary" disabled={profile.isPending}>Save storefront</button>
             </form>
             {profile.variables?.id === Number(p.store_id || p.id) && <FormFeedback error={profile.error} success={profile.isSuccess ? 'Storefront saved.' : undefined} />}
           </details>
-          <button className="danger" aria-label={`Remove ${p.name}`} disabled={remove.isPending || profile.isPending} onClick={async () => {
-            if (await confirm({ title: `Remove ${p.name}?`, danger: true, confirmLabel: 'Remove pharmacy', cancelLabel: 'Keep pharmacy',
-              message: <>This hides <strong>{p.name}</strong> from the app so customers can no longer find or order from it. Existing orders and records will be kept.</> })) {
-              remove.mutate(Number(p.store_id || p.id));
-            }
-          }}>Remove</button>
-          {remove.variables === Number(p.store_id || p.id) && <FormFeedback error={remove.error} />}
           </>}
         </div>,
       ])} />

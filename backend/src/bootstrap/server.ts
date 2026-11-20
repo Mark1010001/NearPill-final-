@@ -27,6 +27,8 @@ import { createPaymentSubscriptionService } from '../application/payment-subscri
 import { createReportService } from '../application/report-service.js';
 import { createRetentionService } from '../application/retention-service.js';
 import { createPostgresRetentionRepository } from '../infrastructure/postgres/retention-repository.js';
+import { createPartnershipLifecycleService } from '../application/partnership-lifecycle-service.js';
+import { createPostgresPartnershipRepository } from '../infrastructure/postgres/partnership-repository.js';
 import { createPaymentProviderRegistry } from '../ports/payment-provider.js';
 import { createPaymentPolicy, minimumPharmacyCheckoutCentavos } from '../domain/payments/policy.js';
 import { createHttpApp } from '../http/app.ts';
@@ -104,7 +106,7 @@ const recovery = createPasswordRecoveryService({
 });
 const identity = createIdentityService({ repository: identityRepository, securityRepository, auth, hashPassword, sendVerificationEmail, sendExistingAccountNotice, signupLimits: securityRepository });
 const login = createLoginService({ repository: identityRepository, auth, security: loginSecurity, recovery });
-const memberships = createMembershipService({ repository: securityRepository, hashPassword });
+const memberships = createMembershipService({ repository: securityRepository, hashPassword, sendSetupEmail: (user: { id: number; email: string }) => recovery.invite(user) });
 const catalog = createCatalogService({
   repository: createPostgresCatalogRepository(pool), routePlanner: createGoogleRoutePlanner(env.routesApiKey),
   stagingTestLabels: env.nodeEnv !== 'production' && isNearPillStagingDatabase(env.database.host, env.database.user),
@@ -143,6 +145,11 @@ const assistant = createAssistantService({
 });
 const reports = createReportService({ repository: createPostgresReportRepository(pool) });
 const retention = createRetentionService({ repository: createPostgresRetentionRepository(pool) });
+const partnerships = createPartnershipLifecycleService({
+  repository: createPostgresPartnershipRepository(pool),
+  listMembers: (drugstoreId: number) => securityRepository.listDrugstoreMemberships(drugstoreId),
+  sendEmail,
+});
 
 const services = Object.freeze({
   auth, loginSecurity, recoverySecurity, recovery, identity, login, memberships,
@@ -177,6 +184,18 @@ async function purgeOldLogs() {
 await purgeOldLogs();
 const retentionTimer = setInterval(() => { void purgeOldLogs(); }, 24 * 60 * 60 * 1000);
 retentionTimer.unref();
+// Partnership reminders (7, 3 and 1 day before expiry) and hiding expired pharmacies. Safe to repeat: each reminder is sent once.
+async function runPartnershipLifecycle() {
+  try {
+    const result = await runWithDatabaseActor({ role: 'system' }, () => partnerships.run());
+    console.log('partnership_lifecycle_done', result);
+  } catch (error: any) {
+    console.error('partnership_lifecycle_failed', { code: error?.code });
+  }
+}
+void runPartnershipLifecycle();
+const partnershipTimer = setInterval(() => { void runPartnershipLifecycle(); }, 6 * 60 * 60 * 1000);
+partnershipTimer.unref();
 let paymentCursor = 0;
 let expiryRunning = false;
 const expirationTimer = setInterval(
@@ -202,6 +221,7 @@ async function shutdown(signal: string) {
   console.log(`${signal} received. Shutting down server...`);
   clearInterval(expirationTimer);
   clearInterval(retentionTimer);
+  clearInterval(partnershipTimer);
   clearInterval(prescriptionTimer);
   await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   recovery.close();

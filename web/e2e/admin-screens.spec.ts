@@ -3,13 +3,15 @@ import { expect, test, type Page } from '@playwright/test';
 function json(body: unknown, status = 200) { return { status, contentType: 'application/json', body: JSON.stringify(body) }; }
 const admin = { id: 1, role: 'admin', email: 'admin@example.test', memberships: [] };
 
-async function mockAdmin(page: Page, state: { members: unknown[]; posted: unknown[]; removed: string[] }) {
+async function mockAdmin(page: Page, state: { members: unknown[]; posted: unknown[]; removed: string[]; mailed: string[] }) {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const { pathname } = new URL(request.url());
     const method = request.method();
     if (pathname.endsWith('/auth/me')) return route.fulfill(json(admin));
     if (pathname.endsWith('/admin/pharmacies') && method === 'GET') return route.fulfill(json([{ store_id: 12, name: 'Alpha Pharmacy', status: 'active', accountNo: 1, subscriptionTier: 'Plus', partnershipStartedAt: '2098-07-01T00:00:00Z', partnershipExpiresAt: '2099-01-01' }, { store_id: 14, name: 'Beta Pharmacy', status: 'active', accountNo: 2, subscriptionTier: 'Basic', partnershipStartedAt: '2019-10-01T00:00:00Z', partnershipExpiresAt: '2020-01-01' }, { store_id: 15, name: 'Gamma Pharmacy', status: 'active', accountNo: 3, subscriptionTier: null, partnershipStartedAt: '2026-01-01T00:00:00Z', partnershipExpiresAt: null }, { store_id: 13, name: 'Closed Pharmacy', status: 'inactive' }]));
+    if (pathname.endsWith('/admin/pharmacies') && method === 'POST') { state.posted.push(request.postDataJSON()); return route.fulfill(json({ id: 12, store_id: 12 }, 201)); }
+    if (pathname.endsWith('/login-email') && method === 'POST') { state.mailed.push(pathname); return route.fulfill(json({ userId: 90, drugstoreId: 12, email: 'new@example.test', sent: true })); }
     if (pathname.endsWith('/admin/pharmacies/12/memberships') && method === 'GET') return route.fulfill(json(state.members));
     if (pathname.endsWith('/admin/pharmacies/12/partner-accounts') && method === 'POST') {
       const body = request.postDataJSON();
@@ -36,7 +38,7 @@ async function mockAdmin(page: Page, state: { members: unknown[]; posted: unknow
 }
 
 test('admin menu lists the new screens', async ({ page }) => {
-  await mockAdmin(page, { members: [], posted: [], removed: [] });
+  await mockAdmin(page, { members: [], posted: [], removed: [], mailed: [] });
   await page.goto('/dashboard');
   const nav = page.getByRole('navigation', { name: 'Portal navigation' });
   await expect(nav.getByRole('link', { name: 'Partner pharmacy accounts' })).toBeVisible();
@@ -45,23 +47,33 @@ test('admin menu lists the new screens', async ({ page }) => {
 });
 
 test('admin adds and removes pharmacy staff access', async ({ page }) => {
-  const state = { members: [{ userId: 7, name: 'Pat Staff', email: 'pat@example.test', drugstoreId: 12, membershipRole: 'staff', isActive: true }], posted: [] as unknown[], removed: [] as string[] };
+  const state = { members: [{ userId: 7, name: 'Pat Staff', email: 'pat@example.test', drugstoreId: 12, membershipRole: 'staff', isActive: true }], posted: [] as unknown[], removed: [] as string[], mailed: [] as string[] };
   await mockAdmin(page, state);
   await page.goto('/staff');
   await expect(page.getByRole('heading', { name: 'Partner pharmacy accounts', level: 1 })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Closed Pharmacy' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Add partner pharmacy' })).toBeVisible();
   await expect(page.getByLabel('Role')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Create partner account' })).toBeDisabled();
-  await page.getByLabel('Pharmacy').selectOption('12');
+  await page.getByLabel('Pharmacy', { exact: true }).selectOption('12');
   await expect(page.getByText('Pat Staff')).toBeVisible();
   await expect(page.getByText('Account ID 1')).toBeVisible();
+  await page.getByLabel('Pharmacy name').fill('Beta Pharmacy');
+  await page.getByLabel('Address').fill('2 Main St');
+  await page.getByLabel('Latitude').fill('14.5');
+  await page.getByLabel('Longitude').fill('121');
   await page.getByLabel('Email').fill('new@example.test');
   await page.getByLabel('Password').fill('Sunrise2026ok');
-  await page.getByRole('button', { name: 'Create partner account' }).click();
-  await expect(page.getByText(/Partner account created for new@example.test/)).toBeVisible();
-  expect(state.posted).toEqual([{ email: 'new@example.test', password: 'Sunrise2026ok' }]);
+  await page.getByRole('button', { name: 'Add pharmacy' }).click();
+  await expect(page.getByText(/Beta Pharmacy was added with a partner account for new@example.test/)).toBeVisible();
+  expect(state.posted).toEqual([
+    { name: 'Beta Pharmacy', address: '2 Main St', latitude: 14.5, longitude: 121, status: 'active' },
+    { email: 'new@example.test', password: 'Sunrise2026ok' },
+  ]);
   await expect(page.getByText('New Person')).toBeVisible();
+  await page.getByRole('button', { name: 'Email login details to new@example.test' }).click();
+  await expect(page.getByText(/Login details emailed/)).toBeVisible();
+  await page.getByRole('row', { name: /Pat Staff/ }).getByRole('button', { name: 'Email login details' }).click();
+  expect(state.mailed).toEqual(['/api/v1/admin/pharmacies/12/memberships/90/login-email', '/api/v1/admin/pharmacies/12/memberships/7/login-email']);
   await page.getByRole('row', { name: /Pat Staff/ }).getByRole('button', { name: 'Remove access' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Remove access' }).click();
   await expect(page.getByText('Access removed.')).toBeVisible();
@@ -69,7 +81,7 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
 });
 
 test('admin reports include medicines sold and pharmacy performance', async ({ page }) => {
-  await mockAdmin(page, { members: [], posted: [], removed: [] });
+  await mockAdmin(page, { members: [], posted: [], removed: [], mailed: [] });
   await page.goto('/reports');
   await expect(page.getByRole('heading', { name: 'Medicines sold' })).toBeVisible();
   await expect(page.getByText('Biogesic')).toBeVisible();
@@ -79,7 +91,7 @@ test('admin reports include medicines sold and pharmacy performance', async ({ p
 });
 
 test('partner pharmacy accounts show the account number and partnership expiry', async ({ page }) => {
-  await mockAdmin(page, { members: [], posted: [], removed: [] });
+  await mockAdmin(page, { members: [], posted: [], removed: [], mailed: [] });
   await page.goto('/staff');
   const table = page.getByRole('region', { name: 'Partnership expiry' });
   await expect(table.getByRole('columnheader', { name: 'Account No.' })).toBeVisible();

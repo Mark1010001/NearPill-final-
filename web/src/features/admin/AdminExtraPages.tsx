@@ -32,6 +32,9 @@ export function StaffAccountsPage() {
   const { user } = useSession();
   const [confirm, confirmDialog] = useConfirm();
   const [drugstoreId, setDrugstoreId] = useState('');
+  const [form, setForm] = useState({ name: '', address: '', latitude: '', longitude: '' });
+  const [createdId, setCreatedId] = useState(0);
+  const [justAdded, setJustAdded] = useState<{ drugstoreId: number; userId: number; email: string } | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
   const [accountPassword, setAccountPassword] = useState('');
   const [done, setDone] = useState('');
@@ -42,9 +45,32 @@ export function StaffAccountsPage() {
     enabled: Number.isInteger(selected) && selected > 0,
   });
   const refresh = () => qc.invalidateQueries({ queryKey: ['admin', 'memberships'] });
+  // Adds the pharmacy and its login in one go. If the login step fails (for example the email is already used),
+  // the pharmacy that was just created is kept and a retry only repeats the login step, so no duplicate pharmacy appears.
   const save = useMutation({
-    mutationFn: () => api.createPartnerAccount(selected, { email: accountEmail.trim(), password: accountPassword }),
-    onSuccess: async () => { setDone(`Partner account created for ${accountEmail.trim().toLowerCase()}. They can now sign in to the partner portal.`); setAccountEmail(''); setAccountPassword(''); await refresh(); },
+    mutationFn: async () => {
+      let id = createdId;
+      if (!id) {
+        const created = await api.createPharmacy({ name: form.name.trim(), address: form.address.trim(), latitude: Number(form.latitude), longitude: Number(form.longitude), status: 'active' }) as { id?: number; store_id?: number };
+        id = Number(created.store_id ?? created.id);
+        setCreatedId(id);
+      }
+      const account = await api.createPartnerAccount(id, { email: accountEmail.trim(), password: accountPassword });
+      return { drugstoreId: id, userId: Number(account.userId) };
+    },
+    onSuccess: async ({ drugstoreId: id, userId }) => {
+      const email = accountEmail.trim().toLowerCase();
+      setJustAdded({ drugstoreId: id, userId, email });
+      setDone(`${form.name.trim()} was added with a partner account for ${email}. Use "Email login details" so they can set their own password.`);
+      setForm({ name: '', address: '', latitude: '', longitude: '' }); setCreatedId(0); setAccountEmail(''); setAccountPassword('');
+      setDrugstoreId(String(id));
+      await Promise.all([pharmacies.refetch(), refresh()]);
+    },
+    onError: () => setDone(''),
+  });
+  const mail = useMutation({
+    mutationFn: ({ id, userId }: { id: number; userId: number }) => api.sendLoginEmail(id, userId),
+    onSuccess: () => setDone('Login details emailed. The email has a sign-in link and a link to choose a password; it never contains a password.'),
     onError: () => setDone(''),
   });
   const remove = useMutation({
@@ -76,13 +102,18 @@ export function StaffAccountsPage() {
     </section>
     <div className="two-col two-col-reverse">
       <aside><section className="card"><h2>Add partner pharmacy</h2>
-        <form onSubmit={(event) => { event.preventDefault(); if (!save.isPending) { setDone(''); save.mutate(); } }}>
+        <form onSubmit={(event) => { event.preventDefault(); if (!save.isPending) { setDone(''); setJustAdded(null); save.mutate(); } }}>
+          <label>Pharmacy name<input required maxLength={150} disabled={createdId > 0} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
+          <label>Address<input required maxLength={255} disabled={createdId > 0} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
+          <label>Latitude<input required type="number" min={-90} max={90} step="any" disabled={createdId > 0} value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} /></label>
+          <label>Longitude<input required type="number" min={-180} max={180} step="any" disabled={createdId > 0} value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} /></label>
           <label>Email<input type="email" required autoComplete="off" maxLength={254} value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} /></label>
           <label>Password<input type="password" required minLength={10} maxLength={128} autoComplete="new-password" value={accountPassword} onChange={(event) => setAccountPassword(event.target.value)} /></label>
           <p className="muted">At least 10 characters with a letter and a number. The pharmacy signs in to the partner portal with this email and password, and can change the password there.</p>
-          <button disabled={save.isPending || !selected || !accountEmail.trim() || !accountPassword}>{save.isPending ? 'Creating…' : 'Create partner account'}</button>
+          <button disabled={save.isPending}>{save.isPending ? 'Adding…' : createdId > 0 ? 'Retry partner account' : 'Add pharmacy'}</button>
           <FormFeedback error={save.error} success={done} />
-          {selected > 0 ? <p className="muted">This creates the login for {stores.find((store) => Number(store.store_id ?? store.id) === selected)?.name ?? 'the chosen pharmacy'}.</p> : <p className="muted">Choose a pharmacy first.</p>}
+          {justAdded && <button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: justAdded.drugstoreId, userId: justAdded.userId })}>{mail.isPending ? 'Sending…' : `Email login details to ${justAdded.email}`}</button>}
+          <FormFeedback error={mail.error} />
         </form></section></aside>
       <div><section className="card">
         <label>Pharmacy<select value={drugstoreId} onChange={(event) => { setDrugstoreId(event.target.value); setDone(''); }}>
@@ -95,7 +126,7 @@ export function StaffAccountsPage() {
             sortKeys={rows.map((item) => [item.name, item.email, item.membershipRole, item.isActive ? 'Active' : 'Removed', ''])}
             rows={rows.map((item) => [item.userId, <>{item.name}<small>Account ID {stores.find((store) => Number(store.store_id ?? store.id) === selected)?.accountNo ?? '—'}</small></>, item.email,
               roleLabels[item.membershipRole] ?? item.membershipRole, <Status value={item.isActive ? 'active' : 'inactive'} label={item.isActive ? 'Active' : 'Removed'} />,
-              item.isActive ? <button type="button" className="secondary" disabled={remove.isPending} onClick={() => void deactivate(item.userId, item.name)}>Remove access</button> : '—'])}
+              item.isActive ? <div className="stack-actions"><button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: selected, userId: item.userId })}>Email login details</button><button type="button" className="secondary" disabled={remove.isPending} onClick={() => void deactivate(item.userId, item.name)}>Remove access</button></div> : '—'])}
             empty="No staff accounts for this pharmacy yet." />)}
         {remove.error && <FormFeedback error={remove.error} />}
       </section></div>

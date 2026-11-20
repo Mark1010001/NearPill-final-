@@ -432,14 +432,6 @@ export function createPostgresCatalogRepository(postgresPool) {
       return Number(result.affectedRows ?? 0);
     },
 
-    async deactivateDrugstore(drugstoreId) {
-      const [result] = await pool.query(
-        `UPDATE drugstores SET is_active = 0, public_profile_published_at = NULL WHERE id = ?`,
-        [drugstoreId],
-      );
-      return Number(result.affectedRows ?? 0);
-    },
-
     async setPharmacyVerification({ drugstoreId, status, licenseNumber, evidenceReference, notes, reviewedBy, publish }) {
       const connection = await pool.getConnection();
       try {

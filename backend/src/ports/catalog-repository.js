@@ -13,7 +13,6 @@ const requiredMethods = [
   'listDrugstoreSales',
   'createDrugstore',
   'updateDrugstore',
-  'deactivateDrugstore',
   'setPharmacyVerification',
   'getGoLiveFacts',
   'setPublication',

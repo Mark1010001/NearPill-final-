@@ -4,7 +4,7 @@ import { normalizeEmail, passwordMatchesIdentity, signupPasswordMessage, validEm
 
 const roles = new Set(['owner', 'manager', 'staff']);
 
-export function createMembershipService({ repository, hashPassword }) {
+export function createMembershipService({ repository, hashPassword, sendSetupEmail }) {
   assertSecurityRepository(repository);
   if (typeof hashPassword !== 'function') throw new TypeError('A password hasher is required.');
   return Object.freeze({
@@ -41,6 +41,24 @@ export function createMembershipService({ repository, hashPassword }) {
       if (result.status === 'store_missing') return failure(404, 'Drugstore not found.');
       if (result.status === 'email_taken') return failure(409, 'An account with this email already exists.');
       return success({ userId: result.userId, drugstoreId, email, membershipRole: 'owner', role: 'partner' }, 201);
+    },
+    // Emails the partner a sign-in link and a single-use link to choose their own password. No password is ever emailed.
+    async sendLoginEmail(actorId, drugstoreIdValue, userIdValue) {
+      const drugstoreId = Number(drugstoreIdValue);
+      const userId = Number(userIdValue);
+      if (!Number.isInteger(drugstoreId) || drugstoreId <= 0 || !Number.isInteger(userId) || userId <= 0) {
+        return failure(400, 'Invalid membership identifier.');
+      }
+      if (typeof sendSetupEmail !== 'function') return failure(503, 'Email is not available right now.');
+      const members = await repository.listDrugstoreMemberships(drugstoreId);
+      const member = members.find((item) => item.userId === userId && item.isActive);
+      if (!member) return failure(404, 'Active partner account not found.');
+      try {
+        await sendSetupEmail({ id: member.userId, email: member.email });
+      } catch {
+        return failure(502, 'The email could not be sent. Try again in a moment.');
+      }
+      return success({ userId, drugstoreId, email: member.email, sent: true });
     },
     async deactivate(actorId, drugstoreIdValue, userIdValue) {
       const drugstoreId = Number(drugstoreIdValue);
