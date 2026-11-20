@@ -26,7 +26,19 @@ http {
 
   map "$status:$uri" $nearpill_cache_control {
     ~^(200|206|304):/assets/ "public, max-age=31536000, immutable";
+    ~^(200):/(robots\.txt|sitemap\.xml)$ "public, max-age=3600";
     default "no-store";
+  }
+
+  # Client-side routes that answer 200 with the app shell. Everything else under
+  # location / is a genuine 404 (still rendered by the SPA's "Page not found" screen).
+  # Keep in sync with SITE_PATHS and PORTAL_PATHS in web/src/app/App.tsx.
+  map $uri $nearpill_known_route {
+    default 0;
+    ~^/$ 1;
+    ~^/(features|partners|about|contact|policies)/?$ 1;
+    ~^/site(/|$) 1;
+    ~^/(portal|dashboard|pharmacies|orders|catalog|subscriptions|reports|staff|stock-submissions|partner)(/|$) 1;
   }
 
   server {
@@ -78,7 +90,17 @@ http {
 
     location / {
       include /etc/nginx/snippets/nginx-headers-portal.conf;
-      try_files $uri $uri/ /index.html;
+      try_files $uri $uri/ @site;
+    }
+
+    # Known site and portal routes get the SPA shell with 200. Any other path gets the same
+    # shell (so React renders "Page not found") but with a real 404 status.
+    # A try_files fallback to /index.html would re-enter location /, hence the named location.
+    location @site {
+      include /etc/nginx/snippets/nginx-headers-portal.conf;
+      error_page 404 =404 /index.html;
+      if ($nearpill_known_route = 0) { return 404; }
+      rewrite ^ /index.html break;
     }
   }
 }

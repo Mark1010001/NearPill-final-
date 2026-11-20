@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Auth-gated portal routes (see PORTAL_PATHS in web/src/app/App.tsx)
+Disallow: /portal
+Disallow: /dashboard
+Disallow: /pharmacies
+Disallow: /orders
+Disallow: /catalog
+Disallow: /subscriptions
+Disallow: /reports
+Disallow: /staff
+Disallow: /stock-submissions
+Disallow: /partner
+Disallow: /api/
+
+Sitemap: https://nearpill.xyz/sitemap.xml

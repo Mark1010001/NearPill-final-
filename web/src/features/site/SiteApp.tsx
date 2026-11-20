@@ -9,18 +9,44 @@ const featureIcon: Record<FeatureId, IconName> = { map: 'pin', search: 'search',
 const trustIcon: Record<string, IconName> = { verified: 'shield', pickup: 'store', privacy: 'lock' };
 const categoryIcon: Record<string, IconName> = { otc: 'pill', rx: 'file', non: 'clipboard' };
 
+const SITE_ORIGIN = 'https://nearpill.xyz';
+
+/** Sets one attribute on a <head> element (creating the element if needed) and returns a function that undoes it. */
+function setHeadTag(selector: string, make: () => HTMLElement, attribute: string, value: string) {
+  let element = document.head.querySelector<HTMLElement>(selector);
+  const created = !element;
+  if (!element) { element = make(); document.head.appendChild(element); }
+  const previous = element.getAttribute(attribute);
+  element.setAttribute(attribute, value);
+  const target = element;
+  return () => {
+    if (created) target.remove();
+    else if (previous !== null) target.setAttribute(attribute, previous);
+  };
+}
+
+function headTag(tag: 'link' | 'meta', attributes: Record<string, string>) {
+  return () => { const element = document.createElement(tag); for (const [key, value] of Object.entries(attributes)) element.setAttribute(key, value); return element; };
+}
+
 function usePage(title: string, description: string) {
+  const { pathname } = useLocation();
   useEffect(() => {
     const previous = document.title;
     const meta = document.querySelector('meta[name="description"]');
     const previousDescription = meta?.getAttribute('content') ?? null;
     document.title = title;
     meta?.setAttribute('content', description);
+    const url = `${SITE_ORIGIN}${pathname.replace(/\/+$/, '') || '/'}`;
+    const undoCanonical = setHeadTag('link[rel="canonical"]', headTag('link', { rel: 'canonical' }), 'href', url);
+    const undoOgUrl = setHeadTag('meta[property="og:url"]', headTag('meta', { property: 'og:url' }), 'content', url);
     return () => {
       document.title = previous;
       if (meta && previousDescription !== null) meta.setAttribute('content', previousDescription);
+      undoCanonical();
+      undoOgUrl();
     };
-  }, [title, description]);
+  }, [title, description, pathname]);
 }
 
 function ScrollToTop() {
@@ -316,6 +342,8 @@ function Policies() {
 
 function NotFound() {
   usePage('Page not found - NearPill', 'This page could not be found.');
+  // Keep this page out of search results; the tag is removed again when the visitor leaves it.
+  useEffect(() => setHeadTag('meta[name="robots"]', headTag('meta', { name: 'robots' }), 'content', 'noindex'), []);
   return <PageHead title="Page not found" text="We could not find that page." />;
 }
 

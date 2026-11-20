@@ -13,7 +13,11 @@ import { Shell } from './Shell';
 const CustomerApp = lazy(() => import('../features/customer/CustomerApp'));
 const SiteApp = lazy(() => import('../features/site/SiteApp'));
 
-/** The public website lives at the root address: nearpill.xyz, nearpill.xyz/features, and so on. */
+/**
+ * The public website lives at the root address: nearpill.xyz, nearpill.xyz/features, and so on.
+ * nginx answers 404 for any other path, using the $nearpill_known_route map in deploy/nginx.conf.template
+ * and web/nginx.conf. Keep that map and web/public/sitemap.xml in sync with this list and PORTAL_PATHS.
+ */
 const SITE_PATHS = ['/', '/features', '/partners', '/about', '/contact', '/policies'];
 
 /** Old /site/... links keep working and move to the new address. */
@@ -24,7 +28,10 @@ function SiteRedirect() {
   return <Navigate to={`${target}${hash}`} replace />;
 }
 
-/** Addresses that belong to the admin and partner portals. Anything else that is not a website page is "Page not found". */
+/**
+ * Addresses that belong to the admin and partner portals. Anything else that is not a website page is "Page not found".
+ * Mirrored by the $nearpill_known_route map in the nginx configs and by web/public/robots.txt.
+ */
 const PORTAL_PATHS = ['/portal', '/dashboard', '/pharmacies', '/orders', '/catalog', '/subscriptions', '/reports', '/staff', '/stock-submissions', '/partner'];
 
 function Fallback() {
