@@ -165,39 +165,3 @@ test('admin sees uploaded stock as a read-only record with nothing to approve', 
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(0);
 });
-
-test('administrator sign-in asks for the emailed code, rejects a wrong one, and finishes with the right one', async ({ page }) => {
-  let signedIn = false;
-  const attempts: unknown[] = [];
-  await page.route('**/api/v1/**', async (route) => {
-    const request = route.request();
-    const { pathname } = new URL(request.url());
-    if (pathname.endsWith('/auth/me')) return route.fulfill(signedIn ? json(admin) : json({ error: 'Unauthorized' }, 401));
-    if (pathname.endsWith('/auth/login')) {
-      const body = request.postDataJSON();
-      attempts.push(body);
-      if (!body.code) return route.fulfill(json({ verificationRequired: true, message: 'We emailed a 6-digit sign-in code to your address. Enter it to finish signing in.' }));
-      if (body.code !== '123456') return route.fulfill(json({ error: 'That code is wrong or has expired. Sign in again to get a new one.' }, 401));
-      signedIn = true;
-      return route.fulfill(json({ user: admin }));
-    }
-    return route.fulfill(json([]));
-  });
-  await page.goto('/staff');
-  await page.getByLabel('Email').fill('admin@example.test');
-  await page.getByLabel('Password').fill('Sunrise2026ok');
-  await expect(page.getByLabel('Sign-in code')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByText(/We emailed a 6-digit sign-in code/)).toBeVisible();
-  await page.getByLabel('Sign-in code').fill('000000');
-  await page.getByRole('button', { name: 'Verify and sign in' }).click();
-  await expect(page.getByRole('alert')).toHaveText(/code is wrong or has expired/);
-  await page.getByLabel('Sign-in code').fill('123456');
-  await page.getByRole('button', { name: 'Verify and sign in' }).click();
-  await expect(page.getByLabel('Sign-in code')).toHaveCount(0);
-  expect(attempts).toEqual([
-    { email: 'admin@example.test', password: 'Sunrise2026ok' },
-    { email: 'admin@example.test', password: 'Sunrise2026ok', code: '000000' },
-    { email: 'admin@example.test', password: 'Sunrise2026ok', code: '123456' },
-  ]);
-});

@@ -10,7 +10,7 @@ No critical or exploitable-today holes were found. The code is unusually careful
 |---|----------|---------|-------|
 | 1 | High (until confirmed) | Secrets that were pasted into earlier chats may not be rotated yet | docs/ROTATE-SECRETS.md |
 | 2 | Medium (FIXED 20 Nov) | Live site's session cookies are missing the `Secure` flag and `__Host-` prefix | backend/src/application/auth-service.js:38-89, render.yaml (NODE_ENV=staging) |
-| 3 | Medium (FIXED 20 Nov) | Admin logins have no second factor | backend (no TOTP/MFA anywhere) |
+| 3 | Medium (ACCEPTED, not fixed) | Admin logins have no second factor | backend (no TOTP/MFA anywhere) |
 | 4 | Medium (FIXED 20 Nov) | The admin chooses a partner's first password, so the admin knows it | backend/src/application/membership-service.js createPartnerAccount |
 | 5 | Low | `/auth/register` reveals whether an email already has an account | backend/src/application/identity-service.js:88-90 |
 | 6 | Low | API runs as root inside the container | deploy/Dockerfile (no USER) |
@@ -78,6 +78,6 @@ Later: 3 (admin second factor), 10-12.
 
 ## Status of the Medium findings (updated 20 Nov 2026)
 - 2 Fixed: session and CSRF cookies are now Secure, and the session cookie uses the `__Host-` prefix, whenever the site is reached over https (`useSecureCookies` in auth-service.js, used by server.ts). Everyone is signed out once after the deploy.
-- 3 Fixed: administrator sign-in needs a 6-digit code emailed after the password is accepted (`admin-second-factor.js`, `login-service.js`, web `LoginPage.tsx`). The code lasts 10 minutes, works once, and 5 wrong tries delete it. It is on by default on staging/production. Emergency switch: set `ADMIN_SECOND_FACTOR=off` in Render and redeploy if email delivery is down. Every admin account's email must be able to receive mail.
+- 3 Not done by owner's choice (20 Nov): an emailed sign-in code for administrators was built, then removed at the owner's request. Admins sign in with email and password only. Risk accepted: a stolen or guessed admin password gives full admin access; the existing login lockout and rate limits still apply.
 - 4 Fixed: the admin no longer types a partner password. The server makes a long random one that nobody sees; the partner chooses their own password through the emailed set-password link.
 - Also fixed while there: an invitation or reminder email that Brevo refuses is now reported or retried instead of being treated as sent.

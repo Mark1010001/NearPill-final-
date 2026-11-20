@@ -36,7 +36,7 @@ export const RegisterSchema = z.object({
     context.addIssue({ code: 'custom', path: ['password'], message: 'Do not use your name or email as your password.' });
   }
 });
-export const LoginSchema = z.object({ email, password: loginPassword, code: z.string().regex(/^\d{6}$/).optional() }).strict();
+export const LoginSchema = z.object({ email, password: loginPassword }).strict();
 export const ChangePasswordSchema = z.object({ currentPassword: loginPassword, password: signupPassword }).strict();
 export const DeleteAccountSchema = z.object({
   password: z.string().min(1).max(255),
@@ -271,7 +271,7 @@ export const SalesQuerySchema = z.object({
   endDate: z.string().max(80).optional(),
 }).passthrough();
 
-const LoginSessionResponseSchema = z.object({
+export const LoginResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
   csrfToken: z.string(),
@@ -282,10 +282,7 @@ const LoginSessionResponseSchema = z.object({
     role: z.string(),
   }),
   passwordNeedsUpdate: z.boolean().optional(),
-});
-// Administrators get this first: a code was emailed, and the same request must be repeated with that code.
-const LoginCodeRequiredSchema = z.object({ verificationRequired: z.literal(true), message: z.string() });
-export const LoginResponseSchema = z.union([LoginSessionResponseSchema, LoginCodeRequiredSchema]).openapi('LoginResponse');
+}).openapi('LoginResponse');
 export const RefreshResponseSchema = z.object({ accessToken: z.string(), refreshToken: z.string() })
   .openapi('RefreshResponse');
 export const HealthSchema = z.object({ status: z.string(), database: z.string().optional() })

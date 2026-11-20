@@ -14,7 +14,6 @@ import { createAuthService, useSecureCookies } from '../application/auth-service
 import { createDurableLoginSecurity } from '../application/durable-login-security.js';
 import { createIdentityService } from '../application/identity-service.js';
 import { createLoginService } from '../application/login-service.js';
-import { createAdminSecondFactor } from '../application/admin-second-factor.js';
 import { createPasswordRecoveryService } from '../application/password-recovery-service.js';
 import { createMembershipService } from '../application/membership-service.js';
 import { createAssistantService } from '../application/assistant-service.js';
@@ -106,18 +105,7 @@ const recovery = createPasswordRecoveryService({
   publicUrl: env.publicAppUrl,
 });
 const identity = createIdentityService({ repository: identityRepository, securityRepository, auth, hashPassword, sendVerificationEmail, sendExistingAccountNotice, signupLimits: securityRepository });
-// Administrators confirm each sign-in with an emailed code. On by default on the public (staging/production) deployments;
-// set ADMIN_SECOND_FACTOR=off there only as an emergency switch if email delivery is down.
-const secondFactor = createAdminSecondFactor({
-  securityRepository,
-  enabled: (env.nodeEnv === 'staging' || env.nodeEnv === 'production') && process.env.ADMIN_SECOND_FACTOR !== 'off',
-  sendCodeEmail: async (to: string, code: string) => {
-    const sent = await sendEmail(to, 'Your NearPill admin sign-in code',
-      `Your NearPill administrator sign-in code is ${code}. It expires in 10 minutes and works once.\n\nIf you did not try to sign in, change your password now: someone has your password.`);
-    if (!sent) throw new Error('Sign-in code email could not be sent.');
-  },
-});
-const login = createLoginService({ repository: identityRepository, auth, security: loginSecurity, recovery, secondFactor });
+const login = createLoginService({ repository: identityRepository, auth, security: loginSecurity, recovery });
 const memberships = createMembershipService({ repository: securityRepository, hashPassword, sendSetupEmail: (user: { id: number; email: string }) => recovery.invite(user) });
 const catalog = createCatalogService({
   repository: createPostgresCatalogRepository(pool), routePlanner: createGoogleRoutePlanner(env.routesApiKey),
