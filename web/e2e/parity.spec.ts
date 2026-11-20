@@ -214,7 +214,7 @@ test('map shows you and pharmacies, then a road route with the app’s actions',
   await expect(page.getByText('2.45 km by road · 7 min estimated')).toBeVisible();
   await expect(page.getByText('Driving route by Google Maps. Estimated time excludes live traffic.')).toBeVisible();
   await expect(page.getByText('Your location is shared with Google for routing while this route is open.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Navigate' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Navigate' })).toHaveCount(0);
   await page.getByRole('button', { name: 'View medicines' }).click();
   await expect(page).toHaveURL(/\/app\/pharmacies\/12$/);
 });

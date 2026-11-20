@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:nearpill/widgets/np_icon.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../features/map/presentation/map_view_model.dart';
 import '../features/pharmacy/domain/pharmacy.dart';
@@ -164,22 +163,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
     } else {
       _search(_manualSearch.text);
     }
-  }
-
-  Future<void> _openDirections(Pharmacy store) async {
-    final uri = store.directionsUri;
-    if (uri == null) return;
-    try {
-      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
-    } catch (_) {
-      // The pharmacy list remains usable when an external maps app is unavailable.
-    }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Could not open directions. Please try again.'),
-      ),
-    );
   }
 
   @override
@@ -467,11 +450,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                 TextButton(
                   onPressed: () => _openStore(store),
                   child: const Text('View medicines'),
-                ),
-                FilledButton.icon(
-                  onPressed: () => _openDirections(store),
-                  icon: const NpIcon(NpIcons.navigation),
-                  label: const Text('Navigate'),
                 ),
               ],
             ),

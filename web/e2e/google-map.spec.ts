@@ -80,7 +80,7 @@ test('the map screen uses Google Maps like the app: key, pins, You marker, info 
   expect(line!.path).toHaveLength(2);
   expect(calls).toContain('/stores/12/route');
   // The list under the map is still the keyboard equivalent.
-  await expect(page.getByRole('button', { name: 'Navigate' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Navigate' })).toHaveCount(0);
 });
 
 for (const [name, body, status] of [

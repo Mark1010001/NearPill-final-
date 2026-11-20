@@ -589,9 +589,9 @@ void main() {
       await model.selectRoute(_store);
       tester.view.physicalSize = const Size(640, 320);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Navigate'));
+      await tester.ensureVisible(find.text('View medicines'));
       await tester.pumpAndSettle();
-      expect(find.text('Navigate').hitTestable(), findsOneWidget);
+      expect(find.text('View medicines').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

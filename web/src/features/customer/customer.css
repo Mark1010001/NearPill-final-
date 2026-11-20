@@ -707,7 +707,6 @@ button.shop-text-link,
 .text-button { display: inline-flex; align-items: center; gap: var(--np-s2); min-height: 44px; padding: 0 var(--np-s3); border: 0; border-radius: var(--np-radius-pill); background: transparent; color: var(--np-green-dark); font-weight: 700; font-size: .875rem; cursor: pointer; }
 .text-button:hover:not(:disabled) { background: var(--np-green-soft); }
 .text-button:disabled { opacity: .45; cursor: default; }
-.route-navigate { display: inline-flex; align-items: center; gap: var(--np-s2); border-radius: var(--np-radius-control); }
 .route-card .row { display: flex; gap: var(--np-s2); flex-wrap: wrap; align-items: center; }
 .linklike { background: none; border: 0; text-align: left; padding: var(--np-s1); cursor: pointer; font: inherit; color: inherit; min-height: 44px; }
 

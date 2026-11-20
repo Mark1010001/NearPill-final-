@@ -155,12 +155,6 @@ export function MapPage() {
     return () => document.removeEventListener('visibilitychange', pause);
   }, [selected, selectRoute]);
 
-  function openDirections(store: Store) {
-    const url = directionsUrl(store);
-    if (!url) return;
-    const opened = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!opened) show('Could not open directions. Please try again.');
-  }
   const openStore = (store: Store) => { stopTracking.current?.(); stopTracking.current = null; void navigate(`/app/pharmacies/${store.store_id}`, { state: { from: '/app/map' } }); };
 
   const loading = state === 'loading';
@@ -196,7 +190,6 @@ export function MapPage() {
       <div className="row route-actions">
         <button type="button" className="text-button" disabled={routeLoading} onClick={() => void selectRoute(selected)}><MaterialIcon name="refresh" size={18} />Refresh route</button>
         <button type="button" className="text-button" onClick={() => openStore(selected)}>View medicines</button>
-        <button type="button" className="primary route-navigate" onClick={() => openDirections(selected)} disabled={!directionsUrl(selected)}><MaterialIcon name="navigation" size={18} />Navigate</button>
       </div>
     </section> : <section aria-label="Pharmacy results">
       <p role="status"><strong>{loading ? 'Finding verified pharmacies…' : stores.length === 1 ? '1 verified pharmacy' : `${stores.length} verified pharmacies`}</strong></p>
