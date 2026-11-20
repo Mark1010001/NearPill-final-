@@ -1,3 +1,6 @@
+// Opening hours are Philippine local time (UTC+8). The server clock is UTC on Render, so never read the server's own local hours.
+const manilaOffsetMs = 8 * 60 * 60 * 1000;
+
 export function calculateOpenNow(operatingHours, isActive, now = new Date()) {
   if (!isActive || !operatingHours) return false;
 
@@ -24,7 +27,8 @@ export function calculateOpenNow(operatingHours, isActive, now = new Date()) {
   try {
     const start = parseTime(match[1], match[2], match[3]);
     const end = parseTime(match[4], match[5], match[6]);
-    const current = now.getHours() * 60 + now.getMinutes();
+    const manilaNow = new Date(now.getTime() + manilaOffsetMs);
+    const current = manilaNow.getUTCHours() * 60 + manilaNow.getUTCMinutes();
 
     if (end >= start) return current >= start && current <= end;
     return current >= start || current <= end;

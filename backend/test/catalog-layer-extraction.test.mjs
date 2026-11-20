@@ -60,12 +60,16 @@ test('catalog Hono adapter remains SQL-free and composes the Postgres catalog bo
 });
 
 test('catalog domain preserves conservative open-hours and stable pharmacy slug behavior', () => {
-  const noon = new Date(2026, 9, 17, 12, 0, 0);
-  const late = new Date(2026, 9, 17, 23, 0, 0);
+  // Opening hours are Philippine time, whatever timezone the server runs in: 12:00 and 23:00 in Manila.
+  const noon = new Date('2026-10-17T04:00:00Z');
+  const late = new Date('2026-10-17T15:00:00Z');
   assert.equal(calculateOpenNow('08:00-20:00', 1, noon), true);
   assert.equal(calculateOpenNow('08:00-20:00', 1, late), false);
   assert.equal(calculateOpenNow('8:00 PM - 2:00 AM', 1, late), true);
   assert.equal(calculateOpenNow('unparseable', 1, noon), false);
+  // 15:29 in Manila is 07:29 UTC: a pharmacy open 08:00-21:00 must show as open, not closed.
+  assert.equal(calculateOpenNow('08:00-21:00', 1, new Date('2026-11-20T07:29:00Z')), true);
+  assert.equal(calculateOpenNow('08:00-21:00', 1, new Date('2026-11-19T22:00:00Z')), false);
   assert.equal(pharmacySlug('  Cebu Care + Pharmacy  '), 'cebu-care-pharmacy');
 });
 
