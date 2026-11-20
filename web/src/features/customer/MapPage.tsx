@@ -173,8 +173,8 @@ export function MapPage() {
         onClick={() => { setQuery(''); void loadNearby(); }}><MaterialIcon name="myLocation" size={24} /></button>
     </form>
     <div className="map-legend" aria-label="Map legend">
-      <span><MaterialIcon name="accountCircle" size={20} color="#1565C0" />You</span>
-      <span><MaterialIcon name="localPharmacy" size={20} color="#2E7D32" />Pharmacies</span>
+      <span><svg width="22" height="22" viewBox="0 0 80 80" aria-hidden="true" focusable="false"><circle cx="40" cy="40" r="38" fill="#fff" /><circle cx="40" cy="40" r="33" fill="#1565C0" /><circle cx="40" cy="30" r="9" fill="#fff" /><rect x="24" y="43" width="32" height="19" rx="10" fill="#fff" /></svg>You</span>
+      <span><svg width="14" height="22" viewBox="0 0 27 43" aria-hidden="true" focusable="false"><path d="M13.5 1.2C6.7 1.2 1.2 6.6 1.2 13.3c0 9.6 12.3 28.5 12.3 28.5s12.3-18.9 12.3-28.5C25.8 6.6 20.3 1.2 13.5 1.2z" fill="#34A853" stroke="#2B8A45" strokeWidth="1.2" /><circle cx="13.5" cy="13.5" r="5" fill="#1B5E20" /></svg>Pharmacies</span>
     </div>
     <MapView you={you} stores={mapStores} route={route?.coordinates ?? null} selectedId={selected?.store_id ?? null}
       onSelect={(pin) => { const store = stores.find((s) => s.store_id === pin.id); if (store) void selectRoute(store); }} />

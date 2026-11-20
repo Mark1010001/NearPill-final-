@@ -255,11 +255,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        NpIcon(
-                          NpIcons.account_circle,
-                          color: Color(0xFF1565C0),
-                          size: 20,
-                        ),
+                        _LegendYouPin(),
                         SizedBox(width: 4),
                         Text('You'),
                       ],
@@ -267,11 +263,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        NpIcon(
-                          NpIcons.local_pharmacy,
-                          color: Color(0xFF2E7D32),
-                          size: 20,
-                        ),
+                        _LegendPharmacyPin(),
                         SizedBox(width: 4),
                         Text('Pharmacies'),
                       ],
@@ -469,4 +461,69 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
       _model.selectRoute(_model.selectedStore!);
     }
   }
+}
+
+/// The legend uses the same shapes as the pins on the map: the blue "You" circle with a person, and the green pharmacy pin.
+class _LegendYouPin extends StatelessWidget {
+  const _LegendYouPin();
+
+  @override
+  Widget build(BuildContext context) =>
+      const SizedBox(width: 22, height: 22, child: CustomPaint(painter: _YouPinPainter()));
+}
+
+class _YouPinPainter extends CustomPainter {
+  const _YouPinPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 80, size.height / 80);
+    final white = Paint()..color = Colors.white;
+    canvas.drawCircle(const Offset(40, 40), 38, white);
+    canvas.drawCircle(const Offset(40, 40), 33, Paint()..color = const Color(0xFF1565C0));
+    canvas.drawCircle(const Offset(40, 30), 9, white);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(const Rect.fromLTWH(24, 43, 32, 19), const Radius.circular(10)),
+      white,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _LegendPharmacyPin extends StatelessWidget {
+  const _LegendPharmacyPin();
+
+  @override
+  Widget build(BuildContext context) =>
+      const SizedBox(width: 14, height: 22, child: CustomPaint(painter: _PharmacyPinPainter()));
+}
+
+class _PharmacyPinPainter extends CustomPainter {
+  const _PharmacyPinPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.scale(size.width / 27, size.height / 43);
+    final pin = Path()
+      ..moveTo(13.5, 1.2)
+      ..cubicTo(6.7, 1.2, 1.2, 6.6, 1.2, 13.3)
+      ..cubicTo(1.2, 22.9, 13.5, 41.8, 13.5, 41.8)
+      ..cubicTo(13.5, 41.8, 25.8, 22.9, 25.8, 13.3)
+      ..cubicTo(25.8, 6.6, 20.3, 1.2, 13.5, 1.2)
+      ..close();
+    canvas.drawPath(pin, Paint()..color = const Color(0xFF34A853));
+    canvas.drawPath(
+      pin,
+      Paint()
+        ..color = const Color(0xFF2B8A45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2,
+    );
+    canvas.drawCircle(const Offset(13.5, 13.5), 5, Paint()..color = const Color(0xFF1B5E20));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
