@@ -14,6 +14,7 @@ export function SettingsPage({ user, signOutButton }: { user: SessionUser; signO
   const [password, setPassword] = useState('');
   const [shown, setShown] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
@@ -36,6 +37,7 @@ export function SettingsPage({ user, signOutButton }: { user: SessionUser; signO
     if (busy) return;
     if (password === '') { setError('Enter your password to delete your account.'); return; }
     setError(null);
+    setTyped('');
     setConfirming(true);
   }
 
@@ -60,6 +62,8 @@ export function SettingsPage({ user, signOutButton }: { user: SessionUser; signO
       <div className="np-list-row">
         <span className="np-list-icon" aria-hidden="true"><MaterialIcon name="emailOutlined" size={22} /></span>
         <span className="np-list-text"><strong>Email</strong><span className="shop-muted">{user.email}</span></span>
+        {/* Sign-up confirms the address with a code, so it is verified. */}
+        <span className="np-chip np-chip-ready">Verified</span>
       </div>
       <Link className="np-list-row np-list-link" to="/app/forgot-password" state={{ email: user.email }}>
         <span className="np-list-icon" aria-hidden="true"><MaterialIcon name="lockOutline" size={22} /></span>
@@ -74,14 +78,21 @@ export function SettingsPage({ user, signOutButton }: { user: SessionUser; signO
       </button>
     </section>
     <section className="card np-list" aria-labelledby="settings-help">
-      <h2 id="settings-help" className="np-section-label">Help</h2>
+      <h2 id="settings-help" className="np-section-label">Help &amp; legal</h2>
+      <Link className="np-list-row np-list-link" to="/app/help">
+        <span className="np-list-icon" aria-hidden="true"><MaterialIcon name="chatBubbleOutline" size={22} /></span>
+        <span className="np-list-text"><strong>Help &amp; Support</strong><span className="shop-muted">Contact us about an order or your account.</span></span>
+        <MaterialIcon name="chevronRight" size={22} />
+      </Link>
       <Link className="np-list-row np-list-link" to="/policies.html" reloadDocument>
         <span className="np-list-icon" aria-hidden="true"><MaterialIcon name="infoOutline" size={22} /></span>
         <span className="np-list-text"><strong>{policiesLabel}</strong></span>
         <MaterialIcon name="chevronRight" size={22} />
       </Link>
     </section>
-    <section className="card settings-card settings-danger" aria-labelledby="settings-delete">
+    <div className="np-signout">{signOutButton}</div>
+    <h2 className="np-section-label settings-danger-label">Danger zone</h2>
+    <section className="card settings-card settings-danger settings-danger-zone" aria-labelledby="settings-delete">
       <h2 id="settings-delete" className="card-title">Delete account</h2>
       <p>This removes your name, email and phone number, and signs you out everywhere. It cannot be undone.</p>
       <p className="shop-muted">Past orders stay on record for the pharmacies, without your name or contact details. You can’t delete your account while you have active orders.</p>
@@ -89,10 +100,15 @@ export function SettingsPage({ user, signOutButton }: { user: SessionUser; signO
         : confirming ? <div className="settings-confirm" role="group" aria-label="Confirm account deletion">
           <p><strong>Delete your account?</strong></p>
           <p>You will be signed out and your details removed. This cannot be undone.</p>
+          <div className="auth-field">
+            <label>Type DELETE to confirm
+              <input value={typed} autoComplete="off" autoCapitalize="characters" spellCheck={false} onChange={(event) => setTyped(event.target.value)} />
+            </label>
+          </div>
           {error && <p className="form-error" role="alert">{error}</p>}
           <div className="shop-actions">
-            <button type="button" className="secondary" disabled={busy} onClick={() => setConfirming(false)}>Keep account</button>
-            <button type="button" className="primary danger-fill" disabled={busy} onClick={() => void deleteAccount()}>{busy ? 'Deleting…' : 'Delete account'}</button>
+            <button type="button" className="secondary" disabled={busy} onClick={() => { setConfirming(false); setTyped(''); }}>Keep account</button>
+            <button type="button" className="primary danger-fill" disabled={busy || typed.trim() !== 'DELETE'} onClick={() => void deleteAccount()}>{busy ? 'Deleting…' : 'Delete account'}</button>
           </div>
         </div>
           : <form className="settings-form" onSubmit={review} noValidate>
@@ -110,6 +126,5 @@ export function SettingsPage({ user, signOutButton }: { user: SessionUser; signO
             <button type="button" className="shop-text-link" onClick={() => { setOpen(false); setPassword(''); setError(null); }}>Cancel</button>
           </form>}
     </section>
-    <div className="np-signout">{signOutButton}</div>
   </div>;
 }

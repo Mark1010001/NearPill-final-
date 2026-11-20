@@ -15,6 +15,8 @@ import { StoreDetailPage } from './StoreDetailPage';
 import { MapPage } from './MapPage';
 import { OrderHistoryPage, ProfilePage } from './ProfilePage';
 import { SettingsPage } from './SettingsPage';
+import { HelpSupportPage } from './HelpSupportPage';
+import { SignOutConfirm } from './SignOutConfirm';
 import { AssistantPage } from './AssistantPage';
 import { OrdersHub } from './OrdersHub';
 import { CartPage, CheckoutPage } from './OrderPages';
@@ -43,8 +45,11 @@ export default function CustomerApp() {
     {signOut.isPending ? 'Signing out…' : 'Sign out'}
   </button>;
 
+  const confirmedSignOut = <SignOutConfirm pending={checking || signOut.isPending} onConfirm={() => signOut.mutate()} />;
+  const outlinedSignOut = <SignOutConfirm outlined pending={checking || signOut.isPending} onConfirm={() => signOut.mutate()} />;
+
   return <Shop key={customer ? `${customer.id}:${otherTabSignOuts}` : 'guest'} customer={customer} staffSession={!!user && !customer}
-    logoutButton={logoutButton} logoutError={signOut.error} />;
+    logoutButton={logoutButton} confirmedSignOut={confirmedSignOut} outlinedSignOut={outlinedSignOut} logoutError={signOut.error} />;
 }
 
 function signInDestination(value: unknown) {
@@ -57,10 +62,12 @@ function signInDestination(value: unknown) {
   return '/app/';
 }
 
-function Shop({ customer, staffSession, logoutButton, logoutError }: {
+function Shop({ customer, staffSession, logoutButton, confirmedSignOut, outlinedSignOut, logoutError }: {
   customer: SessionUser | null;
   staffSession: boolean;
   logoutButton: ReactNode;
+  confirmedSignOut: ReactNode;
+  outlinedSignOut: ReactNode;
   logoutError: Error | null;
 }) {
   const [saved] = useState(() => customer ? loadCart(customer.id) : { lines: [] as CartLine[], grouped: false });
@@ -222,9 +229,10 @@ function Shop({ customer, staffSession, logoutButton, logoutError }: {
             testCheckout={user.xenditTestCheckout} continueGrouped={groupedCart} onGroupedReview={() => setGroupedCart(true)}
             remove={(key) => setCart((current) => current.filter((line) => listingKey(line.listing) !== key))} />}
           orders={<OrdersPage user={user} retrySession={retry} hasRemainingCart={cart.length > 0} />} />)} />
-        <Route path="profile" element={privatePage((user) => <ProfilePage user={user} />)} />
+        <Route path="profile" element={privatePage((user) => <ProfilePage user={user} signOutButton={outlinedSignOut} />)} />
         <Route path="profile/orders" element={privatePage((user) => <OrderHistoryPage user={user} />)} />
-        <Route path="settings" element={privatePage((user) => <SettingsPage user={user} signOutButton={logoutButton} />)} />
+        <Route path="settings" element={privatePage((user) => <SettingsPage user={user} signOutButton={confirmedSignOut} />)} />
+        <Route path="help" element={privatePage(() => <HelpSupportPage />)} />
         <Route path="notifications" element={privatePage((user) => <NotificationsPage user={user} />)} />
         <Route path="*" element={<EmptyState>
           <h1>Page unavailable</h1>

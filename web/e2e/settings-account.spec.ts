@@ -50,7 +50,13 @@ test('delete account needs a password, asks to confirm, then signs out with a no
   await page.getByRole('button', { name: 'Keep account' }).click();
   expect(calls.some((c) => c.path === '/auth/delete-account')).toBe(false);
   await page.getByRole('button', { name: 'Delete my account' }).click();
-  await page.getByRole('group', { name: 'Confirm account deletion' }).getByRole('button', { name: 'Delete account' }).click();
+  const finalDelete = page.getByRole('group', { name: 'Confirm account deletion' }).getByRole('button', { name: 'Delete account' });
+  // The red button stays off until DELETE is typed.
+  await expect(finalDelete).toBeDisabled();
+  await page.getByLabel('Type DELETE to confirm').fill('delete');
+  await expect(finalDelete).toBeDisabled();
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE');
+  await finalDelete.click();
   await expect(page).toHaveURL(/\/app\/sign-in$/);
   await expect(page.getByText('Your account has been deleted.')).toBeVisible();
   expect(calls.find((c) => c.path === '/auth/delete-account')?.body).toEqual({ password: 'correct-password' });
@@ -62,20 +68,44 @@ test('delete account shows the server reason when an order is still active', asy
   await page.getByRole('button', { name: 'Delete account' }).click();
   await page.getByLabel('Password').fill('correct-password');
   await page.getByRole('button', { name: 'Delete my account' }).click();
+  await page.getByLabel('Type DELETE to confirm').fill('DELETE');
   await page.getByRole('group', { name: 'Confirm account deletion' }).getByRole('button', { name: 'Delete account' }).click();
   await expect(page.getByRole('alert')).toHaveText('Finish or cancel your active orders before deleting your account.');
   await expect(page).toHaveURL(/\/app\/settings$/);
 });
 
-test('settings lists change password and a Sign out button, and profile no longer has Sign out', async ({ page }) => {
+test('settings lists change password and a confirmed Sign out; profile has one too', async ({ page }) => {
   const { calls } = await mock(page, { signedIn: true });
   await page.goto('/app/profile');
-  await expect(page.getByRole('main').getByRole('button', { name: 'Sign out', exact: true })).toHaveCount(0);
+  const mainSignOut = page.getByRole('main').getByRole('button', { name: 'Sign out', exact: true });
+  await expect(mainSignOut).toHaveCount(1);
+  await mainSignOut.click();
+  await expect(page.getByRole('dialog').getByText('Sign out?')).toBeVisible();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  expect(calls.some((c) => c.path === '/auth/logout')).toBe(false);
   await page.getByRole('link', { name: 'Settings' }).click();
+  await expect(page.getByText('Verified')).toBeVisible();
   await expect(page.getByRole('link', { name: /Change password/ })).toBeVisible();
   await page.getByRole('link', { name: /Change password/ }).click();
   await expect(page).toHaveURL(/\/app\/forgot-password$/);
   await page.goBack();
   await page.getByRole('main').getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect.poll(() => calls.some((c) => c.path === '/auth/logout')).toBe(true);
+});
+
+test('the profile card opens the editor and Help & Support is reachable from profile and settings', async ({ page }) => {
+  await mock(page, { signedIn: true });
+  await page.goto('/app/profile');
+  await page.getByRole('heading', { name: 'First Customer' }).click();
+  await expect(page.getByRole('heading', { name: 'Edit Account Details' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await page.getByRole('link', { name: /Help & Support/ }).click();
+  await expect(page.getByRole('heading', { name: 'Help & Support' })).toBeVisible();
+  await expect(page.getByText('nearpillemail.business@gmail.com')).toBeVisible();
+  await page.goto('/app/settings');
+  await expect(page.getByRole('heading', { name: 'Help & legal' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Danger zone' })).toBeVisible();
+  await page.getByRole('link', { name: /Help & Support/ }).click();
+  await expect(page).toHaveURL(/\/app\/help$/);
 });

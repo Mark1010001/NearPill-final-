@@ -1343,3 +1343,15 @@ button.np-row { cursor: pointer; }
 .sheet-inner { display: grid; flex: 1; min-width: 0; padding: .55rem 0 .35rem; }
 .sheet-float { font-size: .75rem; font-weight: 700; color: var(--np-muted); line-height: 1.2; }
 .sheet-inner input { padding: .15rem 0 0; }
+
+/* Profile header card is tappable; Sign out confirm; danger zone; help page */
+.profile-head-tap { cursor: pointer; }
+.np-signout .np-signout-outlined { background: transparent; border: 1.5px solid var(--np-green, #2E7D32); color: var(--np-green-dark, #1F6B45); }
+.np-mint .np-signout { margin-bottom: var(--np-s4); }
+.settings-danger-label { margin-top: 2.5rem; padding-left: var(--np-s2); }
+.np-mint .settings-danger-zone { background: #FFF4F2; }
+.confirm-dialog { border: 0; border-radius: 20px; padding: 1.25rem; width: calc(100% - 2rem); max-width: 22rem; box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
+.confirm-dialog::backdrop { background: rgba(0, 0, 0, .4); }
+.confirm-dialog h2 { margin: 0 0 .5rem; font-size: 1.25rem; }
+.help-card { display: grid; gap: var(--np-s3); padding: 1.25rem; }
+.help-card .secondary { justify-self: start; min-height: 48px; }

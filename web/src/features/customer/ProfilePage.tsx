@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
@@ -118,7 +118,7 @@ export function OrderHistoryPage({ user }: { user: SessionUser }) {
 }
 
 /** The app's "My Profile" screen. */
-export function ProfilePage({ user }: { user: SessionUser }) {
+export function ProfilePage({ user, signOutButton }: { user: SessionUser; signOutButton: ReactNode }) {
   const accountId = String(user.id);
   const queryClient = useQueryClient();
   const { unreadCount } = useOrderUpdates(accountId);
@@ -148,7 +148,8 @@ export function ProfilePage({ user }: { user: SessionUser }) {
       {profile.isError && <div role="status"><p>Unable to load your account details.</p>
         <button type="button" className="shop-text-link" onClick={() => { void profile.refetch(); }}>Try again</button></div>}
       {me && <>
-        <section className="card profile-head">
+        {/* The whole card opens the editor; the pencil stays as the keyboard and screen-reader target. */}
+        <section className="card profile-head profile-head-tap" onClick={() => setEditing(true)}>
           <span className="avatar" aria-hidden="true">{name ? name[0].toUpperCase() : 'U'}</span>
           <div className="profile-head-text"><h2>{name}</h2><span className="shop-muted">{me.email}</span></div>
           <button type="button" className="icon-button" aria-label="Edit contact details" title="Edit contact details" onClick={() => setEditing(true)}><MaterialIcon name="editOutlined" size={24} /></button>
@@ -169,7 +170,19 @@ export function ProfilePage({ user }: { user: SessionUser }) {
           </div> : <ul className="np-orders">{recent.map((order) => <OrderTile key={order.id} order={order} />)}</ul>}
         </section>
       </>}
-      <p><Link className="shop-text-link" to="/policies.html" reloadDocument>{policiesLabel}</Link></p>
+      <section className="card np-list" aria-label="Help and legal">
+        <Link className="np-list-row np-list-link" to="/app/help">
+          <span className="np-list-icon" aria-hidden="true"><MaterialIcon name="chatBubbleOutline" size={22} /></span>
+          <span className="np-list-text"><strong>Help &amp; Support</strong></span>
+          <MaterialIcon name="chevronRight" size={22} />
+        </Link>
+        <Link className="np-list-row np-list-link" to="/policies.html" reloadDocument>
+          <span className="np-list-icon" aria-hidden="true"><MaterialIcon name="infoOutline" size={22} /></span>
+          <span className="np-list-text"><strong>{policiesLabel}</strong></span>
+          <MaterialIcon name="chevronRight" size={22} />
+        </Link>
+      </section>
+      <div className="np-signout">{signOutButton}</div>
     </>}
     {editing && me && <ContactSheet phone={me.phone ?? ''} fullName={name} onClose={() => setEditing(false)}
       onSaved={(saved) => {
