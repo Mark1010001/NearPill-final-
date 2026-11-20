@@ -5,7 +5,7 @@ import { normalizeEmail, passwordMatchesIdentity, signupPasswordMessage, validEm
 
 const roles = new Set(['owner', 'manager', 'staff']);
 
-export function createMembershipService({ repository, hashPassword, sendSetupEmail }) {
+export function createMembershipService({ repository, hashPassword, sendSetupEmail, emailInUse }) {
   assertSecurityRepository(repository);
   if (typeof hashPassword !== 'function') throw new TypeError('A password hasher is required.');
   return Object.freeze({
@@ -44,6 +44,14 @@ export function createMembershipService({ repository, hashPassword, sendSetupEma
       if (result.status === 'store_missing') return failure(404, 'Drugstore not found.');
       if (result.status === 'email_taken') return failure(409, 'An account with this email already exists.');
       return success({ userId: result.userId, drugstoreId, email, membershipRole: 'owner', role: 'partner' }, 201);
+    },
+    // Lets the Add pharmacy form refuse an email that already has any NearPill account BEFORE a pharmacy is created, so a refused
+    // email never leaves a pharmacy behind with nobody who can sign in to it.
+    async partnerEmailAvailable(body = {}) {
+      const rawEmail = String(body.email ?? '');
+      if (!validEmail(rawEmail)) return failure(400, 'Enter a valid email address.');
+      if (typeof emailInUse !== 'function') return failure(503, 'The email check is not available right now.');
+      return success({ available: !(await emailInUse(normalizeEmail(rawEmail))) });
     },
     // Emails the partner a sign-in link and a single-use link to choose their own password. No password is ever emailed.
     async sendLoginEmail(actorId, drugstoreIdValue, userIdValue) {

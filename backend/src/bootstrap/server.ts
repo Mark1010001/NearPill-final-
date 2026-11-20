@@ -106,7 +106,8 @@ const recovery = createPasswordRecoveryService({
 });
 const identity = createIdentityService({ repository: identityRepository, securityRepository, auth, hashPassword, sendVerificationEmail, sendExistingAccountNotice, signupLimits: securityRepository });
 const login = createLoginService({ repository: identityRepository, auth, security: loginSecurity, recovery });
-const memberships = createMembershipService({ repository: securityRepository, hashPassword, sendSetupEmail: (user: { id: number; email: string }) => recovery.invite(user) });
+const memberships = createMembershipService({ repository: securityRepository, hashPassword, sendSetupEmail: (user: { id: number; email: string }) => recovery.invite(user),
+  emailInUse: async (email: string) => Boolean(await identityRepository.findAuthUserByEmail(email)) });
 const catalog = createCatalogService({
   repository: createPostgresCatalogRepository(pool), routePlanner: createGoogleRoutePlanner(env.routesApiKey),
   stagingTestLabels: env.nodeEnv !== 'production' && isNearPillStagingDatabase(env.database.host, env.database.user),

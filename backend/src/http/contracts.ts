@@ -72,6 +72,7 @@ export const StockSubmissionQuerySchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected']).optional(),
 });
 export const GoLiveSchema = z.object({ live: z.boolean() }).strict();
+export const PartnerEmailCheckSchema = z.object({ email }).strict();
 export const PartnerAccountSchema = z.object({ email, password: signupPassword.optional() }).strict();
 export const MembershipUpsertSchema = z.object({
   userId: z.coerce.number().int().positive(),

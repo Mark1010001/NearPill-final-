@@ -22,6 +22,7 @@ import {
   MembershipParamsSchema,
   MembershipUpsertSchema,
   PartnerAccountSchema,
+  PartnerEmailCheckSchema,
   GoLiveSchema,
   NearbyStoreQuerySchema,
   OrderCreateSchema,
@@ -229,6 +230,7 @@ function routeSpecs(services: any): RouteSpec[] {
     { id: 'listMemberships', method: 'get', path: '/admin/pharmacies/:id/memberships', tag: 'Memberships', summary: 'List pharmacy memberships', auth: 'admin', params: StoreIdParamsSchema, invoke: ({ params }) => services.memberships.list(params.id) },
     { id: 'upsertMembership', method: 'post', path: '/admin/pharmacies/:id/memberships', tag: 'Memberships', summary: 'Create or update a pharmacy membership', auth: 'admin', params: StoreIdParamsSchema, body: MembershipUpsertSchema, invoke: ({ userId, params, body }) => services.memberships.upsert(userId, params.id, body) },
     { id: 'createPartnerAccount', method: 'post', path: '/admin/pharmacies/:id/partner-accounts', tag: 'Memberships', summary: 'Create a partner pharmacy login', auth: 'admin', params: StoreIdParamsSchema, body: PartnerAccountSchema, bodyLimit: 4 * 1024, invoke: ({ userId, params, body }) => services.memberships.createPartnerAccount(userId, params.id, body) },
+    { id: 'checkPartnerEmail', method: 'post', path: '/admin/partner-accounts/check-email', tag: 'Memberships', summary: 'Check that an email can be used for a new partner pharmacy login', auth: 'admin', body: PartnerEmailCheckSchema, bodyLimit: 1024, invoke: ({ body }) => services.memberships.partnerEmailAvailable(body) },
     { id: 'sendPartnerLoginEmail', method: 'post', path: '/admin/pharmacies/:id/memberships/:userId/login-email', tag: 'Memberships', summary: 'Email a partner their sign-in link and a link to choose a password', auth: 'admin', params: MembershipParamsSchema, bodyLimit: 1024, invoke: ({ userId, params }) => services.memberships.sendLoginEmail(userId, params.id, params.userId) },
     { id: 'deactivateMembership', method: 'delete', path: '/admin/pharmacies/:id/memberships/:userId', tag: 'Memberships', summary: 'Deactivate a pharmacy membership', auth: 'admin', params: MembershipParamsSchema, invoke: ({ userId, params }) => services.memberships.deactivate(userId, params.id, params.userId) },
 

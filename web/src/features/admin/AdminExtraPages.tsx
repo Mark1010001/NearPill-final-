@@ -50,6 +50,8 @@ export function StaffAccountsPage() {
     mutationFn: async () => {
       let id = createdId;
       if (!id) {
+        // An email that already has any NearPill account is refused before anything is created.
+        if (!(await api.checkPartnerEmail(accountEmail.trim())).available) throw new Error('An account with this email already exists. Use a different email. No pharmacy was added.');
         const created = await api.createPharmacy({ name: form.name.trim(), address: form.address.trim(), latitude: Number(form.latitude), longitude: Number(form.longitude), status: 'active' }) as { id?: number; store_id?: number };
         id = Number(created.store_id ?? created.id);
         setCreatedId(id);

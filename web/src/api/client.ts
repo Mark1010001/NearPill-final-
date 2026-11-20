@@ -149,6 +149,7 @@ export const api = {
     request(`/partner/prescription-reviews/${id}${queryString({ drugstoreId })}`, { method: 'PUT', headers: { 'X-NearPill-Account': accountId }, body: JSON.stringify(reason ? { decision, version, reason } : { decision, version }) }),
   metrics: () => request<Metrics>('/admin/metrics'),
   sendLoginEmail: (drugstoreId: number, userId: number) => request(`/admin/pharmacies/${drugstoreId}/memberships/${userId}/login-email`, { method: 'POST' }),
+  checkPartnerEmail: (email: string) => request<{ available: boolean }>('/admin/partner-accounts/check-email', { method: 'POST', body: JSON.stringify({ email }) }),
   createPartnerAccount: (drugstoreId: number, body: { email: string; password?: string }) => request<{ userId: number }>(`/admin/pharmacies/${drugstoreId}/partner-accounts`, { method: 'POST', body: JSON.stringify(body) }),
   pharmacies: () => request<Pharmacy[]>('/admin/pharmacies'),
   createPharmacy: (body: Record<string, unknown>) => request('/admin/pharmacies', { method: 'POST', body: JSON.stringify(body) }),

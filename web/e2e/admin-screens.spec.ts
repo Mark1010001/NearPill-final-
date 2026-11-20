@@ -10,6 +10,7 @@ async function mockAdmin(page: Page, state: { members: unknown[]; posted: unknow
     const method = request.method();
     if (pathname.endsWith('/auth/me')) return route.fulfill(json(admin));
     if (pathname.endsWith('/admin/pharmacies') && method === 'GET') return route.fulfill(json([{ store_id: 12, name: 'Alpha Pharmacy', status: 'active', accountNo: 1, subscriptionTier: 'Plus', partnershipStartedAt: '2098-07-01T00:00:00Z', partnershipExpiresAt: '2099-01-01' }, { store_id: 14, name: 'Beta Pharmacy', status: 'active', accountNo: 2, subscriptionTier: 'Basic', partnershipStartedAt: '2019-10-01T00:00:00Z', partnershipExpiresAt: '2020-01-01' }, { store_id: 15, name: 'Gamma Pharmacy', status: 'active', accountNo: 3, subscriptionTier: null, partnershipStartedAt: '2026-01-01T00:00:00Z', partnershipExpiresAt: null }, { store_id: 13, name: 'Closed Pharmacy', status: 'inactive' }]));
+    if (pathname.endsWith('/admin/partner-accounts/check-email') && method === 'POST') return route.fulfill(json({ available: request.postDataJSON().email !== 'taken@example.test' }));
     if (pathname.endsWith('/admin/pharmacies') && method === 'POST') { state.posted.push(request.postDataJSON()); return route.fulfill(json({ id: 12, store_id: 12 }, 201)); }
     if (pathname.endsWith('/login-email') && method === 'POST') { state.mailed.push(pathname); return route.fulfill(json({ userId: 90, drugstoreId: 12, email: 'new@example.test', sent: true })); }
     if (pathname.endsWith('/admin/pharmacies/12/memberships') && method === 'GET') return route.fulfill(json(state.members));
@@ -82,6 +83,21 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
   await page.getByRole('dialog').getByRole('button', { name: 'Remove access' }).click();
   await expect(page.getByText('Access removed.')).toBeVisible();
   expect(state.removed).toEqual(['7']);
+});
+
+test('admin cannot add a pharmacy with an email that already has an account, and no pharmacy is created', async ({ page }) => {
+  const state = { members: [] as unknown[], posted: [] as unknown[], removed: [] as string[], mailed: [] as string[] };
+  await mockAdmin(page, state);
+  await page.goto('/staff');
+  await page.getByLabel('Pharmacy name').fill('Gamma Pharmacy');
+  await page.getByLabel('Address').fill('3 Main St');
+  await page.getByLabel('Latitude').fill('14.5');
+  await page.getByLabel('Longitude').fill('121');
+  await page.getByLabel('Email').fill('taken@example.test');
+  await page.getByRole('button', { name: 'Add pharmacy' }).click();
+  await expect(page.getByRole('alert')).toHaveText(/account with this email already exists.*No pharmacy was added/);
+  expect(state.posted).toEqual([]);
+  await expect(page.getByRole('button', { name: 'Add pharmacy' })).toBeVisible();
 });
 
 test('admin reports include medicines sold and pharmacy performance', async ({ page }) => {

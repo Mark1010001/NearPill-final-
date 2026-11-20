@@ -81,3 +81,15 @@ test('without a password the server makes a random one that nobody sees, and the
   assert.equal(PartnerAccountSchema.safeParse({ email: 'owner@pharmacy.ph' }).success, true);
   assert.equal(PartnerAccountSchema.safeParse({ email: 'owner@pharmacy.ph', password: 'short' }).success, false, 'a supplied password is still checked');
 });
+
+test('the email check says whether an email is free before a pharmacy is created', async () => {
+  const { repository } = repo();
+  const seen = [];
+  const service = createMembershipService({ repository, hashPassword: async () => 'h', emailInUse: async (email) => { seen.push(email); return email === 'used@pharmacy.ph'; } });
+  assert.deepEqual((await service.partnerEmailAvailable({ email: ' Used@Pharmacy.PH ' })).body, { available: false });
+  assert.deepEqual((await service.partnerEmailAvailable({ email: 'free@pharmacy.ph' })).body, { available: true });
+  assert.deepEqual(seen, ['used@pharmacy.ph', 'free@pharmacy.ph']);
+  assert.equal((await service.partnerEmailAvailable({ email: 'nope' })).status, 400);
+  const unavailable = createMembershipService({ repository, hashPassword: async () => 'h' });
+  assert.equal((await unavailable.partnerEmailAvailable({ email: 'free@pharmacy.ph' })).status, 503);
+});
