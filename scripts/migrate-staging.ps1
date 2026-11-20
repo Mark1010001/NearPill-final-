@@ -2,6 +2,7 @@
 # The migrator password is typed here, hidden, and lives only in this process. It is never written to disk or logs.
 $root = Resolve-Path (Join-Path $PSScriptRoot '..'); $logs = Join-Path $root 'logs'
 $ref = 'afqqozfjpiodanpogvfb'
+$logFile = Join-Path $logs ("migrate-staging-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + ".log")  # new file each run, so a locked old log cannot block it
 $secure = Read-Host 'Type the nearpill_migrator database password (hidden), then press Enter' -AsSecureString
 $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
 try { $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
@@ -23,8 +24,9 @@ $env:DB_USER = "nearpill_migrator.$ref"
 $env:MIGRATOR_DB_USER = $env:DB_USER
 $env:DB_PASSWORD = $plain
 Set-Location (Join-Path $root 'backend')
-node scripts/migrate-postgres.mjs 2>&1 | Out-File "$logs\migrate-staging.log" -Encoding utf8
-"exit=$LASTEXITCODE" | Add-Content "$logs\migrate-staging.log"
+$env:NODE_OPTIONS = '--dns-result-order=ipv4first --tls-max-v1.2'  # the Supabase pooler resets TLS 1.3 handshakes from Node 26
+Write-Host 'Connecting to the staging database... output appears below as it happens.'
+node scripts/migrate-postgres.mjs 2>&1 | Tee-Object -FilePath $logFile
+"exit=$LASTEXITCODE" | Tee-Object -FilePath $logFile -Append
 Remove-Item Env:DB_PASSWORD
-Get-Content "$logs\migrate-staging.log"
 Read-Host 'Press Enter to close'
