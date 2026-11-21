@@ -10,6 +10,7 @@ Disallow: /catalog
 Disallow: /subscriptions
 Disallow: /reports
 Disallow: /staff
+Disallow: /customers
 Disallow: /stock-submissions
 Disallow: /partner
 Disallow: /api/

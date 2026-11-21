@@ -50,7 +50,7 @@ http {
     ~^/$ 1;
     ~^/(features|partners|about|contact|policies)/?$ 1;
     ~^/site(/|$) 1;
-    ~^/(portal|dashboard|pharmacies|orders|catalog|subscriptions|reports|staff|stock-submissions|partner)(/|$) 1;
+    ~^/(portal|dashboard|pharmacies|orders|catalog|subscriptions|reports|staff|customers|stock-submissions|partner)(/|$) 1;
   }
 
   server {

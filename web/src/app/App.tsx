@@ -32,7 +32,7 @@ function SiteRedirect() {
  * Addresses that belong to the admin and partner portals. Anything else that is not a website page is "Page not found".
  * Mirrored by the $nearpill_known_route map in the nginx configs and by web/public/robots.txt.
  */
-const PORTAL_PATHS = ['/portal', '/dashboard', '/pharmacies', '/orders', '/catalog', '/subscriptions', '/reports', '/staff', '/stock-submissions', '/partner'];
+const PORTAL_PATHS = ['/portal', '/dashboard', '/pharmacies', '/orders', '/catalog', '/subscriptions', '/reports', '/staff', '/customers', '/stock-submissions', '/partner'];
 
 function Fallback() {
   const { pathname } = useLocation();
