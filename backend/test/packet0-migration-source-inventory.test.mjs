@@ -209,6 +209,7 @@ test('actual reviewed migrations are regular files with contiguous versions', as
   '0035_order_prescription_check.sql',
   '0036_order_pickup_date.sql',
   '0037_account_deletion.sql', '0038_signup_hardening.sql', '0039_partner_account_numbers.sql', '0040_admin_create_partner_accounts.sql', '0041_stock_submissions.sql', '0042_renumber_catalog_ids.sql', '0043_verify_existing_pharmacies.sql', '0044_revoke_public_category_helpers.sql', '0045_log_retention.sql', '0046_auto_approved_stock.sql', '0047_delete_leftover_test_pharmacies.sql', '0048_remove_account_4_renumber_moms.sql', '0049_keep_only_alv_bing_dobol_b.sql', '0050_link_moms_partner_login.sql', '0051_admin_scrub_prescriptions.sql', '0052_partner_sees_own_pharmacy_and_full_delete.sql', '0053_simpler_database_names.sql',
+    '0054_keep_four_pharmacies_renumber.sql',
   ]);
   for (const { sql } of migrations) assert.ok(sql.trim().length > 100);
 });

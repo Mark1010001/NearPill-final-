@@ -1466,7 +1466,7 @@ test('the reviewed migrations define no custom public view or RPC function contr
 
 
 test('read-only migrator verification compares the complete reviewed migration history', async () => {
-  assert.equal(sourceMigrationRows.length, 53, 'review the expected migration count when migration history changes');
+  assert.equal(sourceMigrationRows.length, 54, 'review the expected migration count when migration history changes');
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
   const journal = fixture.reads.find(({ sql }) => sql.includes('FROM public.nearpill_schema_migrations'));

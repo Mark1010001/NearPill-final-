@@ -77,7 +77,7 @@ try {
     'reset links (secret tokens are not shown)',
     (
       await client.query(
-        `SELECT id, user_id, email, created_at, expires_at, consumed_at, expires_at > CURRENT_TIMESTAMP AS still_valid FROM password_reset_challenges ORDER BY id DESC LIMIT 8`,
+        `SELECT id, user_id, email, created_at, expires_at, consumed_at, expires_at > CURRENT_TIMESTAMP AS still_valid FROM reset_links ORDER BY id DESC LIMIT 8`,
       )
     ).rows,
   );
