@@ -16,8 +16,8 @@ for (const ok of [true, false]) {
     const elements = {
       resetForm: { reportValidity: () => true, addEventListener(_, fn) { submitHandler = fn; } },
       status: {}, submit: { disabled: false },
-      password: { value: 'New-password' },
-      confirmPassword: { value: 'New-password', focus() { this.focused = true; } },
+      password: { value: 'New-password1' },
+      confirmPassword: { value: 'New-password1', focus() { this.focused = true; } },
     };
     const history = [];
     const context = vm.createContext({
@@ -37,12 +37,12 @@ for (const ok of [true, false]) {
     await submitHandler({ preventDefault() {} });
     assert.equal(elements.confirmPassword.focused, true);
     assert.equal(calls.length, 0);
-    elements.confirmPassword.value = 'New-password';
+    elements.confirmPassword.value = 'New-password1';
     const pending = submitHandler({ preventDefault() {} });
     await submitHandler({ preventDefault() {} });
     assert.equal(calls.length, 1);
     assert.equal(calls[0][0], '/api/v1/auth/reset-password');
-    assert.deepEqual(JSON.parse(calls[0][1].body), { token, password: 'New-password' });
+    assert.deepEqual(JSON.parse(calls[0][1].body), { token, password: 'New-password1' });
     finish();
     await pending;
     if (ok) {
@@ -71,3 +71,31 @@ test('reset page hides the form when the link has no valid token', () => {
   assert.equal(elements.get('resetForm').hidden, true);
   assert.match(elements.get('status').textContent, /reset link is invalid/);
 });
+
+for (const [label, password, status, expected] of [
+  ['a password that is too weak', 'short1', 200, /at least 10 characters with a letter and a number/],
+  ['an invalid or used link', 'Strong-pass1', 400, /invalid, already used or expired/],
+]) {
+  test(`reset page explains ${label}`, async () => {
+    let submitHandler;
+    const calls = [];
+    const elements = {
+      resetForm: { reportValidity: () => true, addEventListener(_, fn) { submitHandler = fn; } },
+      status: {}, submit: { disabled: false },
+      password: { value: password, focus() {} },
+      confirmPassword: { value: password, focus() {} },
+    };
+    const context = vm.createContext({
+      URLSearchParams,
+      location: { hash: `#token=${'a'.repeat(64)}`, pathname: '/reset-password' },
+      history: { replaceState() {} },
+      document: { getElementById: id => elements[id] },
+      fetch: async (...args) => { calls.push(args); return { ok: false, status }; },
+    });
+    vm.runInContext(script, context);
+    await submitHandler({ preventDefault() {} });
+    assert.match(elements.status.textContent, expected);
+    assert.equal(calls.length, status === 400 ? 1 : 0);
+    assert.equal(elements.submit.disabled, false);
+  });
+}
