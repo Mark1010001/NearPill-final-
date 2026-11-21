@@ -44,10 +44,9 @@ test('payment application requires provider evidence and does not locally assert
 
 test('PostgreSQL payment adapter owns provider events, reconciliation, refund and entitlement persistence', () => {
   assert.match(repositorySource, /payment_events/);
-  assert.match(repositorySource, /payment_reconciliation/);
+  assert.match(repositorySource, /payment_issues/);
   assert.match(repositorySource, /INSERT INTO refunds/);
-  assert.match(repositorySource, /subscription_entitlements/);
-  assert.match(repositorySource, /billing_events/);
+  assert.match(repositorySource, /plan_features/);
   assert.match(repositorySource, /ON CONFLICT \(provider, event_id\) DO NOTHING/);
   assert.match(repositorySource, /const pool = createPostgresCompatPool\(postgresPool\);/);
   assert.match(repositorySource, /const mutationPool = createPostgresCompatPool\(postgresPool, \{ capability: 'payment_mutation' \}\);/);
@@ -59,7 +58,7 @@ test('payment migration deduplicates provider events and quarantines legacy loca
   assert.match(migrationSource, /payment_status = 'reconciliation_required'/);
   assert.match(migrationSource, /payment_status IN \('paid','refunded'\)/);
   assert.match(migrationSource, /refund_pending|CREATE TABLE IF NOT EXISTS refunds/);
-  assert.match(migrationSource, /subscription_entitlements/);
+  assert.match(migrationSource, /subscription_entitlements/); // migration 0007 predates the 0053 rename
   assert.match(migrationSource, /orders_payment_mutation_update/);
   assert.match(migrationSource, /reservations_payment_mutation_update/);
   assert.match(migrationSource, /stock_movements_payment_mutation_insert/);

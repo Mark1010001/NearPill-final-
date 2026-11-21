@@ -38,27 +38,27 @@ function poolFor({ partnerOtherMembership = false, visible = true, crossAvailabi
             return { rows: [{ user_id: actor, role, capability }] };
           }
           if (sql.includes('FROM pharmacy_memberships') && sql.includes('WHERE id = $1')) {
-            return { rows: [{ id: fixture.partnerMembershipId, drugstore_id: fixture.storeId, is_active: inactiveMembership ? 0 : 1 }] };
+            return { rows: [{ id: fixture.partnerMembershipId, pharmacy_id: fixture.storeId, is_active: inactiveMembership ? 0 : 1 }] };
           }
-          if (sql.includes('FROM pharmacy_memberships') && sql.includes('WHERE drugstore_id = $1')) {
+          if (sql.includes('FROM pharmacy_memberships') && sql.includes('WHERE pharmacy_id = $1')) {
             return { rows: partnerOtherMembership ? [{ id: 99 }] : [] };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,availability,price_centavos FROM inventory')) {
+          if (sql.startsWith('SELECT id,pharmacy_id,availability,price_centavos FROM stock')) {
             const owned = params[0] === fixture.inventoryId;
             return { rows: (!visible || (owned && ownInventoryHidden)) ? [] : [{
               id: owned ? fixture.inventoryId : fixture.otherInventoryId,
-              drugstore_id: owned ? fixture.storeId : (mismatchedStore ? fixture.storeId : fixture.otherStoreId),
+              pharmacy_id: owned ? fixture.storeId : (mismatchedStore ? fixture.storeId : fixture.otherStoreId),
               availability: 1, price_centavos: 1000,
             }] };
           }
-          if (sql.startsWith('DELETE FROM inventory WHERE id = $1 RETURNING id')) {
+          if (sql.startsWith('DELETE FROM stock WHERE id = $1 RETURNING id')) {
             if (deleteFailure && deleteFailure.target === params[0]) {
               throw Object.assign(new Error(deleteFailure.message), { code: deleteFailure.code });
             }
             const permitted = params[0] === fixture.inventoryId ? ownDeleteAllowed : foreignDeleteAllowed;
             return permitted ? { rows: [{ id: params[0] }], rowCount: 1 } : { rows: [], rowCount: 0 };
           }
-          if (sql.startsWith('UPDATE inventory SET ')) {
+          if (sql.startsWith('UPDATE stock SET ')) {
             const column = sql.includes('SET availability') ? 'availability' : 'price_centavos';
             if (failWith === column) throw Object.assign(new Error('unexpected SQL failure'), { code: failureCode });
             const allowed = column === 'availability' ? crossAvailabilityAllowed : crossPriceAllowed;
@@ -78,9 +78,9 @@ test('partner can read published foreign stock but neither mutate availability n
   assert.equal(pool.queries.filter(({ sql }) => sql === 'BEGIN').length, 5);
   assert.equal(pool.queries.filter(({ sql }) => sql === 'ROLLBACK').length, 5);
   assert.deepEqual(pool.releases, [false, false, false, false, false]);
-  const deletes = pool.queries.filter(({ sql }) => sql.startsWith('DELETE FROM inventory WHERE'));
+  const deletes = pool.queries.filter(({ sql }) => sql.startsWith('DELETE FROM stock WHERE'));
   assert.deepEqual(deletes.map(({ params }) => params), [[fixture.inventoryId], [fixture.otherInventoryId]]);
-  const writes = pool.queries.filter(({ sql }) => sql.startsWith('UPDATE inventory SET'));
+  const writes = pool.queries.filter(({ sql }) => sql.startsWith('UPDATE stock SET'));
   assert.deepEqual(writes.map(({ params }) => params), [[fixture.otherInventoryId, 0], [fixture.otherInventoryId, 1]]);
   assert.deepEqual(writes.map(({ sql }) => sql.includes('SET availability') ? 'availability' : 'price_centavos'),
     ['availability', 'price_centavos']);
@@ -102,7 +102,7 @@ test('NP-037 refuses a missing owned row or unrelated SQL error as security proo
   const absent = poolFor({ ownInventoryHidden: true });
   await assert.rejects(assertPartnerCrossPharmacyInventoryDenied({ pool: absent, fixture }),
     /NP-037 DELETE verification requires visible own-pharmacy inventory/);
-  assert.equal(absent.queries.filter(({ sql }) => sql.startsWith('DELETE FROM inventory')).length, 0);
+  assert.equal(absent.queries.filter(({ sql }) => sql.startsWith('DELETE FROM stock')).length, 0);
   for (const deleteFailure of [
     { target: fixture.inventoryId, code: '23503', message: 'foreign key violation' },
     { target: fixture.inventoryId, code: '42501', message: 'permission denied for table users' },
@@ -115,7 +115,7 @@ test('NP-037 refuses a missing owned row or unrelated SQL error as security proo
 
 test('NP-037 accepts only inventory-specific SQLSTATE 42501 as an explicit DELETE denial', async () => {
   const pool = poolFor({ deleteFailure: { target: fixture.inventoryId, code: '42501',
-    message: 'permission denied for table inventory' } });
+    message: 'permission denied for table stock' } });
   await assertPartnerCrossPharmacyInventoryDenied({ pool, fixture });
   assert.deepEqual(pool.releases, [false, false, false, false, false]);
 });
@@ -138,7 +138,7 @@ test('second pharmacy must really be distinct, visible and outside member scope'
     const pool = poolFor(option);
     await assert.rejects(assertPartnerCrossPharmacyInventoryDenied({ pool, fixture }));
     assert.deepEqual(pool.releases, [false]);
-    assert.equal(pool.queries.filter(({ sql }) => sql.startsWith('UPDATE inventory SET')).length, 0);
+    assert.equal(pool.queries.filter(({ sql }) => sql.startsWith('UPDATE stock SET')).length, 0);
   }
 });
 
@@ -180,7 +180,7 @@ test('cleanup removes both pharmacies and both inventories by their recorded IDs
     },
   };
   await cleanupSyntheticRlsVerifierFixtures({ migratorPool, fixture, fixtureCommitted: true });
-  const deletes = calls.filter(({ sql }) => /^DELETE FROM (?:inventory|drugstores)\b/.test(sql));
+  const deletes = calls.filter(({ sql }) => /^DELETE FROM (?:stock|pharmacies)\b/.test(sql));
   assert.deepEqual(deletes.map(({ params }) => params[0]),
     [fixture.inventoryId, fixture.otherInventoryId, fixture.storeId, fixture.otherStoreId]);
   for (const field of ['otherStoreId', 'otherInventoryId']) {
@@ -204,6 +204,6 @@ test('real DB verifier inserts, probes, and cleans only the second synthetic ten
   const commit = runner.indexOf("await migrationClient.query('COMMIT')");
   assert.ok(insertSecondStore >= 0 && insertSecondInventory > insertSecondStore && commit > insertSecondInventory);
   assert.ok(actualProbe > commit);
-  assert.match(cleanup, /\['other_inventory', 'DELETE FROM inventory WHERE id=\$1', fixture\.otherInventoryId\]/);
-  assert.match(cleanup, /\['other_drugstore', 'DELETE FROM drugstores WHERE id=\$1', fixture\.otherStoreId\]/);
+  assert.match(cleanup, /\['other_inventory', 'DELETE FROM stock WHERE id=\$1', fixture\.otherInventoryId\]/);
+  assert.match(cleanup, /\['other_drugstore', 'DELETE FROM pharmacies WHERE id=\$1', fixture\.otherStoreId\]/);
 });

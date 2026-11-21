@@ -99,7 +99,7 @@ test('Phase 0 R04: public discovery and store inventory use the shared published
   assert.deepEqual(await repository.searchAvailableMedicines({ limit: 4 }), []);
   assert.deepEqual(await repository.listStoreInventory(7), []);
 
-  const queries = recorded.filter(({ sql }) => /FROM inventory i\s+JOIN medicines m/.test(sql));
+  const queries = recorded.filter(({ sql }) => /FROM stock i\s+JOIN medicines m/.test(sql));
   assert.equal(queries.length, 2, 'one public catalog query and one public pharmacy inventory query');
   for (const { sql } of queries) {
     assert.match(sql, /m\.publication_status = 'published' AND m\.otc_eligible/);
@@ -107,9 +107,8 @@ test('Phase 0 R04: public discovery and store inventory use the shared published
     // Prescription and unclassified categories stay out of standard checkout.
     assert.match(sql, /NOT IN \('prescription \(source list\)'/);
   }
-  const discovery = queries.find(({ sql }) => /evidenceCount/.test(sql));
-  assert.ok(discovery, 'public discovery calculates a display-only approved-evidence count');
-  assert.doesNotMatch(discovery.sql, /AND\s+(?:EXISTS|\(SELECT COUNT\(\*\) FROM medicine_evidence)/i);
+  // medicine_evidence was removed by migration 0053, so discovery no longer calculates an evidence count.
+  assert.ok(queries.every(({ sql }) => !/evidenceCount|medicine_evidence/.test(sql)));
 
   const checkout = await read('../src/infrastructure/postgres/order-repository.js');
   const stockLookup = /async findInventoryForUpdate\([\s\S]+?LIMIT 1 FOR UPDATE/.exec(checkout)?.[0];

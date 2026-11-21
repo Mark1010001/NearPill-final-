@@ -55,10 +55,10 @@ const reviewedIdempotencyIndex = Object.freeze({
 
 // Catalog rows simulate reviewed physical indexes, not PostgreSQL evidence.
 const reviewedAdditionalIndexes = Object.freeze([
-  ['password_reset_active_user_idx', 'password_reset_challenges', ['user_id'], '(consumed_at IS NULL)'],
+  ['password_reset_active_user_idx', 'reset_links', ['user_id'], '(consumed_at IS NULL)'],
   ['payments_provider_external_unique', 'payments', ['provider', 'provider_payment_id'], '((provider IS NOT NULL) AND (provider_payment_id IS NOT NULL))'],
   ['payments_order_idempotency_unique', 'payments', ['order_id', 'idempotency_key'], '(idempotency_key IS NOT NULL)'],
-  ['subscription_entitlements_active_unique', 'subscription_entitlements', ['drugstore_id', 'entitlement_key'], '(revoked_at IS NULL)'],
+  ['subscription_entitlements_active_unique', 'plan_features', ['pharmacy_id', 'entitlement_key'], '(revoked_at IS NULL)'],
 ].map(([index_name, table_name, index_columns, index_predicate]) => Object.freeze({
   ...reviewedIdempotencyIndex, index_name, table_name, index_columns,
   index_predicate, index_key_count: index_columns.length,
@@ -68,9 +68,9 @@ const reviewedAdditionalIndexes = Object.freeze([
 // pg_constraint UNIQUE constraints from migrations 0006/0007 are distinct
 // from the partial UNIQUE indexes. Recording rows model catalog shape only.
 const reviewedCriticalUniqueConstraints = Object.freeze([
-  ['pharmacy_memberships_user_store_unique', 'pharmacy_memberships', ['user_id', 'drugstore_id']],
-  ['inventory_store_medicine_unique', 'inventory', ['drugstore_id', 'medicine_id']],
-  ['reservations_order_inventory_unique', 'reservations', ['order_id', 'inventory_id']],
+  ['pharmacy_memberships_user_store_unique', 'pharmacy_memberships', ['user_id', 'pharmacy_id']],
+  ['inventory_store_medicine_unique', 'stock', ['pharmacy_id', 'medicine_id']],
+  ['reservations_order_inventory_unique', 'reservations', ['order_id', 'stock_id']],
   ['payment_events_provider_event_unique', 'payment_events', ['provider', 'event_id']],
   ['refunds_provider_external_unique', 'refunds', ['provider', 'provider_refund_id']],
   ['refunds_provider_idempotency_unique', 'refunds', ['provider', 'idempotency_key']],
@@ -88,9 +88,9 @@ const reviewedCriticalUniqueConstraints = Object.freeze([
 // Read-only pg_constraint rows for named and inline stock/centavo CHECKs.
 // The mocked catalog is only a recording contract, never deployed PG evidence.
 const reviewedStockAndMoneyChecks = Object.freeze([
-  ['inventory_stock_invariant', 'inventory',
+  ['inventory_stock_invariant', 'stock',
     'CHECK (((stock_on_hand >= 0) AND (reserved_quantity >= 0) AND (reserved_quantity <= stock_on_hand)))'],
-  ['inventory_price_centavos_nonnegative', 'inventory', 'CHECK ((price_centavos >= 0))'],
+  ['inventory_price_centavos_nonnegative', 'stock', 'CHECK ((price_centavos >= 0))'],
   ['orders_total_centavos_nonnegative', 'orders', 'CHECK ((total_centavos >= 0))'],
   ['order_items_unit_price_centavos_nonnegative', 'order_items', 'CHECK ((unit_price_centavos >= 0))'],
   ['payments_amount_centavos_nonnegative', 'payments', 'CHECK ((amount_centavos >= 0))'],
@@ -108,17 +108,17 @@ const reviewedStockAndMoneyChecks = Object.freeze([
 // Verified migration 0006/0007 integer storage floor. PostgreSQL CHECK predicates
 // evaluate NULL to UNKNOWN; only attnotnull closes that bypass.
 const reviewedStockMoneyColumns = Object.freeze([
-  ['inventory', 'price_centavos', 'int8'],
-  ['inventory', 'stock_on_hand', 'int4'],
-  ['inventory', 'reserved_quantity', 'int4'],
+  ['stock', 'price_centavos', 'int8'],
+  ['stock', 'stock_on_hand', 'int4'],
+  ['stock', 'reserved_quantity', 'int4'],
   ['orders', 'total_centavos', 'int8'],
   ['order_items', 'unit_price_centavos', 'int8'],
   ['payments', 'amount_centavos', 'int8'],
   ['reservations', 'quantity', 'int4'],
   ['refunds', 'amount_centavos', 'int8'],
   ['order_items', 'quantity', 'int4'],
-  ['stock_movements', 'stock_on_hand_delta', 'int4'],
-  ['stock_movements', 'reserved_delta', 'int4'],
+  ['stock_movements', 'stock_change', 'int4'],
+  ['stock_movements', 'held_change', 'int4'],
   ['payment_events', 'amount_centavos', 'int8', false],
 ].map(([table_name, critical_column_name, type_name, column_not_null = true]) => Object.freeze({
   table_name, critical_column_name, type_name,
@@ -159,14 +159,14 @@ function pools({ env = local, app = {}, migrator = {}, tables = {}, publicSurfac
     public_can_create: false, api_roles_present: true, ...schema,
   };
   const protectedTables = [
-    'drugstores', 'pharmacy_memberships', 'medicines', 'inventory', 'orders',
-    'order_drugstores', 'order_items', 'payments', 'subscriptions', 'audit_logs',
-    'auth_session_families', 'auth_sessions', 'email_verification_challenges',
-    'password_reset_challenges', 'auth_rate_limit_events', 'auth_account_security',
-    'medicine_evidence', 'pharmacy_verifications', 'reservations', 'stock_movements',
-    'payment_events', 'refunds', 'payment_reconciliation',
-    'subscription_entitlements', 'billing_events',
-    'stock_submissions', 'auth_throttle_events', 'users', 'nearpill_schema_migrations', 'medicine_id_renumbering',
+    'pharmacies', 'pharmacy_memberships', 'medicines', 'stock', 'orders',
+    'order_pharmacies', 'order_items', 'payments', 'subscriptions', 'audit_logs',
+    'auth_session_families', 'auth_sessions', 'email_codes',
+    'reset_links', 'auth_rate_limit_events', 'auth_account_security',
+    'pharmacy_verifications', 'reservations', 'stock_movements',
+    'payment_events', 'refunds', 'payment_issues',
+    'plan_features',
+    'stock_submissions', 'auth_throttle_events', 'users', 'nearpill_schema_migrations',
   ].map((table_name) => ({
     // A hypothetical hardened test database may pass this preflight. The
     // reviewed migrations still lack users RLS: see the NP-031 negative test.
@@ -211,7 +211,7 @@ function pools({ env = local, app = {}, migrator = {}, tables = {}, publicSurfac
   })).filter((row) => !internalRoutines[row.internal_function_name]?.missing);
   if (internalRoutines.extra) reviewedInternalRoutines.push(internalRoutines.extra);
   const approvedTriggerRows = triggerRows === undefined ? [{
-    trigger_table_name: 'inventory', trigger_name: 'inventory_touch_updated_at',
+    trigger_table_name: 'stock', trigger_name: 'inventory_touch_updated_at',
     trigger_function_schema: 'nearpill', trigger_function_name: 'touch_updated_at',
     trigger_function_identity_arguments: '', trigger_type: 19, trigger_enabled: 'O',
     trigger_internal: false, trigger_is_clone: false, trigger_is_constraint: false,
@@ -219,7 +219,7 @@ function pools({ env = local, app = {}, migrator = {}, tables = {}, publicSurfac
     trigger_update_columns: '', trigger_has_when: false,
     trigger_has_old_transition: false, trigger_has_new_transition: false,
   }].flatMap((row) => [row,
-    { ...row, trigger_table_name: 'order_drugstores', trigger_name: 'order_group_owner', trigger_function_name: 'set_order_group_owner', trigger_type: 7 },
+    { ...row, trigger_table_name: 'order_pharmacies', trigger_name: 'order_group_owner', trigger_function_name: 'set_order_group_owner', trigger_type: 7 },
     { ...row, trigger_name: 'inventory_authority', trigger_function_name: 'guard_inventory_authority' },
     { ...row, trigger_name: 'inventory_selling_unit_authority', trigger_function_name: 'guard_inventory_selling_unit', trigger_update_columns: 'package_size,selling_unit' },
     { ...row, trigger_table_name: 'medicines', trigger_name: 'medicines_normalize_category', trigger_function_name: 'normalize_medicine_category', trigger_type: 23, trigger_update_columns: 'category' },
@@ -261,7 +261,7 @@ test('accepts a read-only live role and forced-RLS inventory check for disposabl
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
   assert.equal(fixture.reads.length, 20);
-  assert.equal(fixture.reads[1].args[0].length, 30);
+  assert.equal(fixture.reads[1].args[0].length, 27);
   assert.ok(fixture.reads.every(({ sql }) => sql.trim().startsWith('SELECT')));
 });
 
@@ -293,7 +293,7 @@ test('Packet 0 keeps payment and entitlement partial UNIQUE declarations aligned
     {
       name: 'subscription_entitlements_active_unique',
       sql: /CREATE\s+UNIQUE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+subscription_entitlements_active_unique\s+ON\s+subscription_entitlements\s*\(drugstore_id,\s*entitlement_key\)\s+WHERE\s+revoked_at\s+IS\s+NULL\s*;/i,
-      drizzle: /uniqueIndex\('subscription_entitlements_active_unique'\)\s*\.on\(table\.drugstoreId,\s*table\.entitlementKey\)\s*\.where\(sql`\$\{table\.revokedAt\} IS NULL`\)/,
+      drizzle: /uniqueIndex\('subscription_entitlements_active_unique'\)\s*\.on\(table\.pharmacyId,\s*table\.entitlementKey\)\s*\.where\(sql`\$\{table\.revokedAt\} IS NULL`\)/,
     },
   ];
   for (const { name, sql, drizzle: expected } of declarations) {
@@ -408,8 +408,8 @@ test('Packet 0 attests twelve typed stock/money columns and reviewed nullability
 test('Packet 0 attests order quantities, stock movement deltas and nullable payment event centavos', async () => {
   const expected = [
     ['order_items', 'quantity', 'int4', true],
-    ['stock_movements', 'stock_on_hand_delta', 'int4', true],
-    ['stock_movements', 'reserved_delta', 'int4', true],
+    ['stock_movements', 'stock_change', 'int4', true],
+    ['stock_movements', 'held_change', 'int4', true],
     ['payment_events', 'amount_centavos', 'int8', false],
   ];
   const fixture = pools();
@@ -436,8 +436,8 @@ test('Packet 0 extended numeric column inventory matches the reviewed SQL migrat
 
 test('Packet 0 rejects altered payment event nullability and stock-movement quantity representation', async () => {
   const targets = [
-    ['order_items', 'quantity'], ['stock_movements', 'stock_on_hand_delta'],
-    ['stock_movements', 'reserved_delta'], ['payment_events', 'amount_centavos'],
+    ['order_items', 'quantity'], ['stock_movements', 'stock_change'],
+    ['stock_movements', 'held_change'], ['payment_events', 'amount_centavos'],
   ];
   for (const [table, name] of targets) {
     const original = reviewedStockMoneyColumns.find(row =>
@@ -569,8 +569,8 @@ test('Packet 0 named stock/centavo CHECK catalog aligns with five reviewed migra
 test('Packet 0 must attest pharmacy membership and inventory identity UNIQUE constraints', async () => {
   const migration = await readFile(new URL('../migrations/postgres/0001_core.sql', import.meta.url), 'utf8');
   const expected = [
-    ['pharmacy_memberships_user_store_unique', 'pharmacy_memberships', ['user_id', 'drugstore_id']],
-    ['inventory_store_medicine_unique', 'inventory', ['drugstore_id', 'medicine_id']],
+    ['pharmacy_memberships_user_store_unique', 'pharmacy_memberships', ['user_id', 'pharmacy_id']],
+    ['inventory_store_medicine_unique', 'stock', ['pharmacy_id', 'medicine_id']],
   ];
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
@@ -580,7 +580,8 @@ test('Packet 0 must attest pharmacy membership and inventory identity UNIQUE con
     'source-required uniqueness must be checked under app role before migration journal');
   const catalogSql = fixture.reads[catalogIndex].sql;
   for (const [name, table, columns] of expected) {
-    assert.match(migration, new RegExp(`CONSTRAINT ${name}\\s+UNIQUE\\s*\\(\\s*${columns.join('\\s*,\\s*')}\\s*\\)`, 'i'));
+    const sourceColumns = columns.map((column) => column.replace('pharmacy', 'drugstore').replace('stock_id', 'inventory_id')); // migration 0001 predates the 0053 renames
+    assert.match(migration, new RegExp(`CONSTRAINT ${name}\\s+UNIQUE\\s*\\(\\s*${sourceColumns.join('\\s*,\\s*')}\\s*\\)`, 'i'));
     assert.ok(catalogSql.includes(`'${name}'`), `live catalog probe must cover ${name}`);
     assert.ok(reviewedCriticalUniqueConstraints.some((row) =>
       row.critical_constraint_name === name && row.table_name === table &&
@@ -665,14 +666,15 @@ test('Packet 0 critical business constraints match canonical migrations 0001, 00
   const reservationSql = await readFile(new URL('../migrations/postgres/0006_order_inventory.sql', import.meta.url), 'utf8');
   const drizzle = await readFile(new URL('../src/infrastructure/postgres/schema.ts', import.meta.url), 'utf8');
   for (const reviewed of reviewedCriticalUniqueConstraints) {
-    const sql = ['pharmacy_memberships', 'inventory'].includes(reviewed.table_name)
+    const sql = ['pharmacy_memberships', 'stock'].includes(reviewed.table_name)
       ? coreSql : reviewed.table_name === 'reservations' ? reservationSql : paymentSql;
     const escaped = reviewed.critical_constraint_name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    assert.match(sql, new RegExp(`CONSTRAINT\\s+${escaped}\\s+UNIQUE\\s*\\(\\s*${reviewed.index_columns.join('\\s*,\\s*')}\\s*\\)`, 'i'));
+    const sourceColumns = reviewed.index_columns.map((column) => column.replace('pharmacy_id', 'drugstore_id').replace('stock_id', 'inventory_id')); // historical migrations
+    assert.match(sql, new RegExp(`CONSTRAINT\\s+${escaped}\\s+UNIQUE\\s*\\(\\s*${sourceColumns.join('\\s*,\\s*')}\\s*\\)`, 'i'));
   }
-  assert.match(drizzle, /uniqueIndex\('pharmacy_memberships_user_store_unique'\)\.on\(table\.userId,\s*table\.drugstoreId\)/);
-  assert.match(drizzle, /uniqueIndex\('inventory_store_medicine_unique'\)\.on\(table\.drugstoreId,\s*table\.medicineId\)/);
-  assert.match(drizzle, /uniqueIndex\('reservations_order_inventory_unique'\)\.on\(table\.orderId,\s*table\.inventoryId\)/,
+  assert.match(drizzle, /uniqueIndex\('pharmacy_memberships_user_store_unique'\)\.on\(table\.userId,\s*table\.pharmacyId\)/);
+  assert.match(drizzle, /uniqueIndex\('inventory_store_medicine_unique'\)\.on\(table\.pharmacyId,\s*table\.medicineId\)/);
+  assert.match(drizzle, /uniqueIndex\('reservations_order_inventory_unique'\)\.on\(table\.orderId,\s*table\.stockId\)/,
     'the single Drizzle reservation declaration must preserve the reviewed order/inventory keys');
   assert.match(reservationSql, /order_id\s+INTEGER\s+NOT NULL\s+REFERENCES\s+orders\(id\)/i);
   assert.match(reservationSql, /inventory_id\s+INTEGER\s+NOT NULL\s+REFERENCES\s+inventory\(id\)/i);
@@ -729,8 +731,8 @@ test('Packet 0 rejects custom or unreadable idempotency equality and collation s
   }
 });
 
-test('foreign-key preflight reviews all 41 canonical single-column relationships before migrator access', async () => {
-  assert.equal(canonicalForeignKeys.length, 41);
+test('foreign-key preflight reviews all 35 canonical (41 minus those removed with medicine_evidence, billing_events and payment_reconciliation.resolved_by) single-column relationships before migrator access', async () => {
+  assert.equal(canonicalForeignKeys.length, 35);
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
   const read = fixture.reads.find(({ sql }) => sql.includes('AS fk_source_table'));
@@ -795,7 +797,7 @@ test('policy catalog preflight includes users and migration journal, not only th
   await assertSafeLiveFixtureConnections(fixture);
   const policyRead = fixture.reads.find(({ sql }) => sql.includes('FROM pg_catalog.pg_policies'));
   assert.ok(policyRead, 'policy inventory must be queried before fixture writes');
-  assert.equal(policyRead.args[0].length, 31);
+  assert.equal(policyRead.args[0].length, 28);
   assert.ok(policyRead.args[0].includes('users'), 'users policies require a reviewed migration');
   assert.ok(policyRead.args[0].includes('nearpill_schema_migrations'), 'journal policies cannot be introduced silently');
   assert.ok(fixture.reads.every(({ sql }) => sql.trim().startsWith('SELECT')));
@@ -922,7 +924,7 @@ test('refuses a role or database that differs from the operator-approved configu
 });
 
 test('refuses every missing, unforced, or app-owned protected table', async () => {
-  for (const name of ['orders', 'inventory', 'pharmacy_memberships', 'auth_sessions', 'payment_events', 'billing_events']) {
+  for (const name of ['orders', 'stock', 'pharmacy_memberships', 'auth_sessions', 'payment_events', 'plan_features']) {
     for (const update of [{ missing: true }, { rls_enabled: false }, { rls_forced: false }, { owner_name: 'nearpill_app' }, { owner_name: null }, { app_can_assume_owner: true }, { app_can_assume_owner: null }]) {
       await assert.rejects(assertSafeLiveFixtureConnections(pools({ tables: { [name]: update } })));
     }
@@ -952,8 +954,8 @@ test('preflight and reconciliation cover all protected RLS tables, including use
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
   const probe = fixture.reads[1];
-  assert.equal(probe.args[0].length, 30);
-  assert.equal(new Set(probe.args[0]).size, 30);
+  assert.equal(probe.args[0].length, 27);
+  assert.equal(new Set(probe.args[0]).size, 27);
   const reconcileSource = await readFile(new URL('../scripts/reconcile-postgres.mjs', import.meta.url), 'utf8');
   const rlsBlock = reconcileSource.match(/const rls = await client\.query\(`[\s\S]*?`, \[\[([\s\S]*?)\]\]\);/);
   assert.ok(rlsBlock, 'read canonical reconciliation RLS inventory');
@@ -962,7 +964,7 @@ test('preflight and reconciliation cover all protected RLS tables, including use
 });
 
 test('preflight rejects hidden protected tables and inherited table-owner authority', async () => {
-  for (const tableName of ['auth_session_families', 'payment_events', 'billing_events']) {
+  for (const tableName of ['auth_session_families', 'payment_events', 'plan_features']) {
     await assert.rejects(assertSafeLiveFixtureConnections(pools({ tables: { [tableName]: { missing: true } } })), /lacks forced RLS/);
     await assert.rejects(assertSafeLiveFixtureConnections(pools({ tables: { [tableName]: { app_can_assume_owner: true } } })), /unsafe owner/);
   }
@@ -1021,7 +1023,7 @@ test('app-role preflight denies table-wide operations outside RLS before fixture
   assert.match(sql, /pg_has_role\(current_user, acl\.grantee, 'SET'\)/);
   assert.ok(baseline.reads.every(({ sql: statement }) => statement.trim().startsWith('SELECT')));
 
-  for (const table of ['orders', 'inventory', 'users', 'nearpill_schema_migrations']) {
+  for (const table of ['orders', 'stock', 'users', 'nearpill_schema_migrations']) {
     for (const flag of [
       'app_non_rls_table_privilege',
       'app_role_switch_non_rls_table_privilege',
@@ -1067,7 +1069,7 @@ test('preflight rejects MAINTAIN privileges and pg_maintain role paths before fi
     assert.equal(unsafe.reads.some(({ sql }) => sql.includes('FROM public.nearpill_schema_migrations')), false);
   }
   for (const field of ['app_non_rls_table_privilege', 'app_role_switch_non_rls_table_privilege']) {
-    const unsafe = pools({ tables: { inventory: { [field]: true } } });
+    const unsafe = pools({ tables: { stock: { [field]: true } } });
     await assert.rejects(assertSafeLiveFixtureConnections(unsafe), /non-RLS table privilege/);
     assert.equal(unsafe.reads.some(({ sql }) => sql.includes('FROM public.nearpill_schema_migrations')), false);
   }
@@ -1152,7 +1154,7 @@ test('live fixture role query includes direct self-role and future predefined Po
 });
 
 test('fails closed on Supabase Data API client or PUBLIC table grants, including unknown results', async () => {
-  for (const name of ['orders', 'auth_sessions', 'payments', 'billing_events']) {
+  for (const name of ['orders', 'auth_sessions', 'payments', 'plan_features']) {
     for (const field of ['exposed_client_grant', 'public_grant', 'exposed_client_column_grant', 'public_column_grant']) {
       for (const flag of [true, null, undefined]) {
         await assert.rejects(
@@ -1216,7 +1218,12 @@ test('preflight includes users and the migrator-only journal in the full public-
   )))).join('\n');
   const tables = [...sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_]+)(?![a-z_.])/gi)]
     .map((match) => match[1]);
-  assert.deepEqual([...probed].sort(), [...tables].sort(), 'any new public table needs a reviewed security classification');
+  // Migration 0053 renames seven tables and drops medicine_evidence, medicine_id_renumbering and billing_events; nothing else may differ.
+  const renamed = new Map([['drugstores', 'pharmacies'], ['inventory', 'stock'], ['order_drugstores', 'order_pharmacies'],
+    ['subscription_entitlements', 'plan_features'], ['payment_reconciliation', 'payment_issues'],
+    ['email_verification_challenges', 'email_codes'], ['password_reset_challenges', 'reset_links']]);
+  const current = tables.filter((name) => !['medicine_evidence', 'medicine_id_renumbering', 'billing_events'].includes(name)).map((name) => renamed.get(name) ?? name);
+  assert.deepEqual([...probed].sort(), [...current].sort(), 'any new public table needs a reviewed security classification');
   assert.ok(probed.includes('users'));
   assert.ok(probed.includes('nearpill_schema_migrations'));
 });
@@ -1323,7 +1330,7 @@ test('unexpected public relation probe inspects base, partitioned and foreign ta
   assert.match(query.sql, /c\.relkind IN \('r', 'p', 'f'\)/);
   assert.match(query.sql, /n\.nspname = 'public'/);
   assert.match(query.sql, /NOT \(c\.relname = ANY\(\$1::text\[\]\)\)/);
-  assert.equal(query.args[0].length, 30);
+  assert.equal(query.args[0].length, 27);
   assert.ok(fixture.reads.every(({ sql }) => sql.trim().startsWith('SELECT')));
 });
 
@@ -1459,7 +1466,7 @@ test('the reviewed migrations define no custom public view or RPC function contr
 
 
 test('read-only migrator verification compares the complete reviewed migration history', async () => {
-  assert.equal(sourceMigrationRows.length, 52, 'review the expected migration count when migration history changes');
+  assert.equal(sourceMigrationRows.length, 53, 'review the expected migration count when migration history changes');
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
   const journal = fixture.reads.find(({ sql }) => sql.includes('FROM public.nearpill_schema_migrations'));
@@ -1559,14 +1566,14 @@ test('migration journal refuses duplicate rows even when total count and checksu
 
 
 test('policy audit covers all reviewed PostgreSQL RLS policy roles and commands', async () => {
-  assert.equal(reviewedPolicyRows.length, 124); // +1 admin delete-partner policy from 0052; 118 + 3 retention DELETE policies from 0045 + 1 auto-approved stock insert policy from 0046 + 1 admin prescription-scrub policy from 0051
-  assert.equal(reviewedPolicyRows.filter((row) => row.policyname === 'migrator_all').length, 30);
+  assert.equal(reviewedPolicyRows.length, 118); // 0053 drops medicine_evidence and its 2 policies (124 -> 118: also medicine_id_renumbering and billing_events); +1 admin delete-partner policy from 0052; 118 + 3 retention DELETE policies from 0045 + 1 auto-approved stock insert policy from 0046 + 1 admin prescription-scrub policy from 0051
+  assert.equal(reviewedPolicyRows.filter((row) => row.policyname === 'migrator_all').length, 27);
   assert.equal(reviewedPolicyRows.filter((row) => row.policyname === 'identity_security_app').length, 7);
   const fixture = pools();
   await assertSafeLiveFixtureConnections(fixture);
   const probe = fixture.reads.find(({ sql }) => sql.includes('pg_catalog.pg_policies'));
   assert.ok(probe, 'must query actual PostgreSQL policies before fixture writes');
-  assert.equal(probe.args[0].length, 31); // RLS tables, users, journal, renumbering map and prescription reviews
+  assert.equal(probe.args[0].length, 28); // RLS tables, users, journal, renumbering map and prescription reviews
   assert.ok(fixture.reads.every(({ sql }) => sql.trim().startsWith('SELECT')));
 });
 
@@ -2299,13 +2306,13 @@ CREATE POLICY orders_read ON orders FOR SELECT TO nearpill_app USING (true);` }]
 test('reviewed dynamic migrator policy is retired by a later literal DROP POLICY', async () => {
   const sources = await loadReviewedMigrationSources(migrationDirectory);
   const baseline = reviewedRlsPolicyInventoryFromSources(sources);
-  assert.ok(baseline.some((p) => p.tablename === 'inventory' && p.policyname === 'migrator_all'));
+  assert.ok(baseline.some((p) => p.tablename === 'stock' && p.policyname === 'migrator_all'));
   const next = reviewedRlsPolicyInventoryFromSources([
     ...sources,
-    { filename: '0008_probe.sql', sql: 'DROP POLICY IF EXISTS migrator_all ON public.inventory;' },
+    { filename: '0008_probe.sql', sql: 'DROP POLICY IF EXISTS migrator_all ON public.stock;' },
   ]);
-  assert.equal(next.some((p) => p.tablename === 'inventory' && p.policyname === 'migrator_all'), false);
-  assert.ok(next.some((p) => p.tablename === 'inventory' && p.policyname === 'inventory_update'));
+  assert.equal(next.some((p) => p.tablename === 'stock' && p.policyname === 'migrator_all'), false);
+  assert.ok(next.some((p) => p.tablename === 'stock' && p.policyname === 'inventory_update'));
 });
 
 // A dynamic FOREACH array is security-sensitive in full: skipping a token
@@ -2580,7 +2587,7 @@ test('preflight inventories exactly the reviewed non-internal public trigger', a
 
 test('preflight denies missing, duplicate and unreviewed triggers before migrator journal read', async () => {
   const valid = {
-    trigger_table_name: 'inventory', trigger_name: 'inventory_touch_updated_at',
+    trigger_table_name: 'stock', trigger_name: 'inventory_touch_updated_at',
     trigger_function_schema: 'nearpill', trigger_function_name: 'touch_updated_at',
     trigger_function_identity_arguments: '', trigger_type: 19, trigger_enabled: 'O',
     trigger_internal: false, trigger_is_clone: false, trigger_is_constraint: false,
@@ -2597,7 +2604,7 @@ test('preflight denies missing, duplicate and unreviewed triggers before migrato
 
 test('preflight denies a disabled, altered-event, re-targeted or conditional timestamp trigger', async () => {
   const valid = {
-    trigger_table_name: 'inventory', trigger_name: 'inventory_touch_updated_at',
+    trigger_table_name: 'stock', trigger_name: 'inventory_touch_updated_at',
     trigger_function_schema: 'nearpill', trigger_function_name: 'touch_updated_at',
     trigger_function_identity_arguments: '', trigger_type: 19, trigger_enabled: 'O',
     trigger_internal: false, trigger_is_clone: false, trigger_is_constraint: false,

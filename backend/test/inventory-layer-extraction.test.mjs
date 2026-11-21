@@ -132,7 +132,7 @@ test('partner inventory reads drafts through catalogue access and stays scoped t
   const client = {
     async query(sql, params) {
       calls.push({ sql, params });
-      return { rows: sql.includes('FROM inventory i') ? [{ publicationstatus: 'draft' }] : [] };
+      return { rows: sql.includes('FROM stock i') ? [{ publicationstatus: 'draft' }] : [] };
     },
     release() {},
   };
@@ -144,9 +144,9 @@ test('partner inventory reads drafts through catalogue access and stays scoped t
   const result = await runWithDatabaseActor(actor, () => service.listPartnerInventory(actor));
   assert.equal(result.body[0].publicationStatus, 'draft');
   assert.deepEqual(calls.find(({ sql }) => sql.includes("set_config('app.capability'")).params, ['7', 'partner', 'catalog_browse']);
-  const inventoryQuery = calls.find(({ sql }) => sql.includes('FROM inventory i'));
+  const inventoryQuery = calls.find(({ sql }) => sql.includes('FROM stock i'));
   assert.deepEqual(inventoryQuery.params, [5]);
-  assert.match(inventoryQuery.sql, /i\.drugstore_id = \$1 AND m\.publication_status IN \('draft', 'published'\)/);
+  assert.match(inventoryQuery.sql, /i\.pharmacy_id = \$1 AND m\.publication_status IN \('draft', 'published'\)/);
 });
 
 test('authoritative price is persisted and exposed as integer centavos', async () => {

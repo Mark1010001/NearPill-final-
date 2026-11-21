@@ -25,17 +25,17 @@ export async function cleanupSyntheticRlsVerifierFixtures({ migratorPool, fixtur
   }
   const steps = [
     ['orders', 'DELETE FROM orders WHERE id = ANY($1::int[])', [fixture.orderA, fixture.orderB].filter((id) => id !== undefined)],
-    ['inventory', 'DELETE FROM inventory WHERE id=$1', fixture.inventoryId],
-    ['other_inventory', 'DELETE FROM inventory WHERE id=$1', fixture.otherInventoryId],
+    ['inventory', 'DELETE FROM stock WHERE id=$1', fixture.inventoryId],
+    ['other_inventory', 'DELETE FROM stock WHERE id=$1', fixture.otherInventoryId],
     // Order deletion cascades the reservation; inventory deletion cascades the
     // matching stock movement. Explicit inventory removal is still checked.
-    ['reservation_inventory', 'DELETE FROM inventory WHERE id=$1', fixture.reservationInventoryId],
+    ['reservation_inventory', 'DELETE FROM stock WHERE id=$1', fixture.reservationInventoryId],
     ['pharmacy_memberships', 'DELETE FROM pharmacy_memberships WHERE id=$1', fixture.partnerMembershipId],
     ['medicines', 'DELETE FROM medicines WHERE id=$1', fixture.medicineId],
     ['price_probe_medicine', 'DELETE FROM medicines WHERE id=$1', fixture.priceProbeMedicineId],
     ['reservation_medicine', 'DELETE FROM medicines WHERE id=$1', fixture.reservationMedicineId],
-    ['drugstores', 'DELETE FROM drugstores WHERE id=$1', fixture.storeId],
-    ['other_drugstore', 'DELETE FROM drugstores WHERE id=$1', fixture.otherStoreId],
+    ['drugstores', 'DELETE FROM pharmacies WHERE id=$1', fixture.storeId],
+    ['other_drugstore', 'DELETE FROM pharmacies WHERE id=$1', fixture.otherStoreId],
     ['users', 'DELETE FROM users WHERE id = ANY($1::int[])', [fixture.userA, fixture.userB, fixture.userPartner, fixture.userAdmin].filter((id) => id !== undefined)],
   ];
   const failures = [];

@@ -46,19 +46,19 @@ function recordingPool(options = {}) {
             return { rows: options.userReadLeak ? [{ id: userId }, { id: userId === fixture.userA ? fixture.userB : fixture.userA }] :
               options.noOwnUser ? [] : [{ id: userId }], rowCount: 1 };
           }
-          if (sql.startsWith('SELECT id FROM drugstores')) {
+          if (sql.startsWith('SELECT id FROM pharmacies')) {
             return { rows: options.noPublicPharmacy ? [] : [{ id: fixture.storeId }],
               rowCount: options.noPublicPharmacy ? 0 : 1 };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,medicine_id FROM inventory')) {
+          if (sql.startsWith('SELECT id,pharmacy_id,medicine_id FROM stock')) {
             const rows = options.noVisibleInventory ? [] : [{
               id: fixture.inventoryId,
-              drugstore_id: options.wrongInventoryPharmacy ? 999 : fixture.storeId,
+              pharmacy_id: options.wrongInventoryPharmacy ? 999 : fixture.storeId,
               medicine_id: fixture.medicineId,
             }];
             return { rows, rowCount: rows.length };
           }
-          if (sql.startsWith('UPDATE inventory SET')) {
+          if (sql.startsWith('UPDATE stock SET')) {
             const field = ['stock_on_hand', 'reserved_quantity', 'price_centavos', 'availability'].find((name) => sql.includes(name));
             if (options.inventoryMutationError?.[field]) {
               const { code, message } = options.inventoryMutationError[field];
@@ -68,7 +68,7 @@ function recordingPool(options = {}) {
               ? { rows: [{ id: fixture.inventoryId }], rowCount: 1 }
               : { rows: [], rowCount: 0 };
           }
-          if (sql.startsWith('DELETE FROM inventory WHERE id = $1')) {
+          if (sql.startsWith('DELETE FROM stock WHERE id = $1')) {
             if (options.inventoryDeleteError) {
               const { code, message } = options.inventoryDeleteError;
               throw Object.assign(new Error(message), { code });
@@ -119,7 +119,7 @@ function recordingPool(options = {}) {
               throw Object.assign(new Error(`new row violates row-level security policy for table "${relation}"`), { code: '42501' });
             }
           }
-          if (sql.startsWith('UPDATE drugstores SET verification_status')) {
+          if (sql.startsWith('UPDATE pharmacies SET verification_status')) {
             if (options.pharmacyUpdateError) {
               const { code, message } = options.pharmacyUpdateError;
               throw Object.assign(new Error(message), { code });
@@ -127,7 +127,7 @@ function recordingPool(options = {}) {
             return options.pharmacyVerificationUpdateSucceeds
               ? { rows: [{ id: fixture.storeId }], rowCount: 1 } : { rows: [], rowCount: 0 };
           }
-          if (sql.startsWith('DELETE FROM drugstores')) {
+          if (sql.startsWith('DELETE FROM pharmacies')) {
             if (options.pharmacyDeleteError) {
               const { code, message } = options.pharmacyDeleteError;
               throw Object.assign(new Error(message), { code });
@@ -190,18 +190,18 @@ function recordingPool(options = {}) {
             return options.userDeleteLeak ? { rows: [{ id: userId === fixture.userA ? fixture.userB : fixture.userA }], rowCount: 1 } :
               { rows: [], rowCount: 0 };
           }
-          if (sql.startsWith('SELECT id,order_id FROM order_drugstores')) {
+          if (sql.startsWith('SELECT id,order_id FROM order_pharmacies')) {
             return { rows: options.noOwnChild ? [] : options.childReadLeak
               ? [{ id: ownOrder + 1000, order_id: ownOrder }, { id: otherOrder + 1000, order_id: otherOrder }]
               : [{ id: ownOrder + 1000, order_id: ownOrder }], rowCount: options.noOwnChild ? 0 : 1 };
           }
-          if (sql.startsWith('SELECT id,order_drugstore_id FROM order_items')) {
+          if (sql.startsWith('SELECT id,order_pharmacy_id FROM order_items')) {
             const ownItem = userId === fixture.userA ? fixture.orderItemA : fixture.orderItemB;
             const otherItem = userId === fixture.userA ? fixture.orderItemB : fixture.orderItemA;
             const ownChild = ownOrder + 1000;
             return { rows: options.noOwnItem ? [] : options.itemReadLeak
-              ? [{ id: ownItem, order_drugstore_id: ownChild }, { id: otherItem, order_drugstore_id: otherOrder + 1000 }]
-              : [{ id: ownItem, order_drugstore_id: ownChild }], rowCount: options.noOwnItem ? 0 : 1 };
+              ? [{ id: ownItem, order_pharmacy_id: ownChild }, { id: otherItem, order_pharmacy_id: otherOrder + 1000 }]
+              : [{ id: ownItem, order_pharmacy_id: ownChild }], rowCount: options.noOwnItem ? 0 : 1 };
           }
           if (sql.startsWith('UPDATE order_items SET unit_price_centavos')) {
             if (options.orderItemPriceUpdateError) {
@@ -228,7 +228,7 @@ function recordingPool(options = {}) {
             if (options.orderItemInsertSucceeds) return { rows: [{ id: 888 }], rowCount: 1 };
             throw Object.assign(new Error('new row violates row-level security policy for table "order_items"'), { code: '42501' });
           }
-          if (sql.startsWith('DELETE FROM order_drugstores WHERE id = $1')) {
+          if (sql.startsWith('DELETE FROM order_pharmacies WHERE id = $1')) {
             if (options.childDeleteError) {
               const { code, message } = options.childDeleteError;
               throw Object.assign(new Error(message), { code });
@@ -237,7 +237,7 @@ function recordingPool(options = {}) {
               ? { rows: [{ id: params[0] }], rowCount: 1 }
               : { rows: [], rowCount: 0 };
           }
-          if (sql.startsWith('UPDATE order_drugstores SET status')) {
+          if (sql.startsWith('UPDATE order_pharmacies SET status')) {
             if (options.childMutationError) {
               const { code, message } = options.childMutationError;
               throw Object.assign(new Error(message), { code });
@@ -315,9 +315,9 @@ function recordingPool(options = {}) {
 test('both customers: own read, cross-tenant read/update/delete/insert denied using transaction-local identity', async () => {
   const pool = recordingPool();
   await assertCustomerOrderRlsNegatives({ pool, fixture });
-  assert.equal(pool.acquired, 92);
-  assert.equal(pool.released, 92);
-  assert.equal(pool.history.filter((record) => record.sql === 'ROLLBACK').length, 92);
+  assert.equal(pool.acquired, 90);
+  assert.equal(pool.released, 90);
+  assert.equal(pool.history.filter((record) => record.sql === 'ROLLBACK').length, 90);
   assert.equal(pool.history.filter((record) => record.sql.startsWith('UPDATE orders SET status')).length, 4);
   assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('UPDATE orders SET total_centavos')).map((r) => r.params), [[333, 1], [444, 1]]);
   assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('UPDATE orders SET user_id')).map((r) => r.params), [[333, 222], [444, 111]]);
@@ -327,12 +327,12 @@ test('both customers: own read, cross-tenant read/update/delete/insert denied us
   assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('UPDATE orders SET status = $2')).map((r) => r.params), [[333, 'completed'], [444, 'completed']]);
   assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('DELETE FROM orders')).map((r) => r.params), [[444], [333]]);
   assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('DELETE FROM order_items')).map((r) => r.params), [[6333], [6444]]);
-  assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('DELETE FROM inventory')).map((r) => r.params), [[888], [888]]);
-  assert.equal(pool.history.filter((record) => record.sql.includes("set_config('app.user_id'")).length, 92);
-  assert.equal(pool.history.filter((record) => record.sql.includes("current_setting('app.user_id'")).length, 92);
-  assert.equal(pool.history.filter((record) => record.sql.startsWith('SELECT id,order_id FROM order_drugstores')).length, 2);
-  assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('UPDATE order_drugstores SET status')).map((r) => r.params), [[333, 'completed'], [444, 'completed']]);
-  assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('DELETE FROM order_drugstores')).map((r) => r.params), [[1333], [1444]]);
+  assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('DELETE FROM stock')).map((r) => r.params), [[888], [888]]);
+  assert.equal(pool.history.filter((record) => record.sql.includes("set_config('app.user_id'")).length, 90);
+  assert.equal(pool.history.filter((record) => record.sql.includes("current_setting('app.user_id'")).length, 90);
+  assert.equal(pool.history.filter((record) => record.sql.startsWith('SELECT id,order_id FROM order_pharmacies')).length, 2);
+  assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('UPDATE order_pharmacies SET status')).map((r) => r.params), [[333, 'completed'], [444, 'completed']]);
+  assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('DELETE FROM order_pharmacies')).map((r) => r.params), [[1333], [1444]]);
   assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('INSERT INTO order_items')).map((r) => r.params),
     [[fixture.orderA + 1000, fixture.medicineId], [fixture.orderB + 1000, fixture.medicineId]]);
   assert.equal(pool.history.filter((record) => record.sql.startsWith('SELECT id FROM users')).length, 2);
@@ -341,8 +341,6 @@ test('both customers: own read, cross-tenant read/update/delete/insert denied us
   assert.deepEqual(pool.history.filter((record) => record.sql.startsWith('UPDATE users SET role')).map((r) => r.params), [[111, 'admin'], [111, 'partner'], [222, 'admin'], [222, 'partner']]);
   assert.deepEqual(pool.history.filter(({ sql }) => sql.startsWith('INSERT INTO pharmacy_memberships')).map(({ params }) => params),
     [[fixture.userA, fixture.storeId], [fixture.userB, fixture.storeId]]);
-  assert.deepEqual(pool.history.filter(({ sql }) => sql.startsWith('INSERT INTO medicine_evidence'))
-    .map(({ params }) => params[0]), [fixture.medicineId, fixture.medicineId]);
   assert.deepEqual(pool.history.filter(({ sql }) => sql.startsWith('INSERT INTO pharmacy_verifications'))
     .map(({ params }) => params[0]), [fixture.storeId, fixture.storeId]);
   assert.deepEqual(pool.history.filter(({ sql, params }) => sql.startsWith('INSERT INTO audit_logs') &&
@@ -437,24 +435,23 @@ test('catalog INSERT/DELETE negatives distinguish scoped denials from unrelated 
   }
 });
 
-test('ordinary customers cannot forge approved medicine or verified pharmacy evidence', async () => {
+test('ordinary customers cannot forge verified pharmacy evidence (medicine_evidence was removed by 0053)', async () => {
   for (const [option, relation] of [
-    ['medicineEvidenceInsertSucceeds', 'medicine_evidence'],
     ['pharmacyEvidenceInsertSucceeds', 'pharmacy_verifications'],
   ]) {
     const pool = recordingPool({ [option]: true });
     await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }),
-      new RegExp(`customer can INSERT (?:approved medicine|verified pharmacy) evidence`));
+      new RegExp(`customer can INSERT verified pharmacy evidence`));
     assert.ok(pool.history.some(({ sql }) => sql.startsWith(`INSERT INTO ${relation}`)));
     assert.equal(pool.acquired, pool.released);
   }
 });
 
-test('approval-evidence INSERT probes reject unrelated permission or constraint failures', async () => {
-  for (const option of ['medicineEvidenceError', 'pharmacyEvidenceError']) {
+test('pharmacy-verification INSERT probes reject unrelated permission or constraint failures', async () => {
+  for (const option of ['pharmacyEvidenceError']) {
     for (const error of [
       { code: '42501', message: 'new row violates row-level security policy for table payments' },
-      { code: '42501', message: 'permission denied for table medicine_evidence' },
+      { code: '42501', message: 'permission denied for table pharmacy_verifications' },
       { code: '23503', message: 'foreign key violation' },
     ]) {
       const pool = recordingPool({ [option]: error });
@@ -485,8 +482,8 @@ test('customers cannot forge pharmacy verification status or DELETE a verified p
 
 test('pharmacy-write verifier rejects unrelated SQL errors instead of counting them as policy denials', async () => {
   for (const [option, statement] of [
-    ['pharmacyUpdateError', 'UPDATE drugstores SET verification_status'],
-    ['pharmacyDeleteError', 'DELETE FROM drugstores'],
+    ['pharmacyUpdateError', 'UPDATE pharmacies SET verification_status'],
+    ['pharmacyDeleteError', 'DELETE FROM pharmacies'],
   ]) {
     const pool = recordingPool({ [option]: { code: '42501', message: 'permission denied for table users' } });
     await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }),
@@ -633,8 +630,8 @@ test('cross-customer writes accept explicit table/column permission denials with
     userDelete: { code: '42501', message: 'permission denied for table users' },
   } });
   await assertCustomerOrderRlsNegatives({ pool, fixture });
-  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 92);
-  assert.equal(pool.released, 92);
+  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 90);
+  assert.equal(pool.released, 90);
 });
 
 test('cross-customer write denial must not accept wrong-table or unrelated SQLSTATE 42501 errors', async () => {
@@ -681,15 +678,15 @@ test('NP-031: refuses cross-customer user UPDATE even when order RLS is correct'
 test('NP-031: refuses cross-customer user DELETE even when user reads and updates are isolated', async () => {
   const pool = recordingPool({ userDeleteLeak: true });
   await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }), /customer can DELETE another customer user/);
-  assert.equal(pool.released, 43);
-  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 43);
+  assert.equal(pool.released, 42);
+  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 42);
 });
 
 test('NP-031: refuses customer INSERT of a new admin user and rolls back', async () => {
   const pool = recordingPool({ privilegedUserInsertSucceeds: true });
   await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }), /customer can INSERT an admin user/);
   assert.equal(pool.history.filter((r) => r.sql.startsWith('INSERT INTO users')).length, 1);
-  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 41);
+  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 40);
 });
 
 test('NP-031: admin-user INSERT denial must be explicit, not a constraint or connection error', async () => {
@@ -708,7 +705,7 @@ test('NP-031: refuses self-promotion to admin under a customer transaction', asy
   const pool = recordingPool({ rolePromotionLeak: true });
   await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }), /customer can elevate own user role/);
   assert.equal(pool.history.filter((r) => r.sql.startsWith('UPDATE users SET role')).length, 1);
-  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 39);
+  assert.equal(pool.history.filter((r) => r.sql === 'ROLLBACK').length, 38);
 });
 
 test('NP-031: only explicit permission/RLS denials can satisfy the self-promotion probe', async () => {
@@ -781,7 +778,7 @@ test('refuses a successful cross-customer DELETE and rolls back', async () => {
 test('order INSERT must not mistake unrelated RLS or generic 42501 failures for orders policy enforcement', async () => {
   for (const message of [
     'new row violates row-level security policy for table "users"',
-    'new row violates row-level security policy for table inventory',
+    'new row violates row-level security policy for table stock',
     'row-level security policy denied access',
     'permission denied for table orders',
   ]) {
@@ -853,7 +850,7 @@ test('NP-034: customer may not advance an owned pharmacy-order status directly',
   await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }),
     /customer can advance own pharmacy-order status directly/);
   assert.ok(pool.history.some(({ sql, params }) =>
-    sql.startsWith('UPDATE order_drugstores SET status') && params[0] === fixture.orderA && params[1] === 'completed'));
+    sql.startsWith('UPDATE order_pharmacies SET status') && params[0] === fixture.orderA && params[1] === 'completed'));
   assert.equal(pool.released, pool.acquired);
 });
 
@@ -862,7 +859,7 @@ test('NP-034: child-order status probe refuses missing own fixture or irrelevant
     pool: recordingPool({ noOwnChild: true }), fixture,
   }), /missing synthetic pharmacy-order row/);
   await assertCustomerOrderRlsNegatives({
-    pool: recordingPool({ childMutationError: { code: '42501', message: 'permission denied for table order_drugstores' } }), fixture,
+    pool: recordingPool({ childMutationError: { code: '42501', message: 'permission denied for table order_pharmacies' } }), fixture,
   });
   for (const error of [
     { code: '42501', message: 'permission denied for table payments' },
@@ -883,7 +880,7 @@ test('NP-042: customer cannot DELETE own existing pharmacy-order child', async (
   const pool = recordingPool({ childDeleteSucceeds: true });
   await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }),
     /NP-042 RLS verification failed: customer can DELETE own pharmacy-order child/);
-  assert.deepEqual(pool.history.filter(({ sql }) => sql.startsWith('DELETE FROM order_drugstores'))
+  assert.deepEqual(pool.history.filter(({ sql }) => sql.startsWith('DELETE FROM order_pharmacies'))
     .map(({ params }) => params), [[1333]]);
   assert.equal(pool.released, pool.acquired);
   assert.equal(pool.history.filter(({ sql }) => sql === 'ROLLBACK').length, pool.acquired);
@@ -891,12 +888,12 @@ test('NP-042: customer cannot DELETE own existing pharmacy-order child', async (
 
 test('NP-042: a child-scoped 42501 or zero affected rows denies deletion; unrelated errors fail closed', async () => {
   await assertCustomerOrderRlsNegatives({ pool: recordingPool({ childDeleteError: {
-    code: '42501', message: 'permission denied for table order_drugstores',
+    code: '42501', message: 'permission denied for table order_pharmacies',
   } }), fixture });
   for (const error of [
     { code: '42501', message: 'permission denied for table orders' },
     { code: '23503', message: 'foreign key constraint violation' },
-    { code: '42P01', message: 'relation order_drugstores does not exist' },
+    { code: '42P01', message: 'relation order_pharmacies does not exist' },
   ]) {
     const pool = recordingPool({ childDeleteError: error });
     await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }),
@@ -923,11 +920,11 @@ test('NP-042: effective reviewed migrations retire the old FOR ALL child policy 
   for (const { filename, sql } of migrations.filter(({ filename }) => filename >= '0004_identity_security.sql')) {
     const executable = sql.replace(/--[^\n]*/g, '');
     assert.doesNotMatch(executable,
-      /CREATE\s+POLICY\s+\w+\s+ON\s+(?:public\.)?order_drugstores\s+FOR\s+(?:ALL|DELETE)\s+TO\s+nearpill_app\b/i,
+      /CREATE\s+POLICY\s+\w+\s+ON\s+(?:public\.)?(?:order_drugstores|order_pharmacies)\s+FOR\s+(?:ALL|DELETE)\s+TO\s+nearpill_app\b/i,
       `${filename} must not reintroduce customer DELETE eligibility`);
   }
   const verifier = await readFile(new URL('../scripts/lib/verify-order-tenant-isolation.mjs', import.meta.url), 'utf8');
-  assert.match(verifier, /DELETE FROM order_drugstores WHERE id = \$1 RETURNING id/);
+  assert.match(verifier, /DELETE FROM order_pharmacies WHERE id = \$1 RETURNING id/);
   assert.match(verifier, /customer can DELETE own pharmacy-order child/);
 });
 
@@ -962,7 +959,7 @@ test('NP-035: live order-line probe uses the final post-0006 centavo-only schema
   const insert = verifier.match(/INSERT INTO order_items\s*\(([^)]+)\)\s*VALUES\s*\(/i);
   assert.ok(insert, 'expected live order-line RLS probe INSERT');
   const columns = insert[1].split(',').map((column) => column.trim());
-  assert.deepEqual(columns, ['order_drugstore_id', 'medicine_id', 'quantity', 'unit_price_centavos'],
+  assert.deepEqual(columns, ['order_pharmacy_id', 'medicine_id', 'quantity', 'unit_price_centavos'],
     'the probe must use only columns present after the reviewed centavo migration');
 });
 
@@ -1041,8 +1038,8 @@ test('NP-035: price update accepts scoped denial but never another table/column 
 
 test('NP-035: live fixture writer creates real centavo-only order lines with returned IDs', async () => {
   const source = await readFile(new URL('../scripts/verify-postgres-security.mjs', import.meta.url), 'utf8');
-  assert.match(source, /INSERT INTO order_items\s*\(order_drugstore_id,medicine_id,quantity,unit_price_centavos\)/);
-  assert.match(source, /RETURNING id,order_drugstore_id/);
+  assert.match(source, /INSERT INTO order_items\s*\(order_pharmacy_id,medicine_id,quantity,unit_price_centavos\)/);
+  assert.match(source, /RETURNING id,order_pharmacy_id/);
   assert.match(source, /fixture\.orderItemA = lineFor\(childFor\(fixture\.orderA\)\)/);
   assert.match(source, /fixture\.orderItemB = lineFor\(childFor\(fixture\.orderB\)\)/);
   const pool = recordingPool();
@@ -1195,7 +1192,7 @@ test('Packet 0: customer cannot directly change stock, reservations, or the auth
     await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }),
       new RegExp(`customer can directly alter inventory ${column}`));
     assert.equal(pool.acquired, pool.released);
-    const statements = pool.history.filter(({ sql }) => sql.startsWith('UPDATE inventory SET'));
+    const statements = pool.history.filter(({ sql }) => sql.startsWith('UPDATE stock SET'));
     assert.ok(statements.some(({ sql, params }) => sql.includes(column) && params[0] === fixture.inventoryId));
   }
 });
@@ -1205,7 +1202,7 @@ test('Packet 0: customer price mutation rejects unrelated errors and accepts inv
     price_centavos: { code: '42501', message: 'permission denied for column price_centavos' },
   } });
   await assertCustomerOrderRlsNegatives({ pool: expected, fixture });
-  assert.deepEqual(expected.history.filter(({sql}) => sql.startsWith('UPDATE inventory SET price_centavos')).map(({params}) => params),
+  assert.deepEqual(expected.history.filter(({sql}) => sql.startsWith('UPDATE stock SET price_centavos')).map(({params}) => params),
     [[fixture.inventoryId, 1], [fixture.inventoryId, 1]]);
   for (const error of [
     { code: '42501', message: 'permission denied for table payments' },
@@ -1220,7 +1217,7 @@ test('Packet 0: customer price mutation rejects unrelated errors and accepts inv
 
 test('Packet 0: inventory denial accepts only an object-scoped permission error, not unrelated errors', async () => {
   await assertCustomerOrderRlsNegatives({ pool: recordingPool({ inventoryMutationError: {
-    stock_on_hand: { code: '42501', message: 'permission denied for table inventory' },
+    stock_on_hand: { code: '42501', message: 'permission denied for table stock' },
   } }), fixture });
   for (const error of [
     { code: '42501', message: 'permission denied for table payments' },
@@ -1241,15 +1238,15 @@ test('Packet 0: customer cannot DELETE a published inventory listing', async () 
     /customer can DELETE published inventory listing/);
   assert.equal(pool.acquired, pool.released);
   assert.ok(pool.history.some(({sql,params}) =>
-    sql === 'DELETE FROM inventory WHERE id = $1 RETURNING id' && params[0] === fixture.inventoryId));
+    sql === 'DELETE FROM stock WHERE id = $1 RETURNING id' && params[0] === fixture.inventoryId));
 });
 
 test('Packet 0: inventory DELETE accepts only inventory-scoped permission denials', async () => {
   const expected = recordingPool({ inventoryDeleteError: {
-    code: '42501', message: 'permission denied for table inventory',
+    code: '42501', message: 'permission denied for table stock',
   } });
   await assertCustomerOrderRlsNegatives({ pool: expected, fixture });
-  assert.equal(expected.history.filter(({sql}) => sql.startsWith('DELETE FROM inventory')).length, 2);
+  assert.equal(expected.history.filter(({sql}) => sql.startsWith('DELETE FROM stock')).length, 2);
   for (const error of [
     { code: '42501', message: 'permission denied for table payments' },
     { code: '23503', message: 'foreign key constraint prevents removal' },
@@ -1267,14 +1264,14 @@ test('Packet 0: customer cannot hide a published pharmacy inventory listing by c
   await assert.rejects(assertCustomerOrderRlsNegatives({ pool, fixture }),
     /customer can directly alter inventory availability/);
   assert.equal(pool.acquired, pool.released);
-  assert.deepEqual(pool.history.filter(({ sql }) => sql.startsWith('UPDATE inventory SET availability')).map(({params}) => params),
+  assert.deepEqual(pool.history.filter(({ sql }) => sql.startsWith('UPDATE stock SET availability')).map(({params}) => params),
     [[fixture.inventoryId, 0]]);
 });
 
 test('Packet 0: availability denial must be inventory-scoped and fail on unrelated errors', async () => {
   const allowed = recordingPool({ inventoryMutationError: { availability: { code: '42501', message: 'permission denied for column availability' } } });
   await assertCustomerOrderRlsNegatives({ pool: allowed, fixture });
-  assert.equal(allowed.history.filter(({ sql }) => sql.startsWith('UPDATE inventory SET availability')).length, 2);
+  assert.equal(allowed.history.filter(({ sql }) => sql.startsWith('UPDATE stock SET availability')).length, 2);
   for (const error of [
     { code: '42501', message: 'permission denied for table payments' },
     { code: '23514', message: 'violates an availability constraint' },

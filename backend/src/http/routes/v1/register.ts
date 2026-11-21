@@ -16,7 +16,6 @@ import {
   LoginSchema,
   LogoutSchema,
   MedicineBodySchema,
-  MedicineEvidenceSchema,
   MedicinePublicationSchema,
   MedicineQuerySchema,
   MembershipParamsSchema,
@@ -253,8 +252,6 @@ function routeSpecs(services: any): RouteSpec[] {
     { id: 'adminListMedicines', method: 'get', path: '/admin/medicines', tag: 'Admin catalog', summary: 'List master OTC medicines', auth: 'admin', invoke: () => services.catalog.listMasterMedicines() },
     { id: 'adminCreateMedicine', method: 'post', path: '/admin/medicines', tag: 'Admin catalog', summary: 'Create a draft OTC medicine', auth: 'admin', body: MedicineBodySchema, invoke: ({ userId, body }) => services.catalog.createMedicine(userId, body) },
     { id: 'adminUpdateMedicine', method: 'put', path: '/admin/medicines/:id', tag: 'Admin catalog', summary: 'Update a master OTC medicine', auth: 'admin', params: IdParamsSchema, body: MedicineBodySchema, invoke: ({ userId, params, body }) => services.catalog.updateMedicine(userId, params.id, body) },
-    { id: 'adminListMedicineEvidence', method: 'get', path: '/admin/medicines/:id/evidence', tag: 'Admin catalog', summary: 'List medicine publication evidence', auth: 'admin', params: IdParamsSchema, invoke: ({ params }) => services.catalog.listMedicineEvidence(params.id) },
-    { id: 'adminAddMedicineEvidence', method: 'post', path: '/admin/medicines/:id/evidence', tag: 'Admin catalog', summary: 'Add reviewed medicine evidence', auth: 'admin', params: IdParamsSchema, body: MedicineEvidenceSchema, invoke: ({ userId, params, body }) => services.catalog.addMedicineEvidence(userId, params.id, body) },
     { id: 'adminSetMedicinePublication', method: 'put', path: '/admin/medicines/:id/publication', tag: 'Admin catalog', summary: 'Publish, draft, or retire a medicine', auth: 'admin', params: IdParamsSchema, body: MedicinePublicationSchema, invoke: ({ userId, params, body }) => services.catalog.setMedicinePublication(userId, params.id, body) },
 
     { id: 'updateInventory', method: 'post', path: '/inventory/update', tag: 'Inventory', summary: 'Update pharmacy stock and unit price', auth: 'user', body: InventoryUpdateSchema, invoke: ({ userId, actor, body }) => services.inventory.updateStock(userId, actor, body) },

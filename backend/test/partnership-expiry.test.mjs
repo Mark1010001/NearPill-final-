@@ -40,9 +40,7 @@ test('admin pharmacy list carries the account number and partnership expiry', as
   const result = await createCatalogService({ repository }).listAdminPharmacies();
   assert.equal(result.ok, true);
   const [first, second] = result.body;
-  assert.equal(first.accountNo, 1);
   assert.equal(first.subscriptionTier, 'Pro');
   assert.equal(first.partnershipExpiresAt, '2027-05-10');
-  assert.equal(second.accountNo, 2);
   assert.equal(second.partnershipExpiresAt, null);
 });

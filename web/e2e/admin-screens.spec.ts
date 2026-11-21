@@ -11,7 +11,7 @@ async function mockAdmin(page: Page, state: MockState) {
     const { pathname } = new URL(request.url());
     const method = request.method();
     if (pathname.endsWith('/auth/me')) return route.fulfill(json(admin));
-    if (pathname.endsWith('/admin/pharmacies') && method === 'GET') return route.fulfill(json([{ store_id: 12, name: 'Alpha Pharmacy', status: 'active', accountNo: 1, subscriptionTier: 'Plus', partnershipStartedAt: '2098-07-01T00:00:00Z', partnershipExpiresAt: '2099-01-01' }, { store_id: 14, name: 'Beta Pharmacy', status: 'active', accountNo: 2, subscriptionTier: 'Basic', partnershipStartedAt: '2019-10-01T00:00:00Z', partnershipExpiresAt: '2020-01-01' }, { store_id: 15, name: 'Gamma Pharmacy', status: 'active', accountNo: 3, subscriptionTier: null, partnershipStartedAt: '2026-01-01T00:00:00Z', partnershipExpiresAt: null }, { store_id: 13, name: 'Closed Pharmacy', status: 'inactive' }]));
+    if (pathname.endsWith('/admin/pharmacies') && method === 'GET') return route.fulfill(json([{ store_id: 12, name: 'Alpha Pharmacy', status: 'active', subscriptionTier: 'Plus', partnershipStartedAt: '2098-07-01T00:00:00Z', partnershipExpiresAt: '2099-01-01' }, { store_id: 14, name: 'Beta Pharmacy', status: 'active', subscriptionTier: 'Basic', partnershipStartedAt: '2019-10-01T00:00:00Z', partnershipExpiresAt: '2020-01-01' }, { store_id: 15, name: 'Gamma Pharmacy', status: 'active', subscriptionTier: null, partnershipStartedAt: '2026-01-01T00:00:00Z', partnershipExpiresAt: null }, { store_id: 13, name: 'Closed Pharmacy', status: 'inactive' }]));
     if (pathname.endsWith('/admin/partner-accounts/check-email') && method === 'POST') return route.fulfill(json({ available: request.postDataJSON().email !== 'taken@example.test' }));
     if (pathname.endsWith('/admin/pharmacies') && method === 'POST') { state.posted.push(request.postDataJSON()); return route.fulfill(json({ id: 12, store_id: 12 }, 201)); }
     if (pathname.endsWith('/login-email') && method === 'POST') { state.mailed.push(pathname); return route.fulfill(json({ userId: 90, drugstoreId: 12, email: 'new@example.test', sent: true })); }
@@ -70,7 +70,7 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
   await expect(page.getByLabel('Role')).toHaveCount(0);
   await page.getByRole('combobox').selectOption('12');
   await expect(page.getByText('Pat Staff')).toBeVisible();
-  await expect(page.getByText('Account ID 1')).toBeVisible();
+  await expect(page.getByText('Pharmacy ID 12')).toBeVisible();
   await page.getByLabel('Pharmacy name').fill('Beta Pharmacy');
   await page.getByLabel('Address').fill('2 Main St');
   await page.getByLabel('Latitude').fill('14.5');
@@ -152,7 +152,7 @@ test('partner pharmacy accounts show the account number and partnership expiry',
   await mockAdmin(page, { members: [], posted: [], removed: [], mailed: [] });
   await page.goto('/staff');
   const table = page.getByRole('region', { name: 'Partnership expiry' });
-  await expect(table.getByRole('columnheader', { name: 'Account No.' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'ID', exact: true })).toBeVisible();
   const alpha = table.getByRole('row', { name: /Alpha Pharmacy/ });
   await expect(alpha).toContainText('1');
   await expect(alpha).toContainText('Plus');
@@ -205,7 +205,7 @@ test('admin sees uploaded stock as a read-only record with nothing to approve', 
     const { pathname } = new URL(request.url());
     if (pathname.endsWith('/auth/me')) return route.fulfill(json(admin));
     if (pathname.endsWith('/admin/stock-submissions') && request.method() === 'GET') {
-      return route.fulfill(json([{ id: 31, drugstoreId: 21, drugstoreName: 'New Pharmacy', accountNo: 4, source: 'csv', status: 'approved', fileName: 'stock.csv', rowCount: 2, reviewNote: 'Passed the template check and was applied automatically.', createdAt: '2098-01-01T00:00:00Z', reviewedAt: '2098-01-01T00:00:00Z',
+      return route.fulfill(json([{ id: 31, drugstoreId: 21, drugstoreName: 'New Pharmacy', source: 'csv', status: 'approved', fileName: 'stock.csv', rowCount: 2, reviewNote: 'Passed the template check and was applied automatically.', createdAt: '2098-01-01T00:00:00Z', reviewedAt: '2098-01-01T00:00:00Z',
         rows: [{ line: 2, catalogId: 5, medicineId: 5, name: 'Neozep', genericName: null, form: 'Tablet', category: 'Non-prescription', sellingUnit: 'Tablet', price: '2.50', stock: 9, match: 'existing' },
           { line: 3, catalogId: null, name: 'Brand New 10 mg', genericName: null, form: 'Syrup', category: 'Non-prescription', sellingUnit: 'Bottle', price: '20.00', stock: 4, match: 'new' }] }]));
     }
@@ -213,7 +213,7 @@ test('admin sees uploaded stock as a read-only record with nothing to approve', 
   });
   await page.goto('/stock-submissions');
   await expect(page.getByRole('heading', { name: 'Stock submissions', level: 1 })).toBeVisible();
-  await expect(page.getByText('Account No. 4')).toBeVisible();
+  await expect(page.getByText('Pharmacy ID 21')).toBeVisible();
   await expect(page.getByText('Added new medicine')).toBeVisible();
   await expect(page.getByText('Updated catalog item')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Approve' })).toHaveCount(0);

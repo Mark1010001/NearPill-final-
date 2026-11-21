@@ -11,7 +11,7 @@ test('partner adds a medicine that follows the template and it goes on sale at o
       memberships: [{ drugstoreId: 12, membershipRole: 'staff', isActive: true }] }));
     if (url.pathname.endsWith('/partner/inventory/catalog')) return route.fulfill(json([{ id: 90, brandName: 'Test Item', genericName: 'Testgen', dosageForm: 'Unit', category: 'Non-medicine' }]));
     if (url.pathname.endsWith('/partner/stock-submissions') && request.method() === 'GET') {
-      return route.fulfill(json({ pharmacyName: 'Test Pharmacy', submissions: submissions.length ? [{ id: 1, drugstoreId: 12, drugstoreName: 'Test Pharmacy', accountNo: 1, source: 'single', status: 'approved', fileName: null, rowCount: 1, reviewNote: null, createdAt: '2098-01-01T00:00:00Z', reviewedAt: null }] : [] }));
+      return route.fulfill(json({ pharmacyName: 'Test Pharmacy', submissions: submissions.length ? [{ id: 1, drugstoreId: 12, drugstoreName: 'Test Pharmacy', source: 'single', status: 'approved', fileName: null, rowCount: 1, reviewNote: null, createdAt: '2098-01-01T00:00:00Z', reviewedAt: null }] : [] }));
     }
     if (url.pathname.endsWith('/partner/stock-submissions') && request.method() === 'POST') {
       const body = request.postDataJSON();
@@ -84,7 +84,7 @@ test('catalog identifies pharmacy records without draft or evidence actions', as
       return route.fulfill(json({ id: 100, priceCentavos: 850 }));
     }
     if (path.endsWith('/admin/medicines')) return route.fulfill(json([
-      { id: 84, brandName: 'Test Product', category: 'Prescription (source list)', otcEligible: false, publicationStatus: 'draft', approvedEvidenceCount: 1,
+      { id: 84, brandName: 'Test Product', category: 'Prescription (source list)', otcEligible: false, publicationStatus: 'draft',
         linkedPharmacies: [{ id: 24, name: 'Other Pharmacy' }] },
       { id: 85, brandName: 'Test Product', category: 'Non-Prescription (source list)', publicationStatus: 'draft',
         linkedPharmacies: [{ id: 27, name: 'Test Pharmacy', inventoryId: 100, priceCentavos }] },

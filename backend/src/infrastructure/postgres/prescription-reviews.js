@@ -38,7 +38,7 @@ export function createPrescriptionReviews(postgresPool) {
     async status(actor, customerId, { drugstoreId, medicineId }) {
       if (!customer(actor)) return failure(403, 'Customer access required.');
       const [rows] = await pool.query(`SELECT id, ${statusColumn}, rejection_reason AS "rejectionReason" FROM nearpill.prescription_reviews
-        WHERE customer_id = ? AND drugstore_id = ? AND medicine_id = ?`, [customerId, drugstoreId, medicineId]);
+        WHERE customer_id = ? AND pharmacy_id = ? AND medicine_id = ?`, [customerId, drugstoreId, medicineId]);
       return success({ review: rows[0] ?? null });
     },
     async submit(actor, customerId, { drugstoreId, medicineId, photo, mimeType }) {
@@ -46,11 +46,11 @@ export function createPrescriptionReviews(postgresPool) {
       const bytes = await prescriptionPhoto(photo, mimeType);
       if (!bytes) return failure(400, 'Choose a readable JPG or PNG up to 1 MB and 4096 pixels per side.');
       const [rows] = await pool.query(`WITH submitted AS (INSERT INTO nearpill.prescription_reviews AS r
-          (customer_id, drugstore_id, medicine_id, product, photo, mime_type, customer_name)
-        SELECT ?, ds.id, m.id, ${productIdentity}, ?, ?, (SELECT split_part(btrim(u.name), ' ', 1) FROM public.users u WHERE u.id = ?) FROM public.inventory i
-        JOIN public.medicines m ON m.id = i.medicine_id JOIN public.drugstores ds ON ds.id = i.drugstore_id
+          (customer_id, pharmacy_id, medicine_id, product, photo, mime_type, customer_name)
+        SELECT ?, ds.id, m.id, ${productIdentity}, ?, ?, (SELECT split_part(btrim(u.name), ' ', 1) FROM public.users u WHERE u.id = ?) FROM public.stock i
+        JOIN public.medicines m ON m.id = i.medicine_id JOIN public.pharmacies ds ON ds.id = i.pharmacy_id
         WHERE ds.id = ? AND m.id = ? AND ${publicPrescription}
-        ON CONFLICT (customer_id, drugstore_id, medicine_id) DO UPDATE SET
+        ON CONFLICT (customer_id, pharmacy_id, medicine_id) DO UPDATE SET
           customer_name = excluded.customer_name, product = excluded.product, photo = excluded.photo, mime_type = excluded.mime_type,
           status = 'pending', rejection_reason = NULL, submitted_at = greatest(clock_timestamp(), r.submitted_at + interval '1 microsecond'),
           expires_at = now() + interval '24 hours', reviewed_by = NULL, reviewed_at = NULL
@@ -63,14 +63,14 @@ export function createPrescriptionReviews(postgresPool) {
       if (!partner(actor, drugstoreId)) return failure(403, 'Pharmacy access denied.');
       const [rows] = await pool.query(`SELECT id, product ->> 0 AS productName, medicine_id AS medicineId,
           ${photoVersion} AS version, expires_at AS expiresAt, customer_id AS customerId, customer_name AS customerName, submitted_at AS submittedAt
-        FROM nearpill.prescription_reviews WHERE drugstore_id = ? AND status = 'pending' AND expires_at > now()
+        FROM nearpill.prescription_reviews WHERE pharmacy_id = ? AND status = 'pending' AND expires_at > now()
         ORDER BY submitted_at, id LIMIT 50`, [drugstoreId]);
       return success(rows);
     },
     async photo(actor, drugstoreId, id, version) {
       if (!partner(actor, drugstoreId)) return failure(403, 'Pharmacy access denied.');
       const [rows] = await pool.query(`SELECT photo, mime_type AS mimeType FROM nearpill.prescription_reviews
-        WHERE id = ? AND drugstore_id = ? AND ${photoVersion} = ? AND status = 'pending' AND expires_at > now()`, [id, drugstoreId, version]);
+        WHERE id = ? AND pharmacy_id = ? AND ${photoVersion} = ? AND status = 'pending' AND expires_at > now()`, [id, drugstoreId, version]);
       return rows[0] ? success({ mimeType: rows[0].mimeType, photo: rows[0].photo.toString('base64') })
         : failure(404, 'This prescription photo is no longer available.');
     },
@@ -78,10 +78,10 @@ export function createPrescriptionReviews(postgresPool) {
       if (!partner(actor, drugstoreId)) return failure(403, 'Pharmacy access denied.');
       const [rows] = await pool.query(`WITH decided AS (UPDATE nearpill.prescription_reviews r SET status = ?, reviewed_by = ?,
           reviewed_at = now(), rejection_reason = ?, photo = NULL, mime_type = NULL
-        WHERE r.id = ? AND r.drugstore_id = ? AND ${photoVersion} = ? AND r.status = 'pending' AND r.expires_at > now()
-          AND (? = 'rejected' OR EXISTS (SELECT 1 FROM public.inventory i
-            JOIN public.medicines m ON m.id = i.medicine_id JOIN public.drugstores ds ON ds.id = i.drugstore_id
-            WHERE ds.id = r.drugstore_id AND m.id = r.medicine_id AND ${publicPrescription} AND r.product = ${productIdentity}))
+        WHERE r.id = ? AND r.pharmacy_id = ? AND ${photoVersion} = ? AND r.status = 'pending' AND r.expires_at > now()
+          AND (? = 'rejected' OR EXISTS (SELECT 1 FROM public.stock i
+            JOIN public.medicines m ON m.id = i.medicine_id JOIN public.pharmacies ds ON ds.id = i.pharmacy_id
+            WHERE ds.id = r.pharmacy_id AND m.id = r.medicine_id AND ${publicPrescription} AND r.product = ${productIdentity}))
         RETURNING r.id, r.status) SELECT id, status FROM decided`, [decision, reviewerId, decision === 'rejected' ? reason : null, id, drugstoreId, version, decision]);
       return rows[0] ? success({ review: rows[0] }) : failure(409, 'The request expired, was reviewed, or the listing changed.');
     },

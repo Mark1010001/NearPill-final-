@@ -29,9 +29,9 @@ test('removes exactly the recorded synthetic RLS IDs in dependency-safe order', 
   await cleanupSyntheticRlsVerifierFixtures({ migratorPool: r.migratorPool, fixture, fixtureCommitted: false });
   assert.deepEqual(r.calls.map((c) => c.sql), [
     'DELETE FROM orders WHERE id = ANY($1::int[])',
-    'DELETE FROM inventory WHERE id=$1',
+    'DELETE FROM stock WHERE id=$1',
     'DELETE FROM medicines WHERE id=$1',
-    'DELETE FROM drugstores WHERE id=$1',
+    'DELETE FROM pharmacies WHERE id=$1',
     'DELETE FROM users WHERE id = ANY($1::int[])',
   ]);
   assert.deepEqual(r.calls.map((c) => c.params), [
@@ -61,7 +61,7 @@ test('partial fixture creation cleans only IDs recorded from successful inserts'
   const r = recorder();
   await cleanupSyntheticRlsVerifierFixtures({ migratorPool: r.migratorPool, fixtureCommitted: false, fixture: { userA: 81, userB: 82, storeId: 95 } });
   assert.deepEqual(r.calls.map((c) => c.sql), [
-    'DELETE FROM drugstores WHERE id=$1',
+    'DELETE FROM pharmacies WHERE id=$1',
     'DELETE FROM users WHERE id = ANY($1::int[])',
   ]);
 });
@@ -108,7 +108,7 @@ test('committed fixture cleanup refuses successful DELETE statements that remove
     async query(sql, params) {
       calls.push(sql);
       const expected = sql.includes('ANY($1::int[])') ? params[0].length : 1;
-      return { rowCount: sql.startsWith('DELETE FROM inventory ') ? 0 : expected, rows: [] };
+      return { rowCount: sql.startsWith('DELETE FROM stock ') ? 0 : expected, rows: [] };
     },
   };
   await assert.rejects(
@@ -170,10 +170,10 @@ test('NP-036 cleans recorded synthetic partner membership before pharmacy and ac
   });
   assert.deepEqual(r.calls.map((c) => c.sql), [
     'DELETE FROM orders WHERE id = ANY($1::int[])',
-    'DELETE FROM inventory WHERE id=$1',
+    'DELETE FROM stock WHERE id=$1',
     'DELETE FROM pharmacy_memberships WHERE id=$1',
     'DELETE FROM medicines WHERE id=$1',
-    'DELETE FROM drugstores WHERE id=$1',
+    'DELETE FROM pharmacies WHERE id=$1',
     'DELETE FROM users WHERE id = ANY($1::int[])',
   ]);
   assert.deepEqual(r.calls[2].params, [96]);

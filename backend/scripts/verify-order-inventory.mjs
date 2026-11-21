@@ -56,7 +56,7 @@ async function asSystem(work) {
 async function inventoryState() {
   const result = await migratorPool.query(
     `SELECT stock_on_hand, reserved_quantity, stock_on_hand - reserved_quantity AS sellable
-     FROM inventory WHERE id = $1`,
+     FROM stock WHERE id = $1`,
     [fixture.inventoryId],
   );
   return result.rows[0];
@@ -74,7 +74,7 @@ try {
     [`order-integrity-${marker}@example.test`],
   )).rows[0].id);
   fixture.storeId = Number((await migratorPool.query(
-    `INSERT INTO drugstores
+    `INSERT INTO pharmacies
        (name,address,latitude,longitude,is_active,verification_status,verified_at,public_profile_published_at)
      VALUES ($1,'fixture',10.3157,123.8854,1,'verified',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
      RETURNING id`,
@@ -86,8 +86,8 @@ try {
     [`Order Integrity Medicine ${marker}`],
   )).rows[0].id);
   fixture.inventoryId = Number((await migratorPool.query(
-    `INSERT INTO inventory
-       (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+    `INSERT INTO stock
+       (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
      VALUES ($1,$2,1000,3,0,1) RETURNING id`,
     [fixture.storeId, fixture.medicineId],
   )).rows[0].id);
@@ -181,7 +181,7 @@ try {
   }
 
   const activeReservations = await migratorPool.query(
-    `SELECT COUNT(*)::int AS count FROM reservations WHERE inventory_id = $1 AND status = 'active'`,
+    `SELECT COUNT(*)::int AS count FROM reservations WHERE stock_id = $1 AND status = 'active'`,
     [fixture.inventoryId],
   );
   if (Number(activeReservations.rows[0].count) !== 0) throw new Error('Active reservations remained after cancellation/expiry/fulfillment.');

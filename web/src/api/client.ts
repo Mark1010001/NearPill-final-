@@ -163,7 +163,6 @@ export const api = {
   medicines: () => request<Medicine[]>('/admin/medicines'),
   createMedicine: (body: Record<string, unknown>) => request('/admin/medicines', { method: 'POST', body: JSON.stringify(body) }),
   updateMedicine: (id: number, body: Record<string, unknown>) => request(`/admin/medicines/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  addMedicineEvidence: (id: number, body: Record<string, unknown>) => request(`/admin/medicines/${id}/evidence`, { method: 'POST', body: JSON.stringify(body) }),
   setMedicinePublication: (id: number, status: string, reviewReference?: string) => request(`/admin/medicines/${id}/publication`, { method: 'PUT', body: JSON.stringify({ status, reviewReference }) }),
   updateInventoryPrice: (id: number, price: string, expectedSellingUnit?: string | null) => request(`/admin/inventory/${id}/price`, { method: 'PUT', body: JSON.stringify({ price, expectedSellingUnit }) }),
   subscriptions: () => request<Subscription[]>('/admin/subscriptions'),

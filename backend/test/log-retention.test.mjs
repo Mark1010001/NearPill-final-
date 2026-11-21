@@ -51,11 +51,11 @@ test('log cleanup deletes only logs and never touches orders, payments, refunds 
   assert.equal(Object.keys(counts).length, 8);
   assert.equal(observed.statements.length, 8);
   for (const { sql, params } of observed.statements) {
-    assert.match(sql, /^\s*DELETE FROM (audit_logs|payment_events|payment_reconciliation|auth_sessions|auth_session_families|password_reset_challenges|email_verification_challenges|auth_account_security)\b/);
+    assert.match(sql, /^\s*DELETE FROM (audit_logs|payment_events|payment_issues|auth_sessions|auth_session_families|reset_links|email_codes|auth_account_security)\b/);
     assert.ok(params.includes('2026-08-20T04:00:00.000Z'), 'every delete is limited by the cutoff');
-    assert.doesNotMatch(sql, /\b(orders|order_items|order_drugstores|payments|refunds|users)\b/);
+    assert.doesNotMatch(sql, /\b(orders|order_items|order_pharmacies|payments|refunds|users)\b/);
   }
-  const reconciliation = observed.statements.find(({ sql }) => sql.includes('payment_reconciliation'));
+  const reconciliation = observed.statements.find(({ sql }) => sql.includes('payment_issues'));
   assert.match(reconciliation.sql, /status <> 'open'/, 'unresolved reconciliation items are kept');
 });
 

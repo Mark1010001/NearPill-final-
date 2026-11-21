@@ -22,7 +22,7 @@ function memoryRepository() {
   const state = {
     order: { id: 9, reference: 'NP-9', userId: 4, totalCentavos: 12550, status: 'reserved' },
     payments: [], refunds: [], events: new Set(), reconciliations: [], reservations: [{ id: 1, inventoryId: 7, quantity: 1, status: 'active' }],
-    entitlements: new Map(), subscriptions: new Map(), audits: [], billing: [],
+    entitlements: new Map(), subscriptions: new Map(), audits: [],
     eligible: true,
   };
   let paymentId = 1, refundId = 1, subscriptionId = 1;
@@ -55,11 +55,10 @@ function memoryRepository() {
     async findDrugstoreById() { return { id: 5 }; },
     async expireActiveSubscriptions(id) { for (const s of state.subscriptions.values()) if (s.drugstoreId === id && s.status === 'active') s.status = 'expired'; },
     async createSubscription(input) { const id = subscriptionId++; state.subscriptions.set(id, { id, ...input }); return id; },
-    async findSubscriptionById(id) { const s = state.subscriptions.get(id); return s ? { id, drugstore_id: s.drugstoreId, tier: s.tier, status: s.status, plan_version: s.planVersion, start_date: s.startDate, end_date: s.endDate } : null; },
+    async findSubscriptionById(id) { const s = state.subscriptions.get(id); return s ? { id, pharmacy_id: s.drugstoreId, tier: s.tier, status: s.status, plan_version: s.planVersion, start_date: s.startDate, end_date: s.endDate } : null; },
     async updateSubscription(id, input) { Object.assign(state.subscriptions.get(id), input); return 1; },
     async replaceEntitlements(drugstoreId, _subscriptionId, keys) { state.entitlements.set(drugstoreId, [...keys]); },
     async listEntitlementsForDrugstore(drugstoreId) { return state.entitlements.get(drugstoreId) || []; },
-    async appendBillingEvent(event) { state.billing.push(event); },
     async appendAudit(userId, action, description) { state.audits.push({ userId, action, description }); },
     async findOrderPaymentForActor(orderId, userId) { return orderId === state.order.id && userId === state.order.userId ? (state.payments.at(-1) || null) : null; },
     async listDueTestPayments(afterId) { return state.payments.filter((p) => p.id > afterId && p.paymentStatus === 'pending'); },

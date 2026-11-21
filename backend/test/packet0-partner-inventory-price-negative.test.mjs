@@ -54,9 +54,9 @@ function recordingPool({ priceAllowed = false, legacyColumnPresent = false, memb
           if (sql.startsWith('SELECT id,role FROM users WHERE id = $1')) {
             return { rows: adminMissing ? [] : [{ id: fixture.userAdmin, role: adminWrongRole ? 'partner' : 'admin' }] };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,is_active FROM pharmacy_memberships')) {
+          if (sql.startsWith('SELECT id,pharmacy_id,is_active FROM pharmacy_memberships')) {
             return { rows: [{ id: fixture.partnerMembershipId,
-              drugstore_id: wrongPharmacy ? 99 : fixture.storeId,
+              pharmacy_id: wrongPharmacy ? 99 : fixture.storeId,
               is_active: membershipActive ? 1 : 0 }] };
           }
           if (sql.includes('AS is_integer') && sql.includes('FROM pg_catalog.pg_attribute a')) {
@@ -99,22 +99,22 @@ function recordingPool({ priceAllowed = false, legacyColumnPresent = false, memb
                 : 'CHECK ((price_centavos >= 0))',
             }] };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,price_centavos,availability FROM inventory')) {
-            return { rows: [{ id: fixture.inventoryId, drugstore_id: fixture.storeId,
+          if (sql.startsWith('SELECT id,pharmacy_id,price_centavos,availability FROM stock')) {
+            return { rows: [{ id: fixture.inventoryId, pharmacy_id: fixture.storeId,
               price_centavos: 1000, availability: availabilityInitialZero ? 0 : 1 }] };
           }
-          if (sql.startsWith('UPDATE inventory SET availability = $2')) {
+          if (sql.startsWith('UPDATE stock SET availability = $2')) {
             return canUpdateAvailability
               ? { rows: [{ id: fixture.inventoryId, availability: availabilityWriteNotApplied ? 1 : 0, price_centavos: availabilityWriteAlteredPrice ? 1 : 1000 }], rowCount: 1 }
               : { rows: [], rowCount: 0 };
           }
-          if (sql.startsWith('UPDATE inventory SET price_centavos = $2 WHERE id = $1 RETURNING id,price_centavos')) {
+          if (sql.startsWith('UPDATE stock SET price_centavos = $2 WHERE id = $1 RETURNING id,price_centavos')) {
             if (adminWriteDenied) throw Object.assign(new Error('permission denied for column price_centavos'), { code: '42501' });
             return adminWriteNoRows ? { rows: [], rowCount: 0 } : {
               rows: [{ id: fixture.inventoryId, price_centavos: adminWriteNotApplied ? 1000 : 1001 }], rowCount: 1,
             };
           }
-          if (sql.startsWith('UPDATE inventory SET price_centavos')) {
+          if (sql.startsWith('UPDATE stock SET price_centavos')) {
             if (priceError) throw Object.assign(new Error(priceError.message), { code: priceError.code });
             return priceAllowed
               ? { rows: [{ id: fixture.inventoryId }], rowCount: 1 }
@@ -140,8 +140,8 @@ test('NP-036 validates actual active membership and allowed pharmacy write befor
   assert.deepEqual(contexts[2].params, [String(fixture.userAdmin), 'admin']);
   assert.deepEqual(pool.history.find((q) => q.sql.endsWith('RETURNING id,price_centavos')).params,
     [fixture.inventoryId, 1001]);
-  assert.deepEqual(pool.history.find((q) => q.sql.startsWith('UPDATE inventory SET availability = $2')).params, [fixture.inventoryId, 0]);
-  assert.deepEqual(pool.history.find((q) => q.sql.startsWith('UPDATE inventory SET price_centavos')).params, [fixture.inventoryId, 1]);
+  assert.deepEqual(pool.history.find((q) => q.sql.startsWith('UPDATE stock SET availability = $2')).params, [fixture.inventoryId, 0]);
+  assert.deepEqual(pool.history.find((q) => q.sql.startsWith('UPDATE stock SET price_centavos')).params, [fixture.inventoryId, 1]);
   assert.equal(pool.history.filter((q) => q.sql.includes('FROM pg_catalog.pg_attribute a')).length, 3);
   assert.ok(pool.history.some((q) => q.sql.includes("a.attname IN ('stock_on_hand', 'reserved_quantity')")));
   assert.ok(pool.history.some((q) => q.sql.includes("'inventory_stock_invariant'") && q.sql.includes('conenforced')));
@@ -164,7 +164,7 @@ test('NP-036 rejects stale legacy inventory.price schema before running a mislea
   assert.equal(pool.transactions, 1);
   assert.deepEqual(pool.releases, [false]);
   assert.equal(pool.history.filter((q) => q.sql === 'ROLLBACK').length, 1);
-  assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE inventory SET price_centavos')));
+  assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE stock SET price_centavos')));
 });
 
 test('NP-036 fails closed on malformed catalog introspection, not as an RLS success', async () => {
@@ -187,7 +187,7 @@ test('NP-036 rejects an absent, nullable, non-BIGINT or malformed centavo column
     assert.equal(pool.transactions, 1, 'stop before negative-write transaction');
     assert.deepEqual(pool.releases, [false]);
     assert.equal(pool.history.filter((q) => q.sql === 'ROLLBACK').length, 1);
-    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE inventory SET price_centavos')));
+    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE stock SET price_centavos')));
   }
 });
 
@@ -205,7 +205,7 @@ test('NP-036 refuses a missing, unvalidated or weakened money CHECK before price
     assert.equal(pool.transactions, 1, `${flag}: stop before the price-write transaction`);
     assert.deepEqual(pool.releases, [false]);
     assert.equal(pool.history.filter((q) => q.sql === 'ROLLBACK').length, 1);
-    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE inventory SET price_centavos')));
+    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE stock SET price_centavos')));
   }
 });
 
@@ -220,7 +220,7 @@ test('NP-036 PG18 money constraint enforcement must be attested before price wri
     assert.equal(pool.transactions, 1, `${flag}: stop before price-write transaction`);
     assert.deepEqual(pool.releases, [false]);
     assert.equal(pool.history.filter((q) => q.sql === 'ROLLBACK').length, 1);
-    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE inventory SET price_centavos')));
+    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE stock SET price_centavos')));
   }
 });
 
@@ -231,7 +231,7 @@ test('Packet 0 inventory stock columns must be non-null integers before authoriz
     assert.equal(pool.transactions, 1);
     assert.deepEqual(pool.releases, [false]);
     assert.equal(pool.history.filter((q) => q.sql === 'ROLLBACK').length, 1);
-    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE inventory SET price_centavos')));
+    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE stock SET price_centavos')));
   }
 });
 
@@ -243,7 +243,7 @@ test('Packet 0 requires validated enforced stock reservation invariant, not only
     assert.equal(pool.transactions, 1);
     assert.deepEqual(pool.releases, [false]);
     assert.equal(pool.history.filter((q) => q.sql === 'ROLLBACK').length, 1);
-    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE inventory SET price_centavos')));
+    assert.ok(!pool.history.some((q) => q.sql.startsWith('UPDATE stock SET price_centavos')));
   }
 });
 

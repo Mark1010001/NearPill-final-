@@ -65,7 +65,7 @@ function transactionAdapter(connection) {
     },
     async updateOrderStatus(orderId, status) {
       await connection.query(`UPDATE orders SET status = ? WHERE id = ?`, [status, orderId]);
-      await connection.query(`UPDATE order_drugstores SET status = ? WHERE order_id = ?`, [status, orderId]);
+      await connection.query(`UPDATE order_pharmacies SET status = ? WHERE order_id = ?`, [status, orderId]);
     },
     async insertProviderEvent(event) {
       const [result] = await connection.query(
@@ -100,7 +100,7 @@ function transactionAdapter(connection) {
     },
     async createReconciliation(input) {
       const [result] = await connection.query(
-        `INSERT INTO payment_reconciliation (payment_id, provider, event_id, reason, details, status)
+        `INSERT INTO payment_issues (payment_id, provider, event_id, reason, details, status)
          VALUES (?, ?, ?, ?, ?, 'open')`,
         [input.paymentId ?? null, input.provider, input.eventId ?? null, input.reason, input.details ?? null],
       );
@@ -139,8 +139,8 @@ function transactionAdapter(connection) {
     },
     async listActiveReservationsForUpdate(orderId) {
       const [rows] = await connection.query(
-        `SELECT id, inventory_id AS inventoryId, quantity FROM reservations
-         WHERE order_id = ? AND status = 'active' ORDER BY inventory_id ASC FOR UPDATE`,
+        `SELECT id, stock_id AS inventoryId, quantity FROM reservations
+         WHERE order_id = ? AND status = 'active' ORDER BY stock_id ASC FOR UPDATE`,
         [orderId],
       );
       return rows;
@@ -152,14 +152,14 @@ function transactionAdapter(connection) {
       );
       if (Number(result.affectedRows ?? 0) !== 1) return false;
       const [inventoryResult] = await connection.query(
-        `UPDATE inventory SET reserved_quantity = reserved_quantity - ?,
+        `UPDATE stock SET reserved_quantity = reserved_quantity - ?,
            availability = CASE WHEN stock_on_hand - (reserved_quantity - ?) > 0 THEN 1 ELSE 0 END
          WHERE id = ? AND reserved_quantity >= ?`,
         [quantity, quantity, inventoryId, quantity],
       );
       if (Number(inventoryResult.affectedRows ?? 0) !== 1) throw new Error('Inventory refund release invariant failed.');
       await connection.query(
-        `INSERT INTO stock_movements (inventory_id, order_id, actor_id, movement_type, stock_on_hand_delta, reserved_delta, reason)
+        `INSERT INTO stock_movements (stock_id, order_id, actor_id, movement_type, stock_change, held_change, reason)
          VALUES (?, ?, ?, 'release', 0, ?, ?)`,
         [inventoryId, orderId, actorId, -quantity, reason],
       );
@@ -202,48 +202,48 @@ export function createPostgresPaymentSubscriptionRepository(postgresPool) {
            COUNT(DISTINCT CASE WHEN o.status IN ('reserved','awaiting_payment','confirmed','preparing','ready_for_pickup','cancellation_pending') THEN o.id END) AS pendingOrders,
            COUNT(DISTINCT CASE WHEN o.status = 'expired' THEN o.id END) AS expiredOrders,
            COUNT(DISTINCT CASE WHEN o.status = 'cancelled' THEN o.id END) AS cancelledOrders
-         FROM order_drugstores od INNER JOIN orders o ON o.id = od.order_id
-         LEFT JOIN order_items oi ON oi.order_drugstore_id = od.id WHERE od.drugstore_id = ?`, [drugstoreId]);
+         FROM order_pharmacies od INNER JOIN orders o ON o.id = od.order_id
+         LEFT JOIN order_items oi ON oi.order_pharmacy_id = od.id WHERE od.pharmacy_id = ?`, [drugstoreId]);
       const [[branch]] = await pool.query(
         `SELECT name, address, latitude, longitude, operating_hours AS operatingHours,
                 (is_active = 1 AND verification_status = 'verified' AND public_profile_published_at IS NOT NULL) AS isPublic
-         FROM drugstores WHERE id = ?`, [drugstoreId]);
+         FROM pharmacies WHERE id = ?`, [drugstoreId]);
       return { ...rows[0], branch: branch ?? null };
     },
     async activeSubscriptionForDrugstore(drugstoreId) {
       const [rows] = await pool.query(
-        `SELECT id, drugstore_id AS drugstoreId, tier, status, plan_version AS planVersion,
+        `SELECT id, pharmacy_id AS drugstoreId, tier, status, plan_version AS planVersion,
                 start_date AS startDate, end_date AS endDate
-         FROM subscriptions WHERE drugstore_id = ? AND status = 'active'
+         FROM subscriptions WHERE pharmacy_id = ? AND status = 'active'
          AND (end_date IS NULL OR end_date >= CURRENT_DATE)
          ORDER BY start_date DESC, id DESC LIMIT 1`, [drugstoreId]);
       return rows[0] ?? null;
     },
     async listSubscriptions() {
       const [rows] = await pool.query(
-        `SELECT s.id, s.drugstore_id AS drugstoreId, d.name AS drugstoreName, s.tier, s.status,
+        `SELECT s.id, s.pharmacy_id AS drugstoreId, d.name AS drugstoreName, s.tier, s.status,
                 s.plan_version AS planVersion, s.start_date AS startDate, s.end_date AS endDate
-         FROM subscriptions s INNER JOIN drugstores d ON d.id = s.drugstore_id
+         FROM subscriptions s INNER JOIN pharmacies d ON d.id = s.pharmacy_id
          WHERE d.is_active = 1
          ORDER BY s.start_date DESC, s.id DESC`);
       return rows;
     },
     async findDrugstoreById(drugstoreId) {
-      const [rows] = await pool.query(`SELECT id FROM drugstores WHERE id = ? LIMIT 1`, [drugstoreId]);
+      const [rows] = await pool.query(`SELECT id FROM pharmacies WHERE id = ? LIMIT 1`, [drugstoreId]);
       return rows[0] ?? null;
     },
     async expireActiveSubscriptions(drugstoreId) {
-      await pool.query(`UPDATE subscriptions SET status = 'expired' WHERE drugstore_id = ? AND status = 'active'`, [drugstoreId]);
+      await pool.query(`UPDATE subscriptions SET status = 'expired' WHERE pharmacy_id = ? AND status = 'active'`, [drugstoreId]);
     },
     async createSubscription({ drugstoreId, tier, status, planVersion, startDate, endDate }) {
       const [result] = await pool.query(
-        `INSERT INTO subscriptions (drugstore_id, tier, status, plan_version, start_date, end_date)
+        `INSERT INTO subscriptions (pharmacy_id, tier, status, plan_version, start_date, end_date)
          VALUES (?, ?, ?, ?, ?, ?)`, [drugstoreId, tier, status, planVersion, startDate, endDate]);
       return Number(result.insertId);
     },
     async findSubscriptionById(subscriptionId) {
       const [rows] = await pool.query(
-        `SELECT id, drugstore_id, tier, status, plan_version, start_date, end_date FROM subscriptions WHERE id = ? LIMIT 1`,
+        `SELECT id, pharmacy_id, tier, status, plan_version, start_date, end_date FROM subscriptions WHERE id = ? LIMIT 1`,
         [subscriptionId]);
       return rows[0] ?? null;
     },
@@ -257,10 +257,10 @@ export function createPostgresPaymentSubscriptionRepository(postgresPool) {
       const connection = await pool.getConnection();
       try {
         await connection.beginTransaction();
-        await connection.query(`UPDATE subscription_entitlements SET revoked_at = CURRENT_TIMESTAMP WHERE drugstore_id = ? AND revoked_at IS NULL`, [drugstoreId]);
+        await connection.query(`UPDATE plan_features SET revoked_at = CURRENT_TIMESTAMP WHERE pharmacy_id = ? AND revoked_at IS NULL`, [drugstoreId]);
         for (const key of entitlementKeys) {
           await connection.query(
-            `INSERT INTO subscription_entitlements (drugstore_id, subscription_id, entitlement_key) VALUES (?, ?, ?)`,
+            `INSERT INTO plan_features (pharmacy_id, subscription_id, entitlement_key) VALUES (?, ?, ?)`,
             [drugstoreId, subscriptionId, key]);
         }
         await connection.commit();
@@ -271,14 +271,9 @@ export function createPostgresPaymentSubscriptionRepository(postgresPool) {
     },
     async listEntitlementsForDrugstore(drugstoreId) {
       const [rows] = await pool.query(
-        `SELECT entitlement_key AS entitlementKey FROM subscription_entitlements
-         WHERE drugstore_id = ? AND revoked_at IS NULL ORDER BY entitlement_key`, [drugstoreId]);
+        `SELECT entitlement_key AS entitlementKey FROM plan_features
+         WHERE pharmacy_id = ? AND revoked_at IS NULL ORDER BY entitlement_key`, [drugstoreId]);
       return rows.map((row) => row.entitlementKey);
-    },
-    async appendBillingEvent({ drugstoreId, subscriptionId, actorId, eventType, details }) {
-      await pool.query(
-        `INSERT INTO billing_events (drugstore_id, subscription_id, actor_id, event_type, details)
-         VALUES (?, ?, ?, ?, ?)`, [drugstoreId, subscriptionId, actorId, eventType, details ?? null]);
     },
     async appendAudit(userId, action, description) {
       await pool.query(`INSERT INTO audit_logs (user_id, action, description) VALUES (?, ?, ?)`, [Number(userId), action, description]);

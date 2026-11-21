@@ -16,7 +16,7 @@ test('each missing item blocks go-live', () => {
   for (const [override, id] of [
     [{ operatingHours: ' ' }, 'details'], [{ address: '' }, 'details'],
     [{ latitude: '121.0', longitude: '14.6' }, 'location'], [{ latitude: null }, 'location'],
-    [{ duplicateNames: 1 }, 'account'], [{ accountNo: null }, 'account'],
+    [{ duplicateNames: 1 }, 'name'],
     [{ verificationStatus: 'pending' }, 'verified'], [{ isActive: 0 }, 'verified'],
     [{ partnerAccounts: 0 }, 'login'], [{ activePlans: 0 }, 'plan'],
     [{ stockedItems: 0 }, 'stock'],

@@ -10,10 +10,10 @@ export function createPostgresPartnershipRepository(postgresPool) {
       const [rows] = await pool.query(`
         SELECT ds.id, ds.name, ds.created_at AS "createdAt",
                ds.public_profile_published_at AS "publishedAt", sub.tier
-        FROM drugstores ds
+        FROM pharmacies ds
         LEFT JOIN LATERAL (
           SELECT tier FROM subscriptions
-          WHERE drugstore_id = ds.id AND status = 'active'
+          WHERE pharmacy_id = ds.id AND status = 'active'
           ORDER BY id DESC
           LIMIT 1
         ) sub ON TRUE
@@ -28,7 +28,7 @@ export function createPostgresPartnershipRepository(postgresPool) {
       await pool.query(`INSERT INTO audit_logs (user_id, action, description) VALUES (NULL, 'PARTNERSHIP_REMINDER_SENT', ?)`, [key]);
     },
     async hideExpired(drugstoreId, expiry) {
-      const [result] = await pool.query(`UPDATE drugstores SET public_profile_published_at = NULL WHERE id = ? AND public_profile_published_at IS NOT NULL`, [drugstoreId]);
+      const [result] = await pool.query(`UPDATE pharmacies SET public_profile_published_at = NULL WHERE id = ? AND public_profile_published_at IS NOT NULL`, [drugstoreId]);
       if (Number(result?.affectedRows ?? 0) === 0) return false;
       await pool.query(`INSERT INTO audit_logs (user_id, action, description) VALUES (NULL, 'PARTNERSHIP_EXPIRED_HIDDEN', ?)`, [`Hid drugstore ${drugstoreId}: partnership expired on ${expiry}.`]);
       return true;

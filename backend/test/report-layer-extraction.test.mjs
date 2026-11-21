@@ -71,7 +71,7 @@ test('Postgres report repository owns metrics, report filters and audit SQL', ()
   assert.match(repositorySource, /REPORT_TIME_ZONE = 'Asia\/Manila'/);
   assert.match(repositorySource, /PAID_ORDER_STATUSES = "\('confirmed', 'preparing', 'ready_for_pickup', 'completed'\)"/);
   assert.match(repositorySource, /o\.status IN \$\{PAID_ORDER_STATUSES\}/);
-  assert.match(repositorySource, /LEFT JOIN order_drugstores/);
+  assert.match(repositorySource, /LEFT JOIN order_pharmacies/);
   assert.match(repositorySource, /FROM audit_logs/);
   assert.match(repositorySource, /LIMIT 500/);
 });

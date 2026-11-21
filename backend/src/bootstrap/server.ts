@@ -77,11 +77,11 @@ async function verifyDatabase() {
     );
     const tableNames = result.rows.map((row: any) => row.table_name);
     const requiredTables = [
-      'users', 'drugstores', 'pharmacy_memberships', 'auth_session_families', 'auth_sessions',
-      'email_verification_challenges', 'password_reset_challenges', 'auth_rate_limit_events',
-      'auth_account_security', 'medicines', 'inventory', 'orders', 'order_drugstores', 'order_items',
-      'payments', 'payment_events', 'refunds', 'payment_reconciliation', 'subscriptions',
-      'subscription_entitlements', 'billing_events', 'reservations', 'stock_movements', 'audit_logs',
+      'users', 'pharmacies', 'pharmacy_memberships', 'auth_session_families', 'auth_sessions',
+      'email_codes', 'reset_links', 'auth_rate_limit_events',
+      'auth_account_security', 'medicines', 'stock', 'orders', 'order_pharmacies', 'order_items',
+      'payments', 'payment_events', 'refunds', 'payment_issues', 'subscriptions',
+      'plan_features', 'reservations', 'stock_movements', 'audit_logs',
     ];
     const missing = requiredTables.filter((table) => !tableNames.includes(table));
     if (missing.length) throw new Error(`Missing required database tables: ${missing.join(', ')}`);

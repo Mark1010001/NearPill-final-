@@ -135,13 +135,6 @@ export const PharmacyVerificationSchema = z.object({
   publish: z.boolean().optional(),
 }).strict();
 
-export const MedicineEvidenceSchema = z.object({
-  sourceName: z.string().min(1).max(200),
-  sourceUrl: z.string().url().max(2000),
-  sourceVersion: z.string().max(120).nullable().optional(),
-  status: z.enum(['approved', 'rejected']).optional(),
-}).strict();
-
 export const MedicinePublicationSchema = z.object({
   status: z.enum(['draft', 'published', 'retired']),
   reviewReference: z.string().trim().min(1).max(500).optional(),

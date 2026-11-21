@@ -37,15 +37,15 @@ function poolFor({ adminMissing = false, adminWrongRole = false, adminCannotWrit
           if (sql.startsWith('SELECT id,role FROM users')) {
             return { rows: adminMissing ? [] : [{ id: fixture.userAdmin, role: adminWrongRole ? 'partner' : 'admin' }] };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,is_active FROM pharmacy_memberships')) {
+          if (sql.startsWith('SELECT id,pharmacy_id,is_active FROM pharmacy_memberships')) {
             return { rows: missingMember ? [] : [{ id: fixture.partnerMembershipId,
-              drugstore_id: wrongStore ? 1000 : fixture.storeId, is_active: inactiveMember ? 0 : 1 }] };
+              pharmacy_id: wrongStore ? 1000 : fixture.storeId, is_active: inactiveMember ? 0 : 1 }] };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,stock_on_hand,reserved_quantity FROM inventory')) {
-            return { rows: [{ id: fixture.inventoryId, drugstore_id: fixture.storeId,
+          if (sql.startsWith('SELECT id,pharmacy_id,stock_on_hand,reserved_quantity FROM stock')) {
+            return { rows: [{ id: fixture.inventoryId, pharmacy_id: fixture.storeId,
               stock_on_hand: wrongStock ? 2 : 3, reserved_quantity: reservedAlreadyOne ? 1 : 0 }] };
           }
-          if (sql.startsWith('UPDATE inventory SET reserved_quantity=')) {
+          if (sql.startsWith('UPDATE stock SET reserved_quantity=')) {
             if (role === 'admin') {
               return adminCannotWrite ? { rows: [], rowCount: 0 } : { rows: [{ id: fixture.inventoryId,
                 reserved_quantity: adminNoop ? 0 : 1, stock_on_hand: 3 }], rowCount: 1 };
@@ -70,7 +70,7 @@ test('NP-039 admin write parity then partner reserved-quantity denial: independe
   assert.equal(pool.queries.filter(({ sql }) => sql === 'BEGIN').length, 2);
   assert.equal(pool.queries.filter(({ sql }) => sql === 'ROLLBACK').length, 2);
   assert.deepEqual(pool.releases, [false, false]);
-  assert.deepEqual(pool.queries.filter(({ sql }) => sql.startsWith('UPDATE inventory SET reserved_quantity='))
+  assert.deepEqual(pool.queries.filter(({ sql }) => sql.startsWith('UPDATE stock SET reserved_quantity='))
     .map(({ params }) => params), [[fixture.inventoryId, 1], [fixture.inventoryId, 1]]);
   assert.deepEqual(pool.queries.filter(({ sql }) => sql.includes("set_config('app.user_id'"))
     .map(({ params }) => params), [[String(fixture.userAdmin), 'admin'], [String(fixture.userPartner), 'partner']]);
@@ -97,13 +97,13 @@ test('NP-039 refuses absent/inactive/cross-store partner membership', async () =
     const pool = poolFor({ [flag]: true });
     await assert.rejects(assertPartnerReservedQuantityDenied({ pool, fixture }), /NP-039 requires a real active member/, flag);
     assert.deepEqual(pool.releases, [false, false]);
-    assert.equal(pool.queries.filter(({ sql }) => sql.startsWith('UPDATE inventory SET reserved_quantity=')).length, 1);
+    assert.equal(pool.queries.filter(({ sql }) => sql.startsWith('UPDATE stock SET reserved_quantity=')).length, 1);
   }
 });
 
 test('NP-039 accepts only inventory-specific permissions/RLS denial; unrelated errors fail closed', async () => {
   for (const message of ['permission denied for column reserved_quantity',
-    'permission denied for table inventory', 'new row violates row-level security policy for table inventory']) {
+    'permission denied for table stock', 'new row violates row-level security policy for table stock']) {
     const pool = poolFor({ partnerError: { code: '42501', message } });
     await assertPartnerReservedQuantityDenied({ pool, fixture });
     assert.deepEqual(pool.releases, [false, false]);

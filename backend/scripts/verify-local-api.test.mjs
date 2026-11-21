@@ -78,13 +78,13 @@ test('local API and staging enforce identity, ownership, refresh revocation and 
 
     const partners = await migrator.query("INSERT INTO users (name,email,password,role) VALUES ('Synthetic Partner A',$1,'!disabled','partner'),('Synthetic Partner B',$2,'!disabled','partner') RETURNING id", emails.slice(2));
     for (let i = 0; i < 2; i++) {
-      stores.push((await migrator.query("INSERT INTO drugstores (name,address,latitude,longitude) VALUES ($1,'synthetic test',10.3,123.9) RETURNING id", [`Synthetic ${marker}-${i}`])).rows[0].id);
-      await migrator.query("INSERT INTO pharmacy_memberships (user_id,drugstore_id,membership_role) VALUES ($1,$2,'manager')", [partners.rows[i].id, stores[i]]);
+      stores.push((await migrator.query("INSERT INTO pharmacies (name,address,latitude,longitude) VALUES ($1,'synthetic test',10.3,123.9) RETURNING id", [`Synthetic ${marker}-${i}`])).rows[0].id);
+      await migrator.query("INSERT INTO pharmacy_memberships (user_id,pharmacy_id,membership_role) VALUES ($1,$2,'manager')", [partners.rows[i].id, stores[i]]);
       const order = (await migrator.query("INSERT INTO orders (reference,user_id,total_centavos) VALUES ($1,$2,0) RETURNING id", [`check-${marker}-${i}`, i === 0 ? a.user.id : b.user.id])).rows[0].id;
-      const child = await migrator.query('INSERT INTO order_drugstores (order_id,drugstore_id) VALUES ($1,$2) RETURNING user_id', [order, stores[i]]);
+      const child = await migrator.query('INSERT INTO order_pharmacies (order_id,pharmacy_id) VALUES ($1,$2) RETURNING user_id', [order, stores[i]]);
       assert.equal(child.rows[0].user_id, Number(i === 0 ? a.user.id : b.user.id));
     }
-    await migrator.query("UPDATE drugstores SET verification_status='verified',verified_at=CURRENT_TIMESTAMP,public_profile_published_at=CURRENT_TIMESTAMP WHERE id=$1", [stores[0]]);
+    await migrator.query("UPDATE pharmacies SET verification_status='verified',verified_at=CURRENT_TIMESTAMP,public_profile_published_at=CURRENT_TIMESTAMP WHERE id=$1", [stores[0]]);
     const nearby = await request('/stores/nearby?latitude=10.3157&longitude=123.8854');
     assert.equal(nearby.status, 200);
     const visible = nearby.body.stores.find((store) => store.store_id === Number(stores[0]));
@@ -99,7 +99,7 @@ test('local API and staging enforce identity, ownership, refresh revocation and 
     assert.deepEqual(manual.body.stores.map((store) => store.store_id), [Number(stores[0])]);
     assert.equal(manual.body.stores[0].distanceKm, null, 'Manual search has no measured user distance');
     medicines.push((await migrator.query("INSERT INTO medicines (brand_name,publication_status,otc_eligible,otc_review_reference,otc_reviewed_at) VALUES ($1,'published',true,'synthetic checkout only',CURRENT_TIMESTAMP) RETURNING id", [`Synthetic ${marker}`])).rows[0].id);
-    await migrator.query('INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,availability) VALUES ($1,$2,1250,3,1)', [stores[0], medicines[0]]);
+    await migrator.query('INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,availability) VALUES ($1,$2,1250,3,1)', [stores[0], medicines[0]]);
     const checkout = { idempotencyKey: marker, items: [{ id: medicines[0], drugstoreId: stores[0], quantity: 1, price: 0 }] };
     const order = await request('/orders', checkout, a.accessToken);
     assert.equal(order.status, 201, order.body.error);
@@ -107,7 +107,7 @@ test('local API and staging enforce identity, ownership, refresh revocation and 
     const replay = await request('/orders', checkout, a.accessToken);
     assert.equal(replay.status, 200);
     assert.equal(replay.body.id, order.body.id);
-    assert.equal(Number((await migrator.query('SELECT reserved_quantity FROM inventory WHERE drugstore_id=$1 AND medicine_id=$2', [stores[0], medicines[0]])).rows[0].reserved_quantity), 1);
+    assert.equal(Number((await migrator.query('SELECT reserved_quantity FROM stock WHERE pharmacy_id=$1 AND medicine_id=$2', [stores[0], medicines[0]])).rows[0].reserved_quantity), 1);
     const otherOrders = await request('/orders', undefined, b.accessToken);
     assert.equal(otherOrders.status, 200);
     assert.ok(otherOrders.body.every((row) => row.id !== order.body.id));
@@ -159,9 +159,9 @@ test('local API and staging enforce identity, ownership, refresh revocation and 
     if (approved) {
       await migrator.query('DELETE FROM audit_logs WHERE user_id IN (SELECT id FROM users WHERE email=ANY($1::text[]))', [emails]);
       await migrator.query('DELETE FROM users WHERE email=ANY($1::text[])', [emails]);
-      await migrator.query('DELETE FROM drugstores WHERE id=ANY($1::int[])', [stores]);
+      await migrator.query('DELETE FROM pharmacies WHERE id=ANY($1::int[])', [stores]);
       await migrator.query('DELETE FROM medicines WHERE id=ANY($1::int[])', [medicines]);
-      await migrator.query('DELETE FROM email_verification_challenges WHERE email=ANY($1::text[])', [emails]);
+      await migrator.query('DELETE FROM email_codes WHERE email=ANY($1::text[])', [emails]);
       await migrator.query('DELETE FROM auth_account_security WHERE email_hash=ANY($1::text[])', [emails.map((email) => createHash('sha256').update(email).digest('hex'))]);
     }
     await Promise.all([app.end(), migrator.end()]);

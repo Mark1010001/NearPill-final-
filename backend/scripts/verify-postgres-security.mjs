@@ -68,12 +68,12 @@ try {
     [`rls-partner-${stamp}@example.test`],
   )).rows[0].id);
   fixture.storeId = Number((await migrationClient.query(
-    `INSERT INTO drugstores (name,address,latitude,longitude,is_active,verification_status,verified_at,public_profile_published_at)
+    `INSERT INTO pharmacies (name,address,latitude,longitude,is_active,verification_status,verified_at,public_profile_published_at)
      VALUES ($1,'fixture',10.3157,123.8854,1,'verified',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id`,
     [`RLS Store ${stamp}`],
   )).rows[0].id);
   fixture.partnerMembershipId = Number((await migrationClient.query(
-    `INSERT INTO pharmacy_memberships (user_id,drugstore_id,membership_role,is_active)
+    `INSERT INTO pharmacy_memberships (user_id,pharmacy_id,membership_role,is_active)
      VALUES ($1,$2,'manager',1) RETURNING id`,
     [fixture.userPartner, fixture.storeId],
   )).rows[0].id);
@@ -89,19 +89,19 @@ try {
     [`RLS Insert Medicine ${stamp}`],
   )).rows[0].id);
   fixture.inventoryId = Number((await migrationClient.query(
-    `INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+    `INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
      VALUES ($1,$2,1000,3,0,1) RETURNING id`,
     [fixture.storeId, fixture.medicineId],
   )).rows[0].id);
   // A second published pharmacy with the SAME OTC medicine provides a real
   // cross-tenant inventory row. The partner has membership only in storeId.
   fixture.otherStoreId = Number((await migrationClient.query(
-    `INSERT INTO drugstores (name,address,latitude,longitude,is_active,verification_status,verified_at,public_profile_published_at)
+    `INSERT INTO pharmacies (name,address,latitude,longitude,is_active,verification_status,verified_at,public_profile_published_at)
      VALUES ($1,'fixture',10.3157,123.8854,1,'verified',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) RETURNING id`,
     [`RLS Other Store ${stamp}`],
   )).rows[0].id);
   fixture.otherInventoryId = Number((await migrationClient.query(
-    `INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+    `INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
      VALUES ($1,$2,1000,3,0,1) RETURNING id`,
     [fixture.otherStoreId, fixture.medicineId],
   )).rows[0].id);
@@ -123,17 +123,17 @@ try {
     [`RLS Reservation Medicine ${stamp}`],
   )).rows[0].id);
   fixture.reservationInventoryId = Number((await migrationClient.query(
-    `INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+    `INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
      VALUES ($1,$2,1000,3,1,1) RETURNING id`,
     [fixture.storeId, fixture.reservationMedicineId],
   )).rows[0].id);
   fixture.reservationId = Number((await migrationClient.query(
-    `INSERT INTO reservations (order_id,inventory_id,quantity,status)
+    `INSERT INTO reservations (order_id,stock_id,quantity,status)
      VALUES ($1,$2,1,'active') RETURNING id`,
     [fixture.orderB, fixture.reservationInventoryId],
   )).rows[0].id);
   fixture.reservationMovementId = Number((await migrationClient.query(
-    `INSERT INTO stock_movements (inventory_id,order_id,actor_id,movement_type,reserved_delta,stock_on_hand_delta,reason)
+    `INSERT INTO stock_movements (stock_id,order_id,actor_id,movement_type,held_change,stock_change,reason)
      VALUES ($1,$2,$3,'reserve',1,0,'NP-040 synthetic characterization') RETURNING id`,
     [fixture.reservationInventoryId, fixture.orderB, fixture.userB],
   )).rows[0].id);
@@ -160,7 +160,7 @@ try {
   // Both synthetic orders need a real pharmacy-order child row; the RLS
   // verifier refuses vacuous results when a child-order fixture is absent.
   const children = await migrationClient.query(
-    `INSERT INTO order_drugstores (order_id,drugstore_id,status)
+    `INSERT INTO order_pharmacies (order_id,pharmacy_id,status)
      VALUES ($1,$3,'reserved'),($2,$3,'reserved') RETURNING id,order_id`,
     [fixture.orderA, fixture.orderB, fixture.storeId],
   );
@@ -175,15 +175,15 @@ try {
     return Number(child[0].id);
   };
   const lines = await migrationClient.query(
-    `INSERT INTO order_items (order_drugstore_id,medicine_id,quantity,unit_price_centavos)
-     VALUES ($1,$3,1,1000),($2,$4,1,1000) RETURNING id,order_drugstore_id`,
+    `INSERT INTO order_items (order_pharmacy_id,medicine_id,quantity,unit_price_centavos)
+     VALUES ($1,$3,1,1000),($2,$4,1,1000) RETURNING id,order_pharmacy_id`,
     [childFor(fixture.orderA), childFor(fixture.orderB), fixture.medicineId, fixture.reservationMedicineId],
   );
   if (!Array.isArray(lines?.rows) || lines.rows.length !== 2) {
     throw new Error('RLS fixture setup did not create both order-line snapshots.');
   }
   const lineFor = (childId) => {
-    const line = lines.rows.filter((row) => Number(row.order_drugstore_id) === childId);
+    const line = lines.rows.filter((row) => Number(row.order_pharmacy_id) === childId);
     if (line.length !== 1 || !Number.isSafeInteger(Number(line[0].id)) || Number(line[0].id) <= 0) {
       throw new Error('RLS fixture setup returned ambiguous order-line ownership.');
     }
@@ -215,7 +215,7 @@ try {
   'Inventory contention');
   const successes = attempts.filter(Boolean).length;
   if (successes !== 3) throw new Error(`Expected exactly 3 successful reservations, received ${successes}.`);
-  const finalInventory = (await migrationClient.query('SELECT stock_on_hand,reserved_quantity FROM inventory WHERE id=$1', [fixture.inventoryId])).rows[0];
+  const finalInventory = (await migrationClient.query('SELECT stock_on_hand,reserved_quantity FROM stock WHERE id=$1', [fixture.inventoryId])).rows[0];
   if (Number(finalInventory.stock_on_hand) !== 3 || Number(finalInventory.reserved_quantity) !== 3) {
     throw new Error(`Inventory invariant failed after contention: ${JSON.stringify(finalInventory)}`);
   }

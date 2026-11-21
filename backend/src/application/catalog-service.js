@@ -95,11 +95,8 @@ export function createCatalogService({ repository, now = () => new Date(), route
       if (!medicineId) return failure(400, 'Invalid medicine ID.');
       const medicine = await repository.findMedicineById(medicineId);
       if (!medicine) return failure(404, 'Medicine not found.');
-      const [inventory, evidence] = await Promise.all([
-        repository.findMedicineInventoryById(medicineId),
-        repository.listMedicineEvidence(medicineId),
-      ]);
-      return success({ ...medicine, inventory, evidence });
+      const inventory = await repository.findMedicineInventoryById(medicineId);
+      return success({ ...medicine, inventory });
     },
 
     async listStores() {
@@ -198,7 +195,6 @@ export function createCatalogService({ repository, now = () => new Date(), route
           totalOrders: sales.totalOrders,
           totalSales: sales.totalSales,
           createdAt: store.created_at,
-          accountNo: store.accountNo == null ? null : Number(store.accountNo),
           subscriptionTier: store.subscriptionTier ?? null,
           partnershipStartedAt: store.created_at,
           partnershipExpiresAt: partnershipExpiry(store.created_at, store.subscriptionTier),
@@ -389,30 +385,6 @@ export function createCatalogService({ repository, now = () => new Date(), route
       });
     },
 
-    async listMedicineEvidence(idValue) {
-      const medicineId = validId(idValue);
-      if (!medicineId) return failure(400, 'Invalid medicine ID.');
-      if (!(await repository.findMasterMedicineById(medicineId))) return failure(404, 'Medicine not found.');
-      return success(await repository.listAdminMedicineEvidence(medicineId));
-    },
-
-    async addMedicineEvidence(actorId, idValue, body = {}) {
-      const medicineId = validId(idValue);
-      if (!medicineId) return failure(400, 'Invalid medicine ID.');
-      if (!(await repository.findMasterMedicineById(medicineId))) return failure(404, 'Medicine not found.');
-      const sourceName = String(body.sourceName || '').trim();
-      const sourceUrl = String(body.sourceUrl || '').trim();
-      const sourceVersion = String(body.sourceVersion || '').trim() || null;
-      const status = String(body.status || 'approved');
-      if (!sourceName || !sourceUrl) return failure(400, 'Evidence source name and URL are required.');
-      if (!['approved', 'rejected'].includes(status)) return failure(400, 'Invalid evidence status.');
-      const evidenceId = await repository.addMedicineEvidence({
-        medicineId, sourceName, sourceUrl, sourceVersion, status, reviewedBy: actorId,
-      });
-      await repository.appendAudit(actorId, 'ADD_MEDICINE_EVIDENCE', `Added ${status} evidence ${evidenceId} for medicine ${medicineId}.`);
-      return success({ id: evidenceId, medicineId, sourceName, sourceUrl, sourceVersion, status }, 201);
-    },
-
     async setMedicinePublication(actorId, idValue, body = {}) {
       const medicineId = validId(idValue);
       if (!medicineId) return failure(400, 'Invalid medicine ID.');
@@ -435,9 +407,6 @@ export function createCatalogService({ repository, now = () => new Date(), route
         'non-prescription', 'non-prescriptions', 'non - prescriptions', 'non-prescription (source list)', 'general otc', 'otc',
         'medical supplies', 'non-medicine', 'non-medicines', 'non medicine', 'non medicines',
       ].includes(category))) return failure(409, 'Only an unapproved draft classified as non-prescription or non-medicine can be approved here.');
-      if (status === 'published' && await repository.countApprovedMedicineEvidence(medicineId) < 1) {
-        return failure(409, 'At least one approved evidence source is required before publication.');
-      }
       const updated = reviewReference
         ? await repository.updateMedicinePublication(medicineId, status, reviewReference, medicine.category)
         : await repository.updateMedicinePublication(medicineId, status);

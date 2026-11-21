@@ -24,10 +24,10 @@ try {
     "SELECT set_config('app.user_id', '', true), set_config('app.role', 'admin', true), set_config('app.capability', '', true)",
   );
   show(
-    'drugstores',
+    'pharmacies',
     (
       await client.query(
-        `SELECT id, name, account_no, is_active, verification_status, public_profile_published_at IS NOT NULL AS published FROM drugstores ORDER BY id`,
+        `SELECT id, name, is_active, verification_status, public_profile_published_at IS NOT NULL AS published FROM pharmacies ORDER BY id`,
       )
     ).rows,
   );
@@ -40,7 +40,7 @@ try {
     'memberships',
     (
       await client.query(
-        `SELECT user_id, drugstore_id, membership_role, is_active FROM pharmacy_memberships ORDER BY drugstore_id, user_id`,
+        `SELECT user_id, pharmacy_id, membership_role, is_active FROM pharmacy_memberships ORDER BY pharmacy_id, user_id`,
       )
     ).rows,
   );
@@ -53,7 +53,7 @@ try {
       `as partner ${userId}: membership join (what the plan page reads)`,
       (
         await client.query(
-          `SELECT pm.drugstore_id, d.name FROM pharmacy_memberships pm INNER JOIN drugstores d ON d.id = pm.drugstore_id WHERE pm.user_id = $1 AND pm.is_active = 1`,
+          `SELECT pm.pharmacy_id, d.name FROM pharmacy_memberships pm INNER JOIN pharmacies d ON d.id = pm.pharmacy_id WHERE pm.user_id = $1 AND pm.is_active = 1`,
           [userId],
         )
       ).rows,
@@ -68,8 +68,7 @@ try {
   );
   show(
     'subscriptions',
-    (await client.query(`SELECT * FROM subscriptions WHERE drugstore_id IN (26, 43) ORDER BY id`))
-      .rows,
+    (await client.query(`SELECT * FROM subscriptions ORDER BY id DESC LIMIT 6`)).rows,
   );
   await client.query(
     "SELECT set_config('app.user_id', '', true), set_config('app.role', 'system', true), set_config('app.capability', '', true)",

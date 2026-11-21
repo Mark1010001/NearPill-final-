@@ -9,9 +9,9 @@ try {
   await show('payments flagged reconciliation_required', `
     SELECT p.id AS payment_id, p.order_id, p.payment_status, p.provider, p.payment_plan, p.amount_centavos,
            to_jsonb(p)->>'created_at' AS created_at, o.reference AS order_reference, o.status AS order_status,
-           (SELECT string_agg(d.name || ' (active=' || d.is_active || ')', ', ') FROM order_drugstores od JOIN drugstores d ON d.id = od.drugstore_id WHERE od.order_id = o.id) AS pharmacies
+           (SELECT string_agg(d.name || ' (active=' || d.is_active || ')', ', ') FROM order_pharmacies od JOIN pharmacies d ON d.id = od.pharmacy_id WHERE od.order_id = o.id) AS pharmacies
     FROM payments p LEFT JOIN orders o ON o.id = p.order_id WHERE p.payment_status = 'reconciliation_required'`);
-  await show('open reconciliation cases', `SELECT id, payment_id, provider, reason, status, created_at FROM payment_reconciliation WHERE status = 'open'`);
+  await show('open reconciliation cases', `SELECT id, payment_id, provider, reason, status, created_at FROM payment_issues WHERE status = 'open'`);
   await show('provider events needing reconciliation', `SELECT id, provider, event_type, processing_status, created_at FROM payment_events WHERE processing_status = 'requires_reconciliation' OR processing_status ILIKE '%reconcil%'`);
   await client.query('ROLLBACK');
 } finally { await client.end(); }

@@ -42,12 +42,12 @@ try {
     const userA = await client.query(`INSERT INTO users (name,email,password,role) VALUES ($1,$2,'test','partner') RETURNING id`, [`${marker}-a`, `${marker}-a@example.invalid`]);
     const userB = await client.query(`INSERT INTO users (name,email,password,role) VALUES ($1,$2,'test','partner') RETURNING id`, [`${marker}-b`, `${marker}-b@example.invalid`]);
     const customer = await client.query(`INSERT INTO users (name,email,password,role) VALUES ($1,$2,'test','customer') RETURNING id`, [`${marker}-customer`, `${marker}-c@example.invalid`]);
-    const storeA = await client.query(`INSERT INTO drugstores (name,address,latitude,longitude) VALUES ($1,'test',10.3,123.9) RETURNING id`, [`${marker}-store-a`]);
-    const storeB = await client.query(`INSERT INTO drugstores (name,address,latitude,longitude) VALUES ($1,'test',10.31,123.91) RETURNING id`, [`${marker}-store-b`]);
-    await client.query(`INSERT INTO pharmacy_memberships (user_id,drugstore_id,membership_role) VALUES ($1,$2,'manager'),($3,$4,'manager')`, [userA.rows[0].id, storeA.rows[0].id, userB.rows[0].id, storeB.rows[0].id]);
+    const storeA = await client.query(`INSERT INTO pharmacies (name,address,latitude,longitude) VALUES ($1,'test',10.3,123.9) RETURNING id`, [`${marker}-store-a`]);
+    const storeB = await client.query(`INSERT INTO pharmacies (name,address,latitude,longitude) VALUES ($1,'test',10.31,123.91) RETURNING id`, [`${marker}-store-b`]);
+    await client.query(`INSERT INTO pharmacy_memberships (user_id,pharmacy_id,membership_role) VALUES ($1,$2,'manager'),($3,$4,'manager')`, [userA.rows[0].id, storeA.rows[0].id, userB.rows[0].id, storeB.rows[0].id]);
     const orderA = await client.query(`INSERT INTO orders (reference,user_id,total_centavos,status) VALUES ($1,$2,1000,'reserved') RETURNING id`, [`${marker}-oa`, customer.rows[0].id]);
     const orderB = await client.query(`INSERT INTO orders (reference,user_id,total_centavos,status) VALUES ($1,$2,2000,'reserved') RETURNING id`, [`${marker}-ob`, customer.rows[0].id]);
-    await client.query(`INSERT INTO order_drugstores (order_id,drugstore_id,status) VALUES ($1,$2,'reserved'),($3,$4,'reserved')`, [orderA.rows[0].id, storeA.rows[0].id, orderB.rows[0].id, storeB.rows[0].id]);
+    await client.query(`INSERT INTO order_pharmacies (order_id,pharmacy_id,status) VALUES ($1,$2,'reserved'),($3,$4,'reserved')`, [orderA.rows[0].id, storeA.rows[0].id, orderB.rows[0].id, storeB.rows[0].id]);
 
     await client.query('COMMIT');
     fixtureCommitted = true;
@@ -65,7 +65,7 @@ try {
       await client.query('ROLLBACK');
       if (fixtureCommitted) {
         const users = await client.query('DELETE FROM users WHERE email = ANY($1::text[])', [[`${marker}-a@example.invalid`, `${marker}-b@example.invalid`, `${marker}-c@example.invalid`]]);
-        const stores = await client.query('DELETE FROM drugstores WHERE name = ANY($1::text[])', [[`${marker}-store-a`, `${marker}-store-b`]]);
+        const stores = await client.query('DELETE FROM pharmacies WHERE name = ANY($1::text[])', [[`${marker}-store-a`, `${marker}-store-b`]]);
         assert.equal(users.rowCount, 3, 'all synthetic identity users must be removed');
         assert.equal(stores.rowCount, 2, 'both synthetic identity stores must be removed');
       }

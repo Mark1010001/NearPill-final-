@@ -15,13 +15,11 @@ const portalApi = await read('../web/src/api/client.ts');
 const discoveryDoc = await read('../docs/catalog-discovery.md');
 const importer = await read('scripts/import-mysql-to-postgres.mjs');
 
-test('source-list labels and evidence cannot publish a medicine without OTC eligibility', async () => {
+test('source-list labels cannot publish a medicine without OTC eligibility', async () => {
   const medicine = { category: 'Prescription (source list)', publication_status: 'draft', otc_eligible: false };
-  let approvedEvidence = 1;
   const writes = [];
   const repository = new Proxy({
     findMasterMedicineById: async () => medicine,
-    countApprovedMedicineEvidence: async () => approvedEvidence,
     updateMedicinePublication: async (id, status) => { writes.push({ id, status }); },
     appendAudit: async () => {},
   }, { get: (target, key) => target[key] ?? (() => { throw new Error('Unexpected catalog operation'); }) });
@@ -30,32 +28,24 @@ test('source-list labels and evidence cannot publish a medicine without OTC elig
   assert.equal((await publish()).status, 409);
   medicine.category = 'Non-Prescription (source list)';
   medicine.otc_eligible = true;
-  approvedEvidence = 0;
-  assert.equal((await publish()).status, 409);
   assert.deepEqual(writes, []);
-  approvedEvidence = 1;
   assert.equal((await publish()).status, 200);
   assert.deepEqual(writes, [{ id: 5, status: 'published' }]);
 });
 
 test('a documented review can publish an eligible draft in one admin action', async () => {
   const medicine = { category: 'Prescription (source list)', publication_status: 'draft', otc_eligible: false };
-  let evidence = 1;
   const writes = [];
   const catalog = createCatalogService({ repository: new Proxy({
     findMasterMedicineById: async () => medicine,
-    countApprovedMedicineEvidence: async () => evidence,
     updateMedicinePublication: async (...args) => { writes.push(args); return 1; },
     appendAudit: async () => {},
   }, { get: (target, key) => target[key] ?? (() => { throw new Error('Unexpected catalog operation'); }) }) });
   const publish = (reviewReference) => catalog.setMedicinePublication(1, 85, { status: 'published', reviewReference });
   assert.equal((await publish('Recorded review 85')).status, 409);
   medicine.category = 'Non-Prescription (source list)';
-  evidence = 0;
-  assert.equal((await publish('Recorded review 85')).status, 409);
   assert.equal((await publish('   ')).status, 400);
   assert.deepEqual(writes, []);
-  evidence = 1;
   assert.equal((await publish(' Recorded review 85 ')).status, 200);
   assert.deepEqual(writes, [[85, 'published', 'Recorded review 85', medicine.category]]);
 });

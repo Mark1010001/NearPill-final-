@@ -12,9 +12,9 @@ function recorder({ fail = [], counts = {} } = {}) {
       calls.push({ sql, params });
       if (fail.some((text) => sql.includes(text))) throw new Error('synthetic deletion failed');
       const name = sql.includes('FROM orders') ? 'orders' :
-        sql.includes('FROM inventory') ? 'inventory' :
+        sql.includes('FROM stock') ? 'stock' :
         sql.includes('FROM medicines') ? 'medicines' :
-        sql.includes('FROM drugstores') ? 'drugstores' : 'users';
+        sql.includes('FROM pharmacies') ? 'pharmacies' : 'users';
       return { rowCount: Object.hasOwn(counts, name) ? counts[name] : 1, rows: [] };
     },
   };
@@ -26,19 +26,19 @@ test('removes only recorded synthetic fixtures in dependency-safe order', async 
   await cleanupSyntheticOrderVerifierFixtures({ migratorPool: r.migratorPool, fixture: synthetic });
   assert.deepEqual(r.calls.map(({ sql }) => sql), [
     'DELETE FROM orders WHERE user_id = $1',
-    'DELETE FROM inventory WHERE id = $1',
+    'DELETE FROM stock WHERE id = $1',
     'DELETE FROM medicines WHERE id = $1',
-    'DELETE FROM drugstores WHERE id = $1',
+    'DELETE FROM pharmacies WHERE id = $1',
     'DELETE FROM users WHERE id = $1',
   ]);
   assert.deepEqual(r.calls.map(({ params }) => params), [[71], [74], [73], [72], [71]]);
 });
 
 test('failed child deletion does not prevent attempts to remove other fixture rows', async () => {
-  const r = recorder({ fail: ['DELETE FROM inventory'] });
+  const r = recorder({ fail: ['DELETE FROM stock'] });
   await assert.rejects(cleanupSyntheticOrderVerifierFixtures({ migratorPool: r.migratorPool, fixture: synthetic }), (error) => {
     assert.ok(error instanceof AggregateError);
-    assert.match(error.message, /inventory/);
+    assert.match(error.message, /stock/);
     assert.equal(error.errors.length, 1);
     return true;
   });
@@ -46,11 +46,11 @@ test('failed child deletion does not prevent attempts to remove other fixture ro
 });
 
 test('reports all cleanup failures instead of treating a partial cleanup as success', async () => {
-  const r = recorder({ fail: ['DELETE FROM orders', 'DELETE FROM inventory'] });
+  const r = recorder({ fail: ['DELETE FROM orders', 'DELETE FROM stock'] });
   await assert.rejects(cleanupSyntheticOrderVerifierFixtures({ migratorPool: r.migratorPool, fixture: synthetic }), (error) => {
     assert.ok(error instanceof AggregateError);
     assert.equal(error.errors.length, 2);
-    assert.match(error.message, /orders.*inventory/);
+    assert.match(error.message, /orders.*stock/);
     return true;
   });
   assert.equal(r.calls.length, 5);
@@ -119,7 +119,7 @@ for (const invalid of [null, -1, 101, 0.5, '3']) {
 }
 
 test('rejects a successful SQL DELETE that silently leaves a recorded singleton', async () => {
-  const r = recorder({ counts: { inventory: 0 } });
+  const r = recorder({ counts: { stock: 0 } });
   await assert.rejects(cleanupSyntheticOrderVerifierFixtures({ migratorPool: r.migratorPool, fixture: synthetic }), /cleanup incomplete/);
   assert.equal(r.calls.length, 5);
 });

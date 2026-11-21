@@ -110,10 +110,10 @@ export function createPostgresSecurityRepository(pool) {
           capability: 'identity_security',
         });
         const memberships = await client.query(
-          `SELECT drugstore_id AS "drugstoreId", membership_role AS "membershipRole", is_active AS "isActive"
+          `SELECT pharmacy_id AS "drugstoreId", membership_role AS "membershipRole", is_active AS "isActive"
            FROM pharmacy_memberships
            WHERE user_id = $1 AND is_active = 1
-           ORDER BY drugstore_id`,
+           ORDER BY pharmacy_id`,
           [session.user_id],
         );
         return {
@@ -217,7 +217,7 @@ export function createPostgresSecurityRepository(pool) {
     async upsertEmailVerification(email, codeHash, expiresAt) {
       return transaction(async (client) => {
         await client.query(
-          `INSERT INTO email_verification_challenges (email, code_hash, expires_at, verified_at, attempt_count, updated_at)
+          `INSERT INTO email_codes (email, code_hash, expires_at, verified_at, attempt_count, updated_at)
            VALUES ($1, $2, $3, NULL, 0, CURRENT_TIMESTAMP)
            ON CONFLICT (email) DO UPDATE SET code_hash = EXCLUDED.code_hash, expires_at = EXCLUDED.expires_at,
              verified_at = NULL, attempt_count = 0, updated_at = CURRENT_TIMESTAMP`,
@@ -261,24 +261,24 @@ export function createPostgresSecurityRepository(pool) {
     async verifyEmailCode(email, codeHash) {
       return transaction(async (client) => {
         const result = await client.query(
-          `SELECT email, code_hash, expires_at, attempt_count FROM email_verification_challenges WHERE email = $1 FOR UPDATE`,
+          `SELECT email, code_hash, expires_at, attempt_count FROM email_codes WHERE email = $1 FOR UPDATE`,
           [email],
         );
         const record = result.rows[0];
         if (!record) return { status: 'missing' };
         if (new Date(record.expires_at).getTime() <= Date.now()) {
-          await client.query(`DELETE FROM email_verification_challenges WHERE email = $1`, [email]);
+          await client.query(`DELETE FROM email_codes WHERE email = $1`, [email]);
           return { status: 'expired' };
         }
         if (record.code_hash !== codeHash) {
           const attempts = Number(record.attempt_count) + 1;
-          if (attempts >= 5) await client.query(`DELETE FROM email_verification_challenges WHERE email = $1`, [email]);
-          else await client.query(`UPDATE email_verification_challenges SET attempt_count = $2, updated_at = CURRENT_TIMESTAMP WHERE email = $1`, [email, attempts]);
+          if (attempts >= 5) await client.query(`DELETE FROM email_codes WHERE email = $1`, [email]);
+          else await client.query(`UPDATE email_codes SET attempt_count = $2, updated_at = CURRENT_TIMESTAMP WHERE email = $1`, [email, attempts]);
           return attempts >= 5 ? { status: 'locked' } : { status: 'invalid', attemptsLeft: 5 - attempts };
         }
         // A verified email may be used to create one account within 15 minutes.
         await client.query(
-          `UPDATE email_verification_challenges SET verified_at = CURRENT_TIMESTAMP, expires_at = CURRENT_TIMESTAMP + INTERVAL '15 minutes', updated_at = CURRENT_TIMESTAMP WHERE email = $1`,
+          `UPDATE email_codes SET verified_at = CURRENT_TIMESTAMP, expires_at = CURRENT_TIMESTAMP + INTERVAL '15 minutes', updated_at = CURRENT_TIMESTAMP WHERE email = $1`,
           [email],
         );
         return { status: 'verified' };
@@ -288,7 +288,7 @@ export function createPostgresSecurityRepository(pool) {
     async consumeVerifiedEmail(email) {
       return transaction(async (client) => {
         const result = await client.query(
-          `DELETE FROM email_verification_challenges
+          `DELETE FROM email_codes
            WHERE email = $1 AND verified_at IS NOT NULL AND expires_at > CURRENT_TIMESTAMP
            RETURNING email`,
           [email],
@@ -299,9 +299,9 @@ export function createPostgresSecurityRepository(pool) {
 
     async createPasswordResetChallenge({ userId, email, tokenHash, expiresAt }) {
       return transaction(async (client) => {
-        await client.query(`DELETE FROM password_reset_challenges WHERE user_id = $1 AND consumed_at IS NULL`, [userId]);
+        await client.query(`DELETE FROM reset_links WHERE user_id = $1 AND consumed_at IS NULL`, [userId]);
         await client.query(
-          `INSERT INTO password_reset_challenges (user_id, email, token_hash, expires_at) VALUES ($1, $2, $3, $4)`,
+          `INSERT INTO reset_links (user_id, email, token_hash, expires_at) VALUES ($1, $2, $3, $4)`,
           [userId, email, tokenHash, iso(expiresAt)],
         );
       }, { role: 'system' });
@@ -316,7 +316,7 @@ export function createPostgresSecurityRepository(pool) {
         if (update.rowCount !== 1) return false;
         await client.query(`UPDATE auth_session_families SET revoked_at = CURRENT_TIMESTAMP, revoke_reason = 'password_change' WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
         await client.query(`UPDATE auth_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
-        await client.query(`UPDATE password_reset_challenges SET consumed_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND consumed_at IS NULL`, [userId]);
+        await client.query(`UPDATE reset_links SET consumed_at = CURRENT_TIMESTAMP WHERE user_id = $1 AND consumed_at IS NULL`, [userId]);
         return true;
       }, { role: 'system' });
     },
@@ -325,7 +325,7 @@ export function createPostgresSecurityRepository(pool) {
       return transaction(async (client) => {
         const result = await client.query(
           `SELECT id, user_id, email, expires_at, consumed_at
-           FROM password_reset_challenges WHERE token_hash = $1 FOR UPDATE`,
+           FROM reset_links WHERE token_hash = $1 FOR UPDATE`,
           [tokenHash],
         );
         const record = result.rows[0];
@@ -334,7 +334,7 @@ export function createPostgresSecurityRepository(pool) {
         }
         const update = await client.query(`UPDATE users SET password = $2 WHERE id = $1`, [record.user_id, passwordHash]);
         if (update.rowCount !== 1) return { status: 'invalid' };
-        await client.query(`UPDATE password_reset_challenges SET consumed_at = CURRENT_TIMESTAMP WHERE id = $1`, [record.id]);
+        await client.query(`UPDATE reset_links SET consumed_at = CURRENT_TIMESTAMP WHERE id = $1`, [record.id]);
         await client.query(
           `UPDATE auth_session_families SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP), revoke_reason = COALESCE(revoke_reason, 'password_reset') WHERE user_id = $1`,
           [record.user_id],
@@ -421,11 +421,11 @@ export function createPostgresSecurityRepository(pool) {
       return transaction(async (client) => {
         await applyDatabaseActor(client, { userId, role: 'authenticated', capability: 'identity_security' });
         const result = await client.query(
-          `SELECT pm.drugstore_id AS "drugstoreId", pm.membership_role AS "membershipRole", pm.is_active AS "isActive", d.name AS "drugstoreName"
+          `SELECT pm.pharmacy_id AS "drugstoreId", pm.membership_role AS "membershipRole", pm.is_active AS "isActive", d.name AS "drugstoreName"
            FROM pharmacy_memberships pm
-           INNER JOIN drugstores d ON d.id = pm.drugstore_id
+           INNER JOIN pharmacies d ON d.id = pm.pharmacy_id
            WHERE pm.user_id = $1 AND pm.is_active = 1
-           ORDER BY d.name, pm.drugstore_id`,
+           ORDER BY d.name, pm.pharmacy_id`,
           [userId],
         );
         return result.rows.map((row) => ({ ...row, drugstoreId: Number(row.drugstoreId), isActive: Number(row.isActive) === 1 }));
@@ -440,11 +440,11 @@ export function createPostgresSecurityRepository(pool) {
     async listDrugstoreMemberships(drugstoreId) {
       return transaction(async (client) => {
         const result = await client.query(
-          `SELECT pm.user_id AS "userId", u.name, u.email, pm.drugstore_id AS "drugstoreId",
+          `SELECT pm.user_id AS "userId", u.name, u.email, pm.pharmacy_id AS "drugstoreId",
                   pm.membership_role AS "membershipRole", pm.is_active AS "isActive", pm.created_at AS "createdAt"
            FROM pharmacy_memberships pm
            INNER JOIN users u ON u.id = pm.user_id
-           WHERE pm.drugstore_id = $1
+           WHERE pm.pharmacy_id = $1
            ORDER BY u.name, pm.user_id`,
           [drugstoreId],
         );
@@ -457,12 +457,12 @@ export function createPostgresSecurityRepository(pool) {
         const user = await client.query(`SELECT id, role FROM users WHERE id = $1 LIMIT 1`, [userId]);
         if (!user.rows[0]) return { status: 'user_missing' };
         if (user.rows[0].role !== 'partner') return { status: 'role_invalid' };
-        const store = await client.query(`SELECT id FROM drugstores WHERE id = $1 LIMIT 1`, [drugstoreId]);
+        const store = await client.query(`SELECT id FROM pharmacies WHERE id = $1 LIMIT 1`, [drugstoreId]);
         if (!store.rows[0]) return { status: 'store_missing' };
         await client.query(
-          `INSERT INTO pharmacy_memberships (user_id, drugstore_id, membership_role, is_active)
+          `INSERT INTO pharmacy_memberships (user_id, pharmacy_id, membership_role, is_active)
            VALUES ($1, $2, $3, 1)
-           ON CONFLICT (user_id, drugstore_id) DO UPDATE SET membership_role = EXCLUDED.membership_role, is_active = 1`,
+           ON CONFLICT (user_id, pharmacy_id) DO UPDATE SET membership_role = EXCLUDED.membership_role, is_active = 1`,
           [userId, drugstoreId, membershipRole],
         );
         await client.query(
@@ -475,7 +475,7 @@ export function createPostgresSecurityRepository(pool) {
 
     async createPartnerAccount({ actorId, drugstoreId, email, passwordHash }) {
       return transaction(async (client) => {
-        const store = await client.query(`SELECT id, name FROM drugstores WHERE id = $1 LIMIT 1`, [drugstoreId]);
+        const store = await client.query(`SELECT id, name FROM pharmacies WHERE id = $1 LIMIT 1`, [drugstoreId]);
         if (!store.rows[0]) return { status: 'store_missing' };
         const existing = await client.query(`SELECT id FROM users WHERE lower(email) = $1 LIMIT 1`, [email]);
         if (existing.rows[0]) return { status: 'email_taken' };
@@ -491,7 +491,7 @@ export function createPostgresSecurityRepository(pool) {
         }
         const userId = Number(created.rows[0].id);
         await client.query(
-          `INSERT INTO pharmacy_memberships (user_id, drugstore_id, membership_role, is_active) VALUES ($1, $2, 'owner', 1)`,
+          `INSERT INTO pharmacy_memberships (user_id, pharmacy_id, membership_role, is_active) VALUES ($1, $2, 'owner', 1)`,
           [userId, drugstoreId],
         );
         await client.query(
@@ -509,11 +509,11 @@ export function createPostgresSecurityRepository(pool) {
       const prepared = new Map();
       for (const userId of partnerIds) prepared.set(userId, await anonymise(userId));
       return transaction(async (client) => {
-        const store = await client.query(`SELECT id, name FROM drugstores WHERE id = $1 FOR UPDATE`, [drugstoreId]);
+        const store = await client.query(`SELECT id, name FROM pharmacies WHERE id = $1 FOR UPDATE`, [drugstoreId]);
         if (!store.rows[0]) return { status: 'store_missing' };
         if (store.rows[0].name === 'Deleted pharmacy') return { status: 'already_deleted' };
         const open = await client.query(
-          `SELECT 1 FROM order_drugstores WHERE drugstore_id = $1 AND status NOT IN ('cancelled','expired','completed','rejected') LIMIT 1`,
+          `SELECT 1 FROM order_pharmacies WHERE pharmacy_id = $1 AND status NOT IN ('cancelled','expired','completed','rejected') LIMIT 1`,
           [drugstoreId],
         );
         if (open.rows[0]) return { status: 'open_orders' };
@@ -523,7 +523,7 @@ export function createPostgresSecurityRepository(pool) {
           if (!user.rows[0] || user.rows[0].role !== 'partner') continue;
           // A login that also works for another pharmacy keeps its account; only this pharmacy's link is removed.
           const others = await client.query(
-            `SELECT 1 FROM pharmacy_memberships WHERE user_id = $1 AND drugstore_id <> $2 AND is_active = 1 LIMIT 1`,
+            `SELECT 1 FROM pharmacy_memberships WHERE user_id = $1 AND pharmacy_id <> $2 AND is_active = 1 LIMIT 1`,
             [userId, drugstoreId],
           );
           if (others.rows[0]) continue;
@@ -534,18 +534,17 @@ export function createPostgresSecurityRepository(pool) {
           );
           anonymised.push(userId);
         }
-        const history = await client.query(`SELECT 1 FROM order_drugstores WHERE drugstore_id = $1 LIMIT 1`, [drugstoreId]);
+        const history = await client.query(`SELECT 1 FROM order_pharmacies WHERE pharmacy_id = $1 LIMIT 1`, [drugstoreId]);
         if (!history.rows[0]) {
           // No orders were ever placed here, so nothing is needed for the reports: remove the pharmacy and the logins completely.
-          await client.query(`DELETE FROM drugstores WHERE id = $1`, [drugstoreId]);
+          await client.query(`DELETE FROM pharmacies WHERE id = $1`, [drugstoreId]);
           for (const userId of anonymised) await client.query(`DELETE FROM users WHERE id = $1 AND role = 'partner'`, [userId]);
         } else {
-          // Orders exist, so the record stays without personal details and the number is freed; sales totals keep working.
-          await client.query(`DELETE FROM pharmacy_memberships WHERE drugstore_id = $1`, [drugstoreId]);
+          // Orders exist, so the record stays without personal details; sales totals keep working.
+          await client.query(`DELETE FROM pharmacy_memberships WHERE pharmacy_id = $1`, [drugstoreId]);
           await client.query(
-            `UPDATE drugstores SET name = 'Deleted pharmacy', address = 'Deleted', operating_hours = NULL,
-                    latitude = 0, longitude = 0, is_active = 0, public_profile_published_at = NULL,
-                    account_no = NULL WHERE id = $1`,
+            `UPDATE pharmacies SET name = 'Deleted pharmacy', address = 'Deleted', operating_hours = NULL,
+                    latitude = 0, longitude = 0, is_active = 0, public_profile_published_at = NULL WHERE id = $1`,
             [drugstoreId],
           );
         }
@@ -560,7 +559,7 @@ export function createPostgresSecurityRepository(pool) {
     async deactivateMembership({ actorId, userId, drugstoreId }) {
       return transaction(async (client) => {
         const result = await client.query(
-          `UPDATE pharmacy_memberships SET is_active = 0 WHERE user_id = $1 AND drugstore_id = $2 AND is_active = 1`,
+          `UPDATE pharmacy_memberships SET is_active = 0 WHERE user_id = $1 AND pharmacy_id = $2 AND is_active = 1`,
           [userId, drugstoreId],
         );
         if (result.rowCount === 0) return false;

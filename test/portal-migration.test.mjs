@@ -84,15 +84,15 @@ test('partner order repository avoids parent orders table so membership RLS rema
   const start = repository.indexOf('async listPartnerOrderItems');
   assert.ok(start >= 0);
   const method = repository.slice(start, repository.indexOf('\n    },', start) + 7);
-  assert.match(method, /order_drugstores/);
+  assert.match(method, /order_pharmacies/);
   assert.match(method, /order_items/);
   // Migration 0024 gives partners an explicit, membership-scoped read of the
   // orders they fulfil (orders_partner_pickup_select), so the query may join
   // orders for pickup and payment details. It must still start from
-  // order_drugstores and stay scoped to the pharmacy.
+  // order_pharmacies and stay scoped to the pharmacy.
   assert.doesNotMatch(method, /\bFROM\s+orders\b/i);
-  assert.match(method, /FROM\s+order_drugstores\s+od/i);
-  assert.match(method, /WHERE\s+od\.drugstore_id\s*=\s*\?/i);
+  assert.match(method, /FROM\s+order_pharmacies\s+od/i);
+  assert.match(method, /WHERE\s+od\.pharmacy_id\s*=\s*\?/i);
 });
 
 test('web production path builds an artifact and Compose no longer mounts raw source', async () => {

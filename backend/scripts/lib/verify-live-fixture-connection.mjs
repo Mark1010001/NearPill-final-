@@ -621,7 +621,20 @@ export function reviewedForeignKeyInventoryFromSources(sources) {
       new Set(expected.map((fk) => `${fk.fk_source_table}.${fk.fk_source_column}`)).size !== 41) {
     throw new Error('Live DB verification refused: reviewed foreign key inventory is incomplete.');
   }
-  return expected;
+  // Migration 0053 renames tables/columns and drops medicine_evidence (and its
+  // foreign keys). Apply exactly that reviewed change to the replayed inventory.
+  if (!sources.some((source) => source.filename === '0053_simpler_database_names.sql')) return expected;
+  const column = (name) => name.replace('drugstore', 'pharmacy').replace('inventory', 'stock');
+  const table = (name) => REVIEWED_TABLE_RENAMES.get(name) ?? name;
+  return expected
+    .filter((fk) => !REVIEWED_TABLE_REMOVALS.has(fk.fk_source_table) && !REVIEWED_TABLE_REMOVALS.has(fk.fk_target_table) &&
+      !REVIEWED_REMOVED_FK_COLUMNS.has(`${fk.fk_source_table}.${fk.fk_source_column}`))
+    .map((fk) => ({
+      ...fk,
+      fk_source_table: table(fk.fk_source_table), fk_target_table: table(fk.fk_target_table),
+      fk_source_column: column(fk.fk_source_column), fk_target_column: column(fk.fk_target_column),
+      fk_source_columns: fk.fk_source_columns.map(column), fk_target_columns: fk.fk_target_columns.map(column),
+    }));
 }
 
 function assertReviewedForeignKeyInventory(rows, expected) {
@@ -694,10 +707,10 @@ const REVIEWED_PARTIAL_UNIQUE_INDEX_PROBE_SQL = `
   WHERE n.nspname = 'public'
     AND (tbl.relname, idx.relname) IN (
       ('orders', 'orders_user_idempotency_unique'),
-      ('password_reset_challenges', 'password_reset_active_user_idx'),
+      ('reset_links', 'password_reset_active_user_idx'),
       ('payments', 'payments_provider_external_unique'),
       ('payments', 'payments_order_idempotency_unique'),
-      ('subscription_entitlements', 'subscription_entitlements_active_unique')
+      ('plan_features', 'subscription_entitlements_active_unique')
     )
 `;
 
@@ -709,7 +722,7 @@ const REVIEWED_PARTIAL_UNIQUE_INDEXES = Object.freeze([
   { name: 'orders_user_idempotency_unique', table: 'orders',
     columns: ['user_id', 'idempotency_key'], predicate: 'idempotency_keyisnotnull',
     errorLabel: 'order idempotency' },
-  { name: 'password_reset_active_user_idx', table: 'password_reset_challenges',
+  { name: 'password_reset_active_user_idx', table: 'reset_links',
     columns: ['user_id'], predicate: 'consumed_atisnull', errorLabel: 'password-reset active challenge' },
   { name: 'payments_provider_external_unique', table: 'payments',
     columns: ['provider', 'provider_payment_id'],
@@ -717,8 +730,8 @@ const REVIEWED_PARTIAL_UNIQUE_INDEXES = Object.freeze([
   { name: 'payments_order_idempotency_unique', table: 'payments',
     columns: ['order_id', 'idempotency_key'], predicate: 'idempotency_keyisnotnull',
     errorLabel: 'payment idempotency' },
-  { name: 'subscription_entitlements_active_unique', table: 'subscription_entitlements',
-    columns: ['drugstore_id', 'entitlement_key'], predicate: 'revoked_atisnull',
+  { name: 'subscription_entitlements_active_unique', table: 'plan_features',
+    columns: ['pharmacy_id', 'entitlement_key'], predicate: 'revoked_atisnull',
     errorLabel: 'active entitlement' },
 ]);
 
@@ -817,9 +830,9 @@ const REVIEWED_CRITICAL_UNIQUE_CONSTRAINT_PROBE_SQL = `
 `;
 
 const REVIEWED_CRITICAL_UNIQUE_CONSTRAINTS = Object.freeze([
-  { name: 'pharmacy_memberships_user_store_unique', table: 'pharmacy_memberships', columns: ['user_id', 'drugstore_id'] },
-  { name: 'inventory_store_medicine_unique', table: 'inventory', columns: ['drugstore_id', 'medicine_id'] },
-  { name: 'reservations_order_inventory_unique', table: 'reservations', columns: ['order_id', 'inventory_id'] },
+  { name: 'pharmacy_memberships_user_store_unique', table: 'pharmacy_memberships', columns: ['user_id', 'pharmacy_id'] },
+  { name: 'inventory_store_medicine_unique', table: 'stock', columns: ['pharmacy_id', 'medicine_id'] },
+  { name: 'reservations_order_inventory_unique', table: 'reservations', columns: ['order_id', 'stock_id'] },
   { name: 'payment_events_provider_event_unique', table: 'payment_events', columns: ['provider', 'event_id'] },
   { name: 'refunds_provider_external_unique', table: 'refunds', columns: ['provider', 'provider_refund_id'] },
   { name: 'refunds_provider_idempotency_unique', table: 'refunds', columns: ['provider', 'idempotency_key'] },
@@ -889,9 +902,9 @@ const REVIEWED_STOCK_AND_MONEY_CHECK_PROBE_SQL = `
 `;
 
 const REVIEWED_STOCK_AND_MONEY_CHECKS = Object.freeze([
-  { name: 'inventory_stock_invariant', table: 'inventory',
+  { name: 'inventory_stock_invariant', table: 'stock',
     definition: 'CHECK(stock_on_hand>=0ANDreserved_quantity>=0ANDreserved_quantity<=stock_on_hand)' },
-  { name: 'inventory_price_centavos_nonnegative', table: 'inventory',
+  { name: 'inventory_price_centavos_nonnegative', table: 'stock',
     definition: 'CHECK(price_centavos>=0)' },
   { name: 'orders_total_centavos_nonnegative', table: 'orders',
     definition: 'CHECK(total_centavos>=0)' },
@@ -953,33 +966,33 @@ const REVIEWED_STOCK_MONEY_COLUMN_PROBE_SQL = `
   WHERE n.nspname = 'public' AND tbl.relkind IN ('r', 'p')
     AND a.attnum > 0 AND NOT a.attisdropped
     AND (tbl.relname, a.attname) IN (
-      ('inventory','price_centavos'),
-      ('inventory','stock_on_hand'),
-      ('inventory','reserved_quantity'),
+      ('stock','price_centavos'),
+      ('stock','stock_on_hand'),
+      ('stock','reserved_quantity'),
       ('orders','total_centavos'),
       ('order_items','unit_price_centavos'),
       ('payments','amount_centavos'),
       ('reservations','quantity'),
       ('refunds','amount_centavos'),
       ('order_items','quantity'),
-      ('stock_movements','stock_on_hand_delta'),
-      ('stock_movements','reserved_delta'),
+      ('stock_movements','stock_change'),
+      ('stock_movements','held_change'),
       ('payment_events','amount_centavos')
     )
 `;
 
 const REVIEWED_STOCK_MONEY_COLUMNS = Object.freeze([
-  ['inventory', 'price_centavos', 'int8'],
-  ['inventory', 'stock_on_hand', 'int4'],
-  ['inventory', 'reserved_quantity', 'int4'],
+  ['stock', 'price_centavos', 'int8'],
+  ['stock', 'stock_on_hand', 'int4'],
+  ['stock', 'reserved_quantity', 'int4'],
   ['orders', 'total_centavos', 'int8'],
   ['order_items', 'unit_price_centavos', 'int8'],
   ['payments', 'amount_centavos', 'int8'],
   ['reservations', 'quantity', 'int4'],
   ['refunds', 'amount_centavos', 'int8', true],
   ['order_items', 'quantity', 'int4', true],
-  ['stock_movements', 'stock_on_hand_delta', 'int4', true],
-  ['stock_movements', 'reserved_delta', 'int4', true],
+  ['stock_movements', 'stock_change', 'int4', true],
+  ['stock_movements', 'held_change', 'int4', true],
   ['payment_events', 'amount_centavos', 'int8', false],
 ]);
 
@@ -1021,10 +1034,10 @@ const DISABLED_INTERNAL_CONSTRAINT_TRIGGER_PROBE_SQL = `
 function assertReviewedPublicAppTrigger(rows) {
   // Attest each reviewed invoker trigger, including event flags and predicates.
   const definitions = [
-    ['inventory', 'inventory_touch_updated_at', 'touch_updated_at', 19, ''],
-    ['order_drugstores', 'order_group_owner', 'set_order_group_owner', 7, ''],
-    ['inventory', 'inventory_authority', 'guard_inventory_authority', 19, ''],
-    ['inventory', 'inventory_selling_unit_authority', 'guard_inventory_selling_unit', 19, 'package_size,selling_unit'],
+    ['stock', 'inventory_touch_updated_at', 'touch_updated_at', 19, ''],
+    ['order_pharmacies', 'order_group_owner', 'set_order_group_owner', 7, ''],
+    ['stock', 'inventory_authority', 'guard_inventory_authority', 19, ''],
+    ['stock', 'inventory_selling_unit_authority', 'guard_inventory_selling_unit', 19, 'package_size,selling_unit'],
     ['medicines', 'medicines_normalize_category', 'normalize_medicine_category', 23, 'category'],
   ];
   if (!Array.isArray(rows) || rows.length !== definitions.length) {
@@ -1286,6 +1299,15 @@ export function literalReviewedPolicyInventory(sources) {
   return [...policies.values()];
 }
 
+// Migrations 0002 and 0004 were written (and are replayed) with the table names
+// that existed then; migration 0053 renames them. This list is frozen history.
+const HISTORICAL_RLS_LOOP_TABLES = Object.freeze([
+  'drugstores', 'pharmacy_memberships', 'medicines', 'inventory', 'orders',
+  'order_drugstores', 'order_items', 'payments', 'subscriptions', 'audit_logs',
+  'auth_session_families', 'auth_sessions', 'email_verification_challenges',
+  'password_reset_challenges', 'auth_rate_limit_events', 'auth_account_security',
+]);
+
 // Only the two reviewed migration DO loops create dynamic policies. Validate
 // each complete DO statement, its ordered table list, and each executable
 // CREATE POLICY format invocation before adding expected rows at that point.
@@ -1293,7 +1315,7 @@ function applyReviewedDynamicPolicies(policies, filename, statement, line) {
   if (!['0002_rls.sql', '0004_identity_security.sql'].includes(filename) ||
       !/\bFOREACH\s+\w+\s+IN\s+ARRAY\s+ARRAY\s*\[/i.test(statement)) return false;
   const expectedTables = filename === '0002_rls.sql'
-    ? PROTECTED_TABLES.slice(0, 10) : PROTECTED_TABLES.slice(10, 16);
+    ? HISTORICAL_RLS_LOOP_TABLES.slice(0, 10) : HISTORICAL_RLS_LOOP_TABLES.slice(10, 16);
   const array = /FOREACH\s+\w+\s+IN\s+ARRAY\s+ARRAY\s*\[([^\]]+)\]/i.exec(statement);
   // Validate every array element, not only strings matched by a global
   // regex. Otherwise an unrecognized entry (such as 'other_table_123', a
@@ -1390,6 +1412,17 @@ export function reviewedRlsPolicyInventoryFromSources(sources) {
         const count = (dynamicLoopCounts.get(filename) ?? 0) + 1;
         if (count !== 1) throw new Error('Live DB verification refused: duplicate dynamic policy loop.');
         dynamicLoopCounts.set(filename, count);
+      }
+    }
+    if (filename === '0053_simpler_database_names.sql') {
+      // Apply exactly the reviewed renames/removal at the point migration 0053 runs, so
+      // later literal DROP/CREATE POLICY statements see the new table names.
+      for (const [key, policy] of [...policies]) {
+        policies.delete(key);
+        if (REVIEWED_TABLE_REMOVALS.has(policy.tablename)) continue;
+        const renamed = REVIEWED_TABLE_RENAMES.get(policy.tablename);
+        const next = renamed ? { ...policy, tablename: renamed } : policy;
+        policies.set(`${next.tablename}.${next.policyname}`, next);
       }
     }
     if (['0002_rls.sql', '0004_identity_security.sql'].includes(filename) &&
@@ -1750,17 +1783,29 @@ async function assertReviewedMigrationHistory(migratorPool) {
 // forced users RLS *in addition to* safe grants before any fixture writes.
 // This does not create a users policy or prove authentication compatibility;
 // a reviewed source migration and real negative tests remain mandatory.
-const PUBLIC_SCHEMA_EXCEPTIONS = Object.freeze(['users', 'nearpill_schema_migrations', 'medicine_id_renumbering']);
+const PUBLIC_SCHEMA_EXCEPTIONS = Object.freeze(['users', 'nearpill_schema_migrations']);
 
 const PROTECTED_TABLES = Object.freeze([
-  'drugstores', 'pharmacy_memberships', 'medicines', 'inventory', 'orders',
-  'order_drugstores', 'order_items', 'payments', 'subscriptions', 'audit_logs',
-  'auth_session_families', 'auth_sessions', 'email_verification_challenges',
-  'password_reset_challenges', 'auth_rate_limit_events', 'auth_account_security',
-  'medicine_evidence', 'pharmacy_verifications', 'reservations', 'stock_movements',
-  'payment_events', 'refunds', 'payment_reconciliation',
-  'subscription_entitlements', 'billing_events', 'stock_submissions', 'auth_throttle_events',
+  'pharmacies', 'pharmacy_memberships', 'medicines', 'stock', 'orders',
+  'order_pharmacies', 'order_items', 'payments', 'subscriptions', 'audit_logs',
+  'auth_session_families', 'auth_sessions', 'email_codes',
+  'reset_links', 'auth_rate_limit_events', 'auth_account_security',
+  'pharmacy_verifications', 'reservations', 'stock_movements',
+  'payment_events', 'refunds', 'payment_issues',
+  'plan_features', 'stock_submissions', 'auth_throttle_events',
 ]);
+
+// Reviewed table renames and the one reviewed removal made by migration
+// 0053_simpler_database_names.sql. Older migrations still create the old names,
+// so the replayed source inventory maps exactly these and nothing else.
+const REVIEWED_TABLE_RENAMES = Object.freeze(new Map([
+  ['drugstores', 'pharmacies'], ['inventory', 'stock'], ['order_drugstores', 'order_pharmacies'],
+  ['subscription_entitlements', 'plan_features'], ['payment_reconciliation', 'payment_issues'],
+  ['email_verification_challenges', 'email_codes'], ['password_reset_challenges', 'reset_links'],
+]));
+const REVIEWED_TABLE_REMOVALS = Object.freeze(new Set(['medicine_evidence', 'medicine_id_renumbering', 'billing_events']));
+// Columns dropped by 0053 whose foreign keys disappear with them.
+const REVIEWED_REMOVED_FK_COLUMNS = Object.freeze(new Set(['payment_reconciliation.resolved_by']));
 
 function expectedLoginRole(value) {
   // Supabase's session pooler uses ROLE.PROJECT_REF as a connection username.

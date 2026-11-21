@@ -13,7 +13,7 @@ const fixture = Object.freeze({
 function recordingPool(options = {}) {
   const queries = [];
   const releases = [];
-  const rlserror = { code: '42501', message: 'new row violates row-level security policy for table "inventory"' };
+  const rlserror = { code: '42501', message: 'new row violates row-level security policy for table "stock"' };
   return {
     queries, releases,
     async connect() {
@@ -46,12 +46,12 @@ function recordingPool(options = {}) {
             }
             return { rows: options.membershipMissing ? [] : [{ id: fixture.partnerMembershipId }] };
           }
-          if (sql === 'SELECT id,is_active FROM drugstores WHERE id = $1') {
+          if (sql === 'SELECT id,is_active FROM pharmacies WHERE id = $1') {
             return { rows: options.foreignStoreMissing ? [] : [
               { id: fixture.otherStoreId, is_active: options.foreignStoreInactive ? 0 : 1 },
             ] };
           }
-          if (sql.startsWith('INSERT INTO inventory')) {
+          if (sql.startsWith('INSERT INTO stock')) {
             if (options.insertError &&
                 (options.insertError.role === role || !options.insertError.role) &&
                 (options.insertError.storeId === undefined || options.insertError.storeId === params[0])) {
@@ -62,7 +62,7 @@ function recordingPool(options = {}) {
                 return { rowCount: 0, rows: [] };
               }
               return { rowCount: 1, rows: [{
-                id: 77, drugstore_id: params[0],
+                id: 77, pharmacy_id: params[0],
                 medicine_id: fixture.priceProbeMedicineId, price_centavos: options.adminPrice ?? 1000,
               }] };
             }
@@ -83,7 +83,7 @@ function recordingPool(options = {}) {
 test('NP-038 own/foreign admin INSERTs succeed and roll back; member INSERTs must receive inventory RLS denials', async () => {
   const pool = recordingPool();
   await assertPartnerInventoryInsertDenied({ pool, fixture });
-  const inserts = pool.queries.filter(({ sql }) => sql.startsWith('INSERT INTO inventory'));
+  const inserts = pool.queries.filter(({ sql }) => sql.startsWith('INSERT INTO stock'));
   assert.equal(inserts.length, 4);
   assert.deepEqual(inserts.map(({ params }) => params), [
     [fixture.storeId, fixture.priceProbeMedicineId, 1000],
@@ -130,7 +130,7 @@ test('NP-038 foreign admin insert must be effective; no partner foreign insert a
 
 test('NP-038 foreign insert does not accept wrong-table RLS denial or ordinary permission error', async () => {
   for (const [code, message] of [
-    ['42501', 'permission denied for table inventory'],
+    ['42501', 'permission denied for table stock'],
     ['42501', 'new row violates row-level security policy for table "medicines"'],
     ['23505', 'duplicate key violates unique constraint'],
   ]) {
@@ -143,8 +143,8 @@ test('NP-038 foreign insert does not accept wrong-table RLS denial or ordinary p
 test('NP-038 rejects unrelated SQL errors, including missing privilege and duplicate inventory key', async () => {
   for (const [code, message] of [
     ['23505', 'duplicate key value violates unique constraint inventory_store_medicine_unique'],
-    ['23503', 'insert or update on table inventory violates foreign key constraint'],
-    ['42501', 'permission denied for table inventory'],
+    ['23503', 'insert or update on table stock violates foreign key constraint'],
+    ['42501', 'permission denied for table stock'],
     ['42501', 'new row violates row-level security policy for table medicines'],
     ['42601', 'syntax error'],
   ]) {
@@ -158,11 +158,11 @@ test('NP-038 positive control rejects absent admin, unavailable published medici
   for (const options of [
     { adminMissing: true }, { adminRole: 'customer' }, { medicineMissing: true },
     { medicineStatus: 'draft' }, { adminIneffective: true }, { adminPrice: 1 },
-    { insertError: { role: 'admin', code: '42501', message: 'permission denied for table inventory' } },
+    { insertError: { role: 'admin', code: '42501', message: 'permission denied for table stock' } },
   ]) {
     const pool = recordingPool(options);
     await assert.rejects(assertPartnerInventoryInsertDenied({ pool, fixture }), /NP-038/);
-    assert.equal(pool.queries.some(({ sql, params }) => sql.startsWith('INSERT INTO inventory') && params[2] === 1), false);
+    assert.equal(pool.queries.some(({ sql, params }) => sql.startsWith('INSERT INTO stock') && params[2] === 1), false);
     assert.deepEqual(pool.releases, [false]);
   }
 });
@@ -217,7 +217,7 @@ test('NP-038 new medicine is committed only as fixture and cleaned by recorded I
   assert.ok(priceProbeDelete);
   const ownMedDelete = calls.findIndex(({ sql, params }) => sql === 'DELETE FROM medicines WHERE id=$1' && params[0] === fixture.medicineId);
   assert.ok(calls.indexOf(priceProbeDelete) > ownMedDelete);
-  const inventoryLast = calls.map(({ sql }) => sql).lastIndexOf('DELETE FROM inventory WHERE id=$1');
+  const inventoryLast = calls.map(({ sql }) => sql).lastIndexOf('DELETE FROM stock WHERE id=$1');
   assert.ok(calls.indexOf(priceProbeDelete) > inventoryLast);
 });
 

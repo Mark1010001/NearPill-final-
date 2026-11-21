@@ -10,7 +10,6 @@ const requiredMethods = [
   'updateSubscription',
   'replaceEntitlements',
   'listEntitlementsForDrugstore',
-  'appendBillingEvent',
   'appendAudit',
   'findOrderPaymentForActor',
   'findPaymentForActor',

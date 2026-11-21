@@ -123,12 +123,12 @@ export function StaffAccountsPage() {
   const stores = (pharmacies.data || []).filter((store) => store.status !== 'inactive');
   const rows = members.data || [];
   return <>
-    <PageTitle title="Partner pharmacy accounts" subtitle="Each partner pharmacy's account number and when its partnership with NearPill expires. Choose who can work for each pharmacy below. Each person needs an existing pharmacy partner account." />
+    <PageTitle title="Partner pharmacy accounts" subtitle="Each partner pharmacy's ID and when its partnership with NearPill expires. Choose who can work for each pharmacy below. Each person needs an existing pharmacy partner account." />
     <section className="card"><h2>Partnership expiry</h2>
       <p className="muted">Counted from the day the pharmacy joined NearPill: Basic 3 months, Plus 6 months, Pro 1 year.</p>
-      <DataTable label="Partnership expiry" headers={['Account No.', 'Pharmacy', 'Plan', 'Partner since', 'Expires', 'Partnership']}
-        sortKeys={stores.map((store) => [store.accountNo ?? 0, store.name, store.subscriptionTier ?? '', store.partnershipStartedAt ?? '', store.partnershipExpiresAt ?? '', partnershipState(store.partnershipExpiresAt).label])}
-        rows={stores.map((store) => [String(store.store_id ?? store.id), store.accountNo ?? '—', store.name, store.subscriptionTier ?? 'No plan',
+      <DataTable label="Partnership expiry" headers={['ID', 'Pharmacy', 'Plan', 'Partner since', 'Expires', 'Partnership']}
+        sortKeys={stores.map((store) => [Number(store.store_id ?? store.id), store.name, store.subscriptionTier ?? '', store.partnershipStartedAt ?? '', store.partnershipExpiresAt ?? '', partnershipState(store.partnershipExpiresAt).label])}
+        rows={stores.map((store) => [String(store.store_id ?? store.id), String(store.store_id ?? store.id), store.name, store.subscriptionTier ?? 'No plan',
           displayDate(store.partnershipStartedAt ?? null), displayDate(store.partnershipExpiresAt ?? null),
           <Status value={partnershipState(store.partnershipExpiresAt).value} label={partnershipState(store.partnershipExpiresAt).label} />])}
         empty="No partner pharmacies yet." />
@@ -166,7 +166,7 @@ export function StaffAccountsPage() {
           : members.error ? <ErrorState error={members.error} retry={() => void members.refetch()} />
           : <DataTable label="Staff accounts" headers={['Name', 'Email', 'Role', 'Access', 'Actions']}
             sortKeys={rows.map((item) => [item.name, item.email, item.membershipRole, item.isActive ? 'Active' : 'Removed', ''])}
-            rows={rows.map((item) => [item.userId, <>{item.name}<small>Account ID {stores.find((store) => Number(store.store_id ?? store.id) === selected)?.accountNo ?? '—'}</small></>, item.email,
+            rows={rows.map((item) => [item.userId, <>{item.name}<small>Pharmacy ID {selected}</small></>, item.email,
               roleLabels[item.membershipRole] ?? item.membershipRole, <Status value={item.isActive ? 'active' : 'inactive'} label={item.isActive ? 'Active' : 'Removed'} />,
               item.isActive ? <div className="stack-actions"><button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: selected, userId: item.userId })}>Email login details</button></div> : '—'])}
             empty="No staff accounts for this pharmacy yet." />)}
@@ -227,7 +227,7 @@ export function StockSubmissionsPage() {
     {items.map((item) => <section className="card" key={item.id} aria-label={`Submission ${item.id} from ${item.drugstoreName}`}>
       <div className="card-heading"><div>
         <h2>{item.drugstoreName}</h2>
-        <p className="section-hint">Account No. {item.accountNo ?? '—'} · {item.source === 'csv' ? (item.fileName || 'CSV file') : 'Single medicine'} · {item.rowCount} {item.rowCount === 1 ? 'row' : 'rows'} · sent {showDateTime(item.createdAt)}</p>
+        <p className="section-hint">Pharmacy ID {item.drugstoreId} · {item.source === 'csv' ? (item.fileName || 'CSV file') : 'Single medicine'} · {item.rowCount} {item.rowCount === 1 ? 'row' : 'rows'} · sent {showDateTime(item.createdAt)}</p>
       </div><Status value={item.status} /></div>
       <DataTable label={`Rows of submission ${item.id}`} headers={['Catalog ID', 'Medicine', 'Generic', 'Form', 'Category', 'Unit', 'Price', 'Stock', 'Result']} pageSize={10}
         rows={(item.rows ?? []).map((row) => [row.line, row.catalogId ?? 'New', row.name, row.genericName ?? '—', row.form, row.category, row.sellingUnit, currency.format(Number(row.price)), row.stock,

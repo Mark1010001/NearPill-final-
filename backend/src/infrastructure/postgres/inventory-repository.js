@@ -9,16 +9,16 @@ function createTransactionRepository(connection) {
       // Any catalog item may be listed. Only a draft non-prescription/non-medicine item that is not already
       // eligible for standard checkout gets the pharmacy sale confirmation; prescription items get none.
       const [result] = await connection.query(
-        `INSERT INTO inventory (drugstore_id, medicine_id, stock_on_hand, price_centavos, availability, selling_unit, package_size, pharmacy_sale_confirmation)
+        `INSERT INTO stock (pharmacy_id, medicine_id, stock_on_hand, price_centavos, availability, selling_unit, package_size, pharmacy_sale_confirmation)
          SELECT d.id, m.id, ?, ?, 1, ?, ?,
            CASE WHEN (${eligibleForStandardCheckout}) THEN NULL
              WHEN (${pharmacyCanConfirmSale}) AND NOT m.otc_eligible
                THEN jsonb_build_object('product', ${productIdentity}, 'actorId', ?::integer, 'confirmedAt', CURRENT_TIMESTAMP)
              ELSE NULL END
-         FROM drugstores d CROSS JOIN medicines m
+         FROM pharmacies d CROSS JOIN medicines m
          WHERE d.id = ? AND m.id = ? AND d.is_active = 1 AND d.verification_status = 'verified'
            AND d.public_profile_published_at IS NOT NULL
-         ON CONFLICT (drugstore_id, medicine_id) DO NOTHING`,
+         ON CONFLICT (pharmacy_id, medicine_id) DO NOTHING`,
         [stock, priceCentavos, sellingUnit, packageSize, actorId, drugstoreId, medicineId]);
       return Number(result.insertId) || null;
     },
@@ -30,11 +30,11 @@ function createTransactionRepository(connection) {
     },
     async addNewProductListing(drugstoreId, medicineId, stock, priceCentavos, sellingUnit, packageSize, actorId) {
       const [result] = await connection.query(
-        `INSERT INTO inventory (drugstore_id, medicine_id, stock_on_hand, price_centavos, availability, selling_unit, package_size, pharmacy_sale_confirmation)
+        `INSERT INTO stock (pharmacy_id, medicine_id, stock_on_hand, price_centavos, availability, selling_unit, package_size, pharmacy_sale_confirmation)
          SELECT d.id, m.id, ?, ?, 1, ?, ?,
            CASE WHEN m.category = 'Prescription' THEN NULL
              ELSE jsonb_build_object('product', ${productIdentity}, 'actorId', ?::integer, 'confirmedAt', CURRENT_TIMESTAMP) END
-         FROM drugstores d CROSS JOIN medicines m
+         FROM pharmacies d CROSS JOIN medicines m
          WHERE d.id = ? AND m.id = ? AND m.publication_status = 'draft' AND d.is_active = 1 AND d.verification_status = 'verified'
            AND d.public_profile_published_at IS NOT NULL`,
         [stock, priceCentavos, sellingUnit, packageSize, actorId, drugstoreId, medicineId]);
@@ -44,14 +44,14 @@ function createTransactionRepository(connection) {
       // Admin approval may list stock for a verified pharmacy that is not live yet, so (unlike partner intake) this
       // does not require the public profile to be published. Going live is a separate, checklist-gated step.
       const [result] = await connection.query(
-        `INSERT INTO inventory (drugstore_id, medicine_id, stock_on_hand, price_centavos, availability, selling_unit, pharmacy_sale_confirmation)
+        `INSERT INTO stock (pharmacy_id, medicine_id, stock_on_hand, price_centavos, availability, selling_unit, pharmacy_sale_confirmation)
          SELECT d.id, m.id, ?, ?, ?, ?,
            CASE WHEN (${eligibleForStandardCheckout}) THEN NULL
              WHEN lower(btrim(coalesce(m.category, ''))) IN ('prescription', 'prescriptions', 'prescription (source list)') THEN NULL
              WHEN (${pharmacyCanConfirmSale}) AND NOT m.otc_eligible
                THEN jsonb_build_object('product', ${productIdentity}, 'actorId', ?::integer, 'confirmedAt', CURRENT_TIMESTAMP)
              ELSE NULL END
-         FROM drugstores d CROSS JOIN medicines m
+         FROM pharmacies d CROSS JOIN medicines m
          WHERE d.id = ? AND m.id = ? AND d.is_active = 1 AND d.verification_status = 'verified'`,
         [stock, priceCentavos, stock > 0 ? 1 : 0, sellingUnit, actorId, drugstoreId, medicineId]);
       return Number(result.insertId) || null;
@@ -59,7 +59,7 @@ function createTransactionRepository(connection) {
     async recordApprovedSubmission({ drugstoreId, userId, source, fileName, rows, note }) {
       // A file that passed the template check is applied at once; this keeps the history of what was uploaded.
       const [result] = await connection.query(
-        `INSERT INTO stock_submissions (drugstore_id, submitted_by, source, status, file_name, rows, row_count, review_note, reviewed_at)
+        `INSERT INTO stock_submissions (pharmacy_id, submitted_by, source, status, file_name, rows, row_count, review_note, reviewed_at)
          VALUES (?, ?, ?, 'approved', ?, ?::jsonb, ?, ?, CURRENT_TIMESTAMP)`,
         [drugstoreId, userId, source, fileName, JSON.stringify(rows), rows.length, note]);
       return Number(result.insertId) || null;
@@ -69,26 +69,26 @@ function createTransactionRepository(connection) {
         `SELECT id, stock_on_hand AS stockOnHand, reserved_quantity AS reservedQuantity, price_centavos AS priceCentavos, availability,
                 selling_unit AS sellingUnit, package_size AS packageSize,
                 expiry_date::text AS "expiryDate", low_stock_threshold AS "lowStockThreshold"
-         FROM inventory WHERE drugstore_id = ? AND medicine_id = ? LIMIT 1 FOR UPDATE`,
+         FROM stock WHERE pharmacy_id = ? AND medicine_id = ? LIMIT 1 FOR UPDATE`,
         [drugstoreId, medicineId],
       );
       return rows[0] ?? null;
     },
     async updateInventoryStock(drugstoreId, medicineId, stockOnHand, availability) {
-      await connection.query(`UPDATE inventory SET stock_on_hand = ?, availability = ? WHERE drugstore_id = ? AND medicine_id = ?`, [stockOnHand, availability, drugstoreId, medicineId]);
+      await connection.query(`UPDATE stock SET stock_on_hand = ?, availability = ? WHERE pharmacy_id = ? AND medicine_id = ?`, [stockOnHand, availability, drugstoreId, medicineId]);
     },
     async updateInventoryTracking(inventoryId, expiryDate, lowStockThreshold) {
-      await connection.query(`UPDATE inventory SET expiry_date = ?, low_stock_threshold = ? WHERE id = ?`, [expiryDate, lowStockThreshold, inventoryId]);
+      await connection.query(`UPDATE stock SET expiry_date = ?, low_stock_threshold = ? WHERE id = ?`, [expiryDate, lowStockThreshold, inventoryId]);
     },
     async updateInventoryUnits(inventoryId, sellingUnit, packageSize) {
-      await connection.query(`UPDATE inventory SET selling_unit = ?, package_size = ? WHERE id = ?`, [sellingUnit, packageSize, inventoryId]);
+      await connection.query(`UPDATE stock SET selling_unit = ?, package_size = ? WHERE id = ?`, [sellingUnit, packageSize, inventoryId]);
     },
     async confirmPharmacySale(inventoryId, actorId, product) {
       const [result] = await connection.query(
-        `UPDATE inventory i SET pharmacy_sale_confirmation = jsonb_build_object(
+        `UPDATE stock i SET pharmacy_sale_confirmation = jsonb_build_object(
            'product', ${productIdentity}, 'actorId', ?::integer, 'confirmedAt', CURRENT_TIMESTAMP)
-         FROM medicines m, drugstores ds
-         WHERE i.id = ? AND m.id = i.medicine_id AND ds.id = i.drugstore_id
+         FROM medicines m, pharmacies ds
+         WHERE i.id = ? AND m.id = i.medicine_id AND ds.id = i.pharmacy_id
            AND ds.is_active = 1 AND ds.verification_status = 'verified' AND ds.public_profile_published_at IS NOT NULL
            AND ${pharmacyCanConfirmSale}
            AND ${productIdentity} = ?::jsonb
@@ -99,17 +99,17 @@ function createTransactionRepository(connection) {
     },
     async findInventoryByIdForUpdate(inventoryId) {
       const [rows] = await connection.query(
-        `SELECT id, drugstore_id, medicine_id, price_centavos AS priceCentavos, selling_unit AS sellingUnit,
+        `SELECT id, pharmacy_id, medicine_id, price_centavos AS priceCentavos, selling_unit AS sellingUnit,
                 stock_on_hand AS stockOnHand, reserved_quantity AS reservedQuantity, availability
-         FROM inventory WHERE id = ? LIMIT 1 FOR UPDATE`, [inventoryId]);
+         FROM stock WHERE id = ? LIMIT 1 FOR UPDATE`, [inventoryId]);
       return rows[0] ?? null;
     },
     async updateInventoryPrice(inventoryId, priceCentavos) {
-      await connection.query(`UPDATE inventory SET price_centavos = ? WHERE id = ?`, [priceCentavos, inventoryId]);
+      await connection.query(`UPDATE stock SET price_centavos = ? WHERE id = ?`, [priceCentavos, inventoryId]);
     },
     async appendStockMovement({ inventoryId, actorId, countDelta, reason }) {
       await connection.query(
-        `INSERT INTO stock_movements (inventory_id, actor_id, movement_type, stock_on_hand_delta, reserved_delta, reason)
+        `INSERT INTO stock_movements (stock_id, actor_id, movement_type, stock_change, held_change, reason)
          VALUES (?, ?, 'adjustment', ?, 0, ?)`, [inventoryId, Number(actorId), countDelta, reason]);
     },
     async appendAudit(userId, action, description) {
@@ -149,7 +149,7 @@ export function createPostgresInventoryRepository(postgresPool) {
     async updateInventoryPrice() { throw new Error('updateInventoryPrice() is transaction-scoped.'); },
     async appendAudit() { throw new Error('appendAudit() is transaction-scoped.'); },
     async findDrugstoreName(drugstoreId) {
-      const [rows] = await submitPool.query(`SELECT name FROM drugstores WHERE id = ? AND is_active = 1 AND verification_status = 'verified' LIMIT 1`, [drugstoreId]);
+      const [rows] = await submitPool.query(`SELECT name FROM pharmacies WHERE id = ? AND is_active = 1 AND verification_status = 'verified' LIMIT 1`, [drugstoreId]);
       return rows[0]?.name ?? null;
     },
     async findCatalogMatches({ ids, names }) {
@@ -162,12 +162,12 @@ export function createPostgresInventoryRepository(postgresPool) {
       return rows;
     },
     async listStockSubmissions({ drugstoreId = null, status = null, withRows = false } = {}) {
-      let sql = `SELECT s.id, s.drugstore_id AS "drugstoreId", d.name AS "drugstoreName", d.account_no AS "accountNo", s.source, s.status,
+      let sql = `SELECT s.id, s.pharmacy_id AS "drugstoreId", d.name AS "drugstoreName", s.source, s.status,
                         s.file_name AS "fileName", s.row_count AS "rowCount", s.review_note AS "reviewNote",
                         s.created_at AS "createdAt", s.reviewed_at AS "reviewedAt"${withRows ? ', s.rows' : ''}
-                 FROM stock_submissions s JOIN drugstores d ON d.id = s.drugstore_id WHERE 1 = 1`;
+                 FROM stock_submissions s JOIN pharmacies d ON d.id = s.pharmacy_id WHERE 1 = 1`;
       const params = [];
-      if (drugstoreId) { sql += ' AND s.drugstore_id = ?'; params.push(drugstoreId); }
+      if (drugstoreId) { sql += ' AND s.pharmacy_id = ?'; params.push(drugstoreId); }
       if (status) { sql += ' AND s.status = ?'; params.push(status); }
       sql += ' ORDER BY s.created_at DESC, s.id DESC LIMIT 200';
       const [rows] = await pool.query(sql, params);
@@ -178,9 +178,9 @@ export function createPostgresInventoryRepository(postgresPool) {
       // plus a flag for the ones this pharmacy already sells ("alreadyStocked").
       const [rows] = await browsingPool.query(
         `SELECT m.id, m.brand_name AS brandName, m.generic_name AS genericName, m.dosage_form AS dosageForm, m.category,
-                EXISTS (SELECT 1 FROM inventory i WHERE i.medicine_id = m.id AND i.drugstore_id = ?) AS "alreadyStocked"
+                EXISTS (SELECT 1 FROM stock i WHERE i.medicine_id = m.id AND i.pharmacy_id = ?) AS "alreadyStocked"
          FROM medicines m
-         WHERE EXISTS (SELECT 1 FROM inventory s WHERE s.medicine_id = m.id)
+         WHERE EXISTS (SELECT 1 FROM stock s WHERE s.medicine_id = m.id)
          ORDER BY m.brand_name, m.id`, [drugstoreId]);
       return rows;
     },
@@ -188,7 +188,7 @@ export function createPostgresInventoryRepository(postgresPool) {
       if (includeDrafts && (!Number.isInteger(drugstoreId) || drugstoreId <= 0)) {
         throw new Error('Partner inventory browsing requires a pharmacy ID.');
       }
-      let sql = `SELECT i.id AS inventoryId, i.drugstore_id AS drugstoreId, i.medicine_id AS medicineId,
+      let sql = `SELECT i.id AS inventoryId, i.pharmacy_id AS drugstoreId, i.medicine_id AS medicineId,
                         i.price_centavos AS priceCentavos, i.stock_on_hand AS stockOnHand,
                         i.selling_unit AS sellingUnit, i.package_size AS packageSize,
                         i.reserved_quantity AS reservedQuantity,
@@ -205,10 +205,10 @@ export function createPostgresInventoryRepository(postgresPool) {
                           WHEN i.availability <> 1 THEN 'unavailable'
                           ELSE 'orderable'
                         END AS orderingState
-                 FROM inventory i JOIN drugstores ds ON ds.id = i.drugstore_id JOIN medicines m ON m.id = i.medicine_id
+                 FROM stock i JOIN pharmacies ds ON ds.id = i.pharmacy_id JOIN medicines m ON m.id = i.medicine_id
                  WHERE 1 = 1`;
       const params = [];
-      if (drugstoreId !== null) { sql += ` AND i.drugstore_id = ?`; params.push(drugstoreId); }
+      if (drugstoreId !== null) { sql += ` AND i.pharmacy_id = ?`; params.push(drugstoreId); }
       if (includeDrafts) sql += ` AND m.publication_status IN ('draft', 'published')`;
       sql += ` ORDER BY ds.name ASC, m.brand_name ASC`;
       // The medicine join needs catalogue read access; the service has already checked pharmacy membership.

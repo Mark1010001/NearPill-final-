@@ -9,10 +9,10 @@ try {
   await show('orders by status', `SELECT status, COUNT(*) n, MIN(created_at)::date first_day, MAX(created_at)::date last_day FROM orders GROUP BY status ORDER BY n DESC`);
   await show('pharmacies: id, name, active, orders linked, items linked', `
     SELECT d.id, d.name, d.is_active, COUNT(DISTINCT od.order_id) orders, COUNT(oi.id) items
-    FROM drugstores d LEFT JOIN order_drugstores od ON od.drugstore_id = d.id LEFT JOIN order_items oi ON oi.order_drugstore_id = od.id
+    FROM pharmacies d LEFT JOIN order_pharmacies od ON od.pharmacy_id = d.id LEFT JOIN order_items oi ON oi.order_pharmacy_id = od.id
     GROUP BY d.id, d.name, d.is_active ORDER BY orders DESC`);
   await show('orders per pharmacy and status', `
-    SELECT d.name, o.status, COUNT(DISTINCT o.id) n FROM order_drugstores od JOIN drugstores d ON d.id = od.drugstore_id JOIN orders o ON o.id = od.order_id
+    SELECT d.name, o.status, COUNT(DISTINCT o.id) n FROM order_pharmacies od JOIN pharmacies d ON d.id = od.pharmacy_id JOIN orders o ON o.id = od.order_id
     GROUP BY d.name, o.status ORDER BY d.name, n DESC`);
   await show('order_items whose medicine row is missing', `SELECT COUNT(*) n FROM order_items oi LEFT JOIN medicines m ON m.id = oi.medicine_id WHERE m.id IS NULL`);
   await show('orders by day (UTC vs Manila), last 20 days', `

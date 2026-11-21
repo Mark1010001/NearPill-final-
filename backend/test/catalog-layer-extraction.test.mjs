@@ -123,23 +123,18 @@ test('pharmacy publication requires administrator-reviewed verification evidence
   assert.ok(audits.some((entry) => entry.action === 'VERIFY_DRUGSTORE'));
 });
 
-test('medicine publication is draft-by-default and requires approved evidence', async () => {
-  let approvedEvidence = 0;
+test('medicine publication is draft-by-default and requires an OTC eligibility decision', async () => {
   let otcEligible = false;
   let publication = 'draft';
   const repository = fakeCatalogRepository({
     async createMedicine() { return 9; },
     async findMasterMedicineById(id) { return id === 9 ? { id: 9, brand_name: 'Paracetamol', publication_status: publication, otc_eligible: otcEligible } : null; },
-    async countApprovedMedicineEvidence() { return approvedEvidence; },
-    async addMedicineEvidence() { approvedEvidence += 1; return 44; },
     async updateMedicinePublication(_id, status) { publication = status; return 1; },
   });
   const service = createCatalogService({ repository });
   const created = await service.createMedicine(1, { brandName: 'Paracetamol', dosageForm: 'Tablet', category: 'Pain Relief' });
   assert.equal(created.status, 201);
   assert.equal(created.body.publicationStatus, 'draft');
-  assert.equal((await service.setMedicinePublication(1, 9, { status: 'published' })).status, 409);
-  assert.equal((await service.addMedicineEvidence(1, 9, { sourceName: 'Reviewed source', sourceUrl: 'https://example.test/source', status: 'approved' })).status, 201);
   assert.equal((await service.setMedicinePublication(1, 9, { status: 'published' })).status, 409);
   otcEligible = true;
   assert.equal((await service.setMedicinePublication(1, 9, { status: 'published' })).status, 200);
@@ -178,8 +173,6 @@ test('Postgres catalog adapter filters public truth and uses indexed text/geo se
   assert.match(repositorySource, /similarity\(/);
   assert.match(repositorySource, /nearpill_extensions\.earth_box/);
   assert.match(repositorySource, /nearpill_extensions\.earth_distance/);
-  assert.match(repositorySource, /listMedicineEvidence/);
-  assert.match(repositorySource, /status = 'approved'/);
 });
 
 test('catalog browsing validates a complete GPS pair and preserves the available default', async () => {
@@ -219,7 +212,7 @@ test('catalog SQL separates discoverability from ordering and binds GPS before p
   };
   const repository = createPostgresCatalogRepository({ query: client.query, async connect() { return client; } });
   await repository.searchAvailableMedicines({ includeCatalog: true, latitude: 10.3157, longitude: 123.8854, limit: 50, offset: 100 });
-  const browse = calls.find(call => call.sql.includes('FROM inventory i'));
+  const browse = calls.find(call => call.sql.includes('FROM stock i'));
   assert.match(browse.sql, /publication_status IN \('draft', 'published'\)/);
   assert.match(browse.sql, /m\.publication_status = 'published' AND m\.otc_eligible/);
   assert.match(browse.sql, /AS canOrder/);
@@ -229,20 +222,20 @@ test('catalog SQL separates discoverability from ordering and binds GPS before p
   assert.equal(calls.find(call => call.sql.includes("set_config('app.capability'")).params[2], 'catalog_browse');
   calls.length = 0;
   await repository.searchAvailableMedicines();
-  const available = calls.find(call => call.sql.includes('FROM inventory i'));
+  const available = calls.find(call => call.sql.includes('FROM stock i'));
   assert.doesNotMatch(available.sql, /publication_status IN \('draft', 'published'\)/);
   const saleableStockFilter = `AND ${listingEligibleForCheckout} AND i.availability = 1 AND i.stock_on_hand - i.reserved_quantity > 0`;
-  assert.ok(available.sql.split('FROM inventory i')[1].includes(saleableStockFilter));
+  assert.ok(available.sql.split('FROM stock i')[1].includes(saleableStockFilter));
   assert.equal(calls.find(call => call.sql.includes("set_config('app.capability'")).params[2], 'catalog_browse');
   calls.length = 0;
   await repository.listStoreInventory(25, { includeCatalog: true });
-  const storeBrowse = calls.find(call => call.sql.includes('FROM inventory i'));
+  const storeBrowse = calls.find(call => call.sql.includes('FROM stock i'));
   assert.match(storeBrowse.sql, /publication_status IN \('draft', 'published'\)/);
   assert.match(storeBrowse.sql, /AS canOrder/);
   assert.deepEqual(storeBrowse.params, [25]);
   calls.length = 0;
   await repository.listStoreInventory(25);
-  const storeAvailable = calls.find(call => call.sql.includes('FROM inventory i'));
+  const storeAvailable = calls.find(call => call.sql.includes('FROM stock i'));
   assert.doesNotMatch(storeAvailable.sql, /publication_status IN \('draft', 'published'\)/);
-  assert.ok(storeAvailable.sql.split('FROM inventory i')[1].includes(saleableStockFilter));
+  assert.ok(storeAvailable.sql.split('FROM stock i')[1].includes(saleableStockFilter));
 });

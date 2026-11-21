@@ -47,8 +47,6 @@ test('Packet 0 R04: inventory and discovery claims do not overstate OTC eligibil
   ]);
   assert.match(migration, /DROP COLUMN IF EXISTS rx_required/i,
     'the approved historical migration removes the legacy restricted-medicine flag');
-  assert.match(catalog, /countApprovedMedicineEvidence\(medicineId\)/,
-    'publication still requires approved evidence');
   assert.match(catalog, /medicine\.otc_eligible !== true/);
   assert.match(eligibility, /publication_status <> 'published' OR otc_eligible/);
   assert.match(catalog, /updateMedicinePublication\(medicineId, status\)/);

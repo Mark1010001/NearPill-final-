@@ -89,7 +89,7 @@ test('read-only reconciliation includes unresolved provider incidents and proces
   const requiredChecks = [
     [
       'unresolved payment reconciliation cases',
-      "SELECT COUNT(*)::int AS count FROM payment_reconciliation WHERE status = 'open'",
+      "SELECT COUNT(*)::int AS count FROM payment_issues WHERE status = 'open'",
     ],
     [
       'provider events requiring reconciliation',
@@ -120,11 +120,11 @@ test('payment reconciliation incidents cannot attribute a linked payment to anot
   ]);
   assert.match(migration, /payment_id INTEGER REFERENCES payments\(id\) ON DELETE CASCADE/);
   assert.match(migration, /CREATE TABLE IF NOT EXISTS payment_reconciliation/);
-  assert.match(repository, /INSERT INTO payment_reconciliation \(payment_id, provider, event_id, reason, details, status\)/);
+  assert.match(repository, /INSERT INTO payment_issues \(payment_id, provider, event_id, reason, details, status\)/);
   const label = 'payment reconciliation incidents linked to a different provider';
   assert.ok(script.includes(`['${label}',`), 'linked provider mismatch must block read-only acceptance');
-  assert.match(script, /FROM payment_reconciliation pr\s+JOIN payments p ON p\.id = pr\.payment_id\s+WHERE pr\.provider IS DISTINCT FROM p\.provider/);
-  assert.doesNotMatch(script, /FROM payment_reconciliation pr\s+LEFT JOIN payments p/,
+  assert.match(script, /FROM payment_issues pr\s+JOIN payments p ON p\.id = pr\.payment_id\s+WHERE pr\.provider IS DISTINCT FROM p\.provider/);
+  assert.doesNotMatch(script, /FROM payment_issues pr\s+LEFT JOIN payments p/,
     'nullable unlinked incidents are legitimate and must not be mistaken for mismatches');
   assert.throws(() => assertZeroInvalidRows(label, { rows: [{ count: 1 }] }), /invalid row/);
   assert.throws(() => assertZeroInvalidRows(label, { rows: [] }), /inconclusive/);
@@ -145,7 +145,7 @@ test('read-only reconciliation compares active reservations to stock holds and t
 
   const required = [
     ['reserved stock does not match active reservation ledger',
-      /FROM inventory i\s+LEFT JOIN \(SELECT inventory_id, SUM\(quantity\) AS held_quantity\s+FROM reservations WHERE status = 'active' GROUP BY inventory_id\) active\s+ON active\.inventory_id = i\.id\s+WHERE i\.reserved_quantity <> COALESCE\(active\.held_quantity, 0\)/],
+      /FROM stock i\s+LEFT JOIN \(SELECT stock_id, SUM\(quantity\) AS held_quantity\s+FROM reservations WHERE status = 'active' GROUP BY stock_id\) active\s+ON active\.stock_id = i\.id\s+WHERE i\.reserved_quantity <> COALESCE\(active\.held_quantity, 0\)/],
     ['terminal orders with active reservations',
       /FROM reservations r JOIN orders o ON o\.id = r\.order_id\s+WHERE r\.status = 'active' AND o\.status IN \('cancelled','expired','completed'\)/],
     ['reservation lifecycle missing timestamps',
@@ -178,7 +178,7 @@ test('read-only reconciliation matches each reservation to its stock-movement jo
   const label = 'reservation stock movements differ from lifecycle ledger';
   assert.ok(script.includes(`['${label}',`), 'the existing reconciliation must cover reservation movement evidence');
   assert.match(script, /FROM reservations r\s+LEFT JOIN LATERAL \(/);
-  assert.match(script, /FROM stock_movements sm\s+WHERE sm\.order_id = r\.order_id\s+AND sm\.inventory_id = r\.inventory_id/);
+  assert.match(script, /FROM stock_movements sm\s+WHERE sm\.order_id = r\.order_id\s+AND sm\.stock_id = r\.stock_id/);
   assert.match(script, /movement_type = 'reserve'/);
   assert.match(script, /movement_type = 'release'/);
   assert.match(script, /movement_type = 'fulfill'/);
@@ -202,14 +202,14 @@ test('read-only reconciliation verifies order centavo snapshots and single-pharm
   ]);
   assert.match(schema, /orders_total_centavos_nonnegative/);
   assert.match(schema, /order_items_unit_price_centavos_nonnegative/);
-  assert.match(orderRepository, /INSERT INTO order_items \(order_drugstore_id, medicine_id, quantity, unit_price_centavos, selling_unit\)/);
+  assert.match(orderRepository, /INSERT INTO order_items \(order_pharmacy_id, medicine_id, quantity, unit_price_centavos, selling_unit\)/);
   assert.match(orderService, /totalCentavos \+= lineTotalCentavos/);
 
   const totalLabel = 'orders with inconsistent immutable line totals';
   assert.ok(script.includes(`['${totalLabel}',`), 'missing order total/line snapshot integrity check');
   assert.match(script, /SUM\(oi\.quantity::numeric \* oi\.unit_price_centavos::numeric\)/,
     'compute exact centavos with PostgreSQL numeric, not floating point or joined current catalog prices');
-  assert.match(script, /JOIN order_items oi ON oi\.order_drugstore_id = od\.id/);
+  assert.match(script, /JOIN order_items oi ON oi\.order_pharmacy_id = od\.id/);
   assert.match(script, /o\.total_centavos::numeric <> COALESCE\(items\.lines_centavos, 0\)/);
 
   const contentsLabel = 'orders without exactly one pharmacy and at least one item';
@@ -243,16 +243,16 @@ test('read-only reconciliation validates the pharmacy, medicine and quantity of 
   // inventory row. Neither independent foreign key proves tenant/catalog parity.
   assert.match(schema, /inventory_id INTEGER NOT NULL REFERENCES inventory\(id\)/);
   assert.match(schema, /order_id INTEGER NOT NULL REFERENCES orders\(id\)/);
-  assert.match(repository, /INSERT INTO order_items \(order_drugstore_id, medicine_id, quantity, unit_price_centavos, selling_unit\)/);
-  assert.match(repository, /INSERT INTO reservations \(order_id, inventory_id, quantity, status\)/);
+  assert.match(repository, /INSERT INTO order_items \(order_pharmacy_id, medicine_id, quantity, unit_price_centavos, selling_unit\)/);
+  assert.match(repository, /INSERT INTO reservations \(order_id, stock_id, quantity, status\)/);
   assert.match(service, /await transaction\.reserveInventory\(\{ orderId, inventoryId: item\.inventoryId, quantity: item\.quantity/);
 
   const label = 'reservations without exactly one matching pharmacy medicine order line';
   assert.ok(script.includes(`['${label}',`), 'missing tenant/catalog reservation linkage check');
-  assert.match(script, /FROM reservations r\s+JOIN inventory i ON i\.id = r\.inventory_id/);
-  assert.match(script, /FROM order_drugstores od\s+JOIN order_items oi ON oi\.order_drugstore_id = od\.id/);
+  assert.match(script, /FROM reservations r\s+JOIN stock i ON i\.id = r\.stock_id/);
+  assert.match(script, /FROM order_pharmacies od\s+JOIN order_items oi ON oi\.order_pharmacy_id = od\.id/);
   assert.match(script, /od\.order_id = r\.order_id/);
-  assert.match(script, /od\.drugstore_id = i\.drugstore_id/);
+  assert.match(script, /od\.pharmacy_id = i\.pharmacy_id/);
   assert.match(script, /oi\.medicine_id = i\.medicine_id/);
   assert.match(script, /oi\.quantity = r\.quantity/);
   assert.match(script, /\) <> 1`\]/);
@@ -283,7 +283,7 @@ test('read-only reconciliation detects reservation journal movements orphaned fr
     'historical journal rows cleared by ON DELETE SET NULL are not assumed corrupt');
   assert.match(script, /AND NOT EXISTS \(\s+SELECT 1 FROM reservations r/);
   assert.match(script, /r\.order_id = sm\.order_id/);
-  assert.match(script, /r\.inventory_id = sm\.inventory_id/);
+  assert.match(script, /r\.stock_id = sm\.stock_id/);
   assert.match(script, /withReadOnlyReconciliationSnapshot\(migratorPool, async \(client\) =>/);
   assert.throws(() => assertZeroInvalidRows(label, { rows: [{ count: 1 }] }), /invalid row/);
   assert.throws(() => assertZeroInvalidRows(label, { rows: [] }), /inconclusive/);
@@ -450,14 +450,11 @@ test('read-only reconciliation catches cross-pharmacy subscription entitlement a
   // passes both IDs independently; stale/corrupted joins must block acceptance.
   assert.match(migration, /subscription_id INTEGER NOT NULL REFERENCES subscriptions\(id\)/);
   assert.match(migration, /subscription_id INTEGER REFERENCES subscriptions\(id\) ON DELETE SET NULL/);
-  assert.match(repository, /INSERT INTO subscription_entitlements \(drugstore_id, subscription_id, entitlement_key\)/);
-  assert.match(repository, /INSERT INTO billing_events \(drugstore_id, subscription_id, actor_id, event_type, details\)/);
+  assert.match(repository, /INSERT INTO plan_features \(pharmacy_id, subscription_id, entitlement_key\)/);
 
   const required = [
     ['entitlements linked to another pharmacy subscription',
-      /FROM subscription_entitlements e\s+JOIN subscriptions s ON s\.id = e\.subscription_id\s+WHERE e\.drugstore_id IS DISTINCT FROM s\.drugstore_id/],
-    ['billing events linked to another pharmacy subscription',
-      /FROM billing_events b\s+JOIN subscriptions s ON s\.id = b\.subscription_id\s+WHERE b\.drugstore_id IS DISTINCT FROM s\.drugstore_id/],
+      /FROM plan_features e\s+JOIN subscriptions s ON s\.id = e\.subscription_id\s+WHERE e\.pharmacy_id IS DISTINCT FROM s\.pharmacy_id/],
   ];
   for (const [label, query] of required) {
     assert.ok(script.includes(`['${label}',`), `missing cross-pharmacy reconciliation: ${label}`);
@@ -480,13 +477,13 @@ test('read-only reconciliation rejects unrevoked premium grants whose subscripti
   ]);
   // The existing premium permission query trusts an unrevoked entitlement;
   // stale grants can therefore outlive subscription status or end date.
-  assert.match(repository, /FROM subscription_entitlements\s+WHERE drugstore_id = \? AND revoked_at IS NULL/);
+  assert.match(repository, /FROM plan_features\s+WHERE pharmacy_id = \? AND revoked_at IS NULL/);
   assert.match(migration, /WHERE s\.tier = 'Premium' AND s\.status = 'active'/);
   assert.match(migration, /s\.end_date IS NULL OR s\.end_date >= CURRENT_DATE/);
   const label = 'unrevoked premium entitlements from ineligible subscriptions';
   assert.ok(script.includes(`['${label}',`), 'stale premium grants must block staged acceptance');
   const query = script.slice(script.indexOf(`['${label}',`), script.indexOf("  ['active premium subscriptions without entitlement'"));
-  assert.match(query, /FROM subscription_entitlements e\s+JOIN subscriptions s ON s\.id = e\.subscription_id/);
+  assert.match(query, /FROM plan_features e\s+JOIN subscriptions s ON s\.id = e\.subscription_id/);
   assert.match(query, /e\.revoked_at IS NULL/);
   assert.match(query, /e\.entitlement_key = 'reports:view:premium'/);
   assert.match(query, /s\.tier NOT IN \('Plus', 'Pro'\)/);
@@ -514,7 +511,7 @@ test('eligible Premium subscriptions require an entitlement linked to that exact
   assert.ok(start >= 0, 'missing eligible Premium subscription check');
   const query = script.slice(start, script.indexOf('\n];', start));
   assert.match(query, /FROM subscriptions s/);
-  assert.match(query, /e\.drugstore_id = s\.drugstore_id/);
+  assert.match(query, /e\.pharmacy_id = s\.pharmacy_id/);
   assert.match(query, /e\.subscription_id = s\.id/,
     'entitlement must attest the exact eligible subscription, not another one in the pharmacy');
   assert.match(query, /e\.entitlement_key = 'reports:view:premium'/);
@@ -533,13 +530,13 @@ test('reconciliation incident event IDs resolve only within the same payment pro
   ]);
   assert.match(migration, /event_id VARCHAR\(200\)/);
   assert.match(migration, /CONSTRAINT payment_events_provider_event_unique UNIQUE\(provider, event_id\)/);
-  assert.match(repository, /INSERT INTO payment_reconciliation \(payment_id, provider, event_id, reason, details, status\)/);
+  assert.match(repository, /INSERT INTO payment_issues \(payment_id, provider, event_id, reason, details, status\)/);
   // Webhook event insertion precedes incident creation inside one transaction.
   assert.ok(service.indexOf('await transaction.insertProviderEvent(') < service.indexOf("reason: 'unmatched_provider_event'"));
 
   const label = 'reconciliation incidents with unknown or cross-provider event IDs';
   assert.ok(source.includes(`['${label}',`), 'reconciliation must verify incident event provenance');
-  assert.match(source, /FROM payment_reconciliation pr\s+WHERE pr\.event_id IS NOT NULL\s+AND NOT EXISTS \(/);
+  assert.match(source, /FROM payment_issues pr\s+WHERE pr\.event_id IS NOT NULL\s+AND NOT EXISTS \(/);
   assert.match(source, /FROM payment_events e\s+WHERE e\.provider = pr\.provider\s+AND e\.event_id = pr\.event_id/);
   // An incident without an event ID remains valid (manual provider checks).
   assert.match(source, /pr\.event_id IS NOT NULL/);
@@ -558,14 +555,14 @@ test('reconciliation incidents with an event and linked payment attest the same 
   ]);
   assert.match(migration, /payment_id INTEGER REFERENCES payments\(id\) ON DELETE CASCADE/);
   assert.match(migration, /provider_payment_id VARCHAR\(200\)/);
-  assert.match(repository, /INSERT INTO payment_reconciliation \(payment_id, provider, event_id, reason, details, status\)/);
+  assert.match(repository, /INSERT INTO payment_issues \(payment_id, provider, event_id, reason, details, status\)/);
   assert.match(service, /paymentId: Number\(payment\.id\), provider: providerId, eventId/);
 
   const label = 'reconciliation incident events attributed to another payment';
   const start = source.indexOf(`['${label}',`);
   assert.ok(start >= 0, 'an incident and its provider event must not identify different payments');
   const check = source.slice(start, source.indexOf('`]', start));
-  assert.match(check, /FROM payment_reconciliation pr\s+JOIN payments p ON p\.id = pr\.payment_id/,
+  assert.match(check, /FROM payment_issues pr\s+JOIN payments p ON p\.id = pr\.payment_id/,
     'manual incidents without a payment must remain valid');
   assert.match(check, /WHERE pr\.event_id IS NOT NULL/,
     'manual incidents without an event ID must remain valid');
@@ -682,7 +679,7 @@ test('live password reset challenges must identify the same email as their ownin
   const start = script.indexOf(`['${label}',`);
   assert.ok(start >= 0, 'live reconciliation must include password-reset account/email consistency');
   const check = script.slice(start, script.indexOf('`]', start));
-  assert.match(check, /FROM password_reset_challenges c\s+JOIN users u ON u\.id = c\.user_id/);
+  assert.match(check, /FROM reset_links c\s+JOIN users u ON u\.id = c\.user_id/);
   assert.match(check, /c\.consumed_at IS NULL/);
   assert.match(check, /c\.expires_at > CURRENT_TIMESTAMP/);
   assert.match(check, /lower\(btrim\(c\.email\)\) IS DISTINCT FROM lower\(btrim\(u\.email\)\)/,
@@ -700,12 +697,12 @@ test('unverified email codes cannot retain a redeemable challenge after the five
     readFile(new URL('../src/infrastructure/postgres/security-repository.js', import.meta.url), 'utf8'),
   ]);
   assert.match(migration, /attempt_count INTEGER NOT NULL DEFAULT 0 CHECK \(attempt_count >= 0\)/);
-  assert.match(repository, /if \(attempts >= 5\) await client\.query\(`DELETE FROM email_verification_challenges WHERE email = \$1`/);
+  assert.match(repository, /if \(attempts >= 5\) await client\.query\(`DELETE FROM email_codes WHERE email = \$1`/);
   const label = 'active unverified email challenges beyond attempt limit';
   const start = script.indexOf(`['${label}',`);
   assert.ok(start >= 0, 'staging reconciliation must detect five-attempt challenge records');
   const check = script.slice(start, script.indexOf('`]', start));
-  assert.match(check, /FROM email_verification_challenges/);
+  assert.match(check, /FROM email_codes/);
   assert.match(check, /verified_at IS NULL/);
   assert.match(check, /expires_at > CURRENT_TIMESTAMP/);
   assert.match(check, /attempt_count >= 5/);
@@ -805,7 +802,7 @@ test('Packet 0: reconciliation re-attests reviewed RLS policies on its own snaps
   // A narrowed migrator policy could hide tenant rows and yield a false PASS.
   for (const changed of [
     canonical.map((row) => row.roles[0] === 'nearpill_migrator'
-      ? { ...row, qual: '(drugstore_id = 1)' } : row),
+      ? { ...row, qual: '(pharmacy_id = 1)' } : row),
     canonical.map((row) => row.roles[0] === 'nearpill_migrator'
       ? { ...row, with_check: null } : row),
   ]) {

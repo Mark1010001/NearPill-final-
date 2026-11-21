@@ -21,7 +21,7 @@ export async function attemptFixtureInventoryReservation({ pool, inventoryId }) 
               set_config('app.capability', 'order_mutation', true)`,
     );
     const updated = await client.query(
-      `UPDATE inventory SET reserved_quantity = reserved_quantity + 1
+      `UPDATE stock SET reserved_quantity = reserved_quantity + 1
        WHERE id = $1 AND stock_on_hand - reserved_quantity >= 1
        RETURNING id`,
       [inventoryId],

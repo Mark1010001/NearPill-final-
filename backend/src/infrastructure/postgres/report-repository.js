@@ -22,7 +22,7 @@ export function createPostgresReportRepository(postgresPool) {
       `);
       const [[pharmacyRow]] = await pool.query(`
         SELECT COUNT(*) AS activePharmaciesCount
-        FROM drugstores
+        FROM pharmacies
         WHERE is_active = 1
       `);
       const [[orderRow]] = await pool.query(`SELECT COUNT(*) AS totalOrdersCount FROM orders`);
@@ -57,7 +57,7 @@ export function createPostgresReportRepository(postgresPool) {
     },
 
     async getSalesReportForDrugstore(drugstoreId, { startDate, endDate } = {}) {
-      const conditions = ['od.drugstore_id = ?'];
+      const conditions = ['od.pharmacy_id = ?'];
       const params = [drugstoreId];
       if (startDate) { conditions.push(`o.created_at >= (?::date)::timestamp AT TIME ZONE '${REPORT_TIME_ZONE}'`); params.push(startDate); }
       if (endDate) { conditions.push(`o.created_at < ((?::date) + 1)::timestamp AT TIME ZONE '${REPORT_TIME_ZONE}'`); params.push(endDate); }
@@ -65,8 +65,8 @@ export function createPostgresReportRepository(postgresPool) {
         `SELECT to_char(o.created_at AT TIME ZONE '${REPORT_TIME_ZONE}', 'YYYY-MM-DD') AS reportDate, COUNT(DISTINCT o.id) AS orderCount,
                 COALESCE(SUM(oi.unit_price_centavos * oi.quantity), 0) AS revenueCentavos
          FROM orders o
-         JOIN order_drugstores od ON od.order_id = o.id
-         JOIN order_items oi ON oi.order_drugstore_id = od.id
+         JOIN order_pharmacies od ON od.order_id = o.id
+         JOIN order_items oi ON oi.order_pharmacy_id = od.id
          WHERE ${conditions.join(' AND ')} AND o.status = 'completed'
          GROUP BY 1 ORDER BY reportDate ASC`, params);
       return rows;
@@ -82,7 +82,7 @@ export function createPostgresReportRepository(postgresPool) {
           COUNT(DISTINCT od.order_id) AS orderCount
         FROM order_items oi
         INNER JOIN medicines m ON m.id = oi.medicine_id
-        INNER JOIN order_drugstores od ON od.id = oi.order_drugstore_id
+        INNER JOIN order_pharmacies od ON od.id = oi.order_pharmacy_id
         INNER JOIN orders o ON o.id = od.order_id
         WHERE o.status IN ${PAID_ORDER_STATUSES}
         GROUP BY m.id, m.brand_name, m.generic_name
@@ -104,10 +104,10 @@ export function createPostgresReportRepository(postgresPool) {
           END), 0) AS revenue,
           SUM(CASE WHEN o.status IN ('cancelled', 'rejected') THEN 1 ELSE 0 END) AS cancelledCount,
           SUM(CASE WHEN o.status = 'expired' THEN 1 ELSE 0 END) AS expiredCount
-        FROM drugstores d
-        LEFT JOIN order_drugstores od ON od.drugstore_id = d.id
+        FROM pharmacies d
+        LEFT JOIN order_pharmacies od ON od.pharmacy_id = d.id
         LEFT JOIN orders o ON o.id = od.order_id
-        LEFT JOIN order_items oi ON oi.order_drugstore_id = od.id
+        LEFT JOIN order_items oi ON oi.order_pharmacy_id = od.id
         WHERE d.is_active = 1
         GROUP BY d.id, d.name
         ORDER BY revenue DESC

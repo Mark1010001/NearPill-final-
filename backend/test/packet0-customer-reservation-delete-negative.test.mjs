@@ -42,10 +42,10 @@ function recordingPool({ missingOwnedOrder = false, incorrectOwner = false, miss
             const user_id = incorrectOwner ? fixture.userA : Number(actor);
             return { rows: [{ id, user_id, status: 'reserved' }] };
           }
-          if (sql.startsWith('SELECT id,order_id,inventory_id,quantity,status FROM reservations')) {
+          if (sql.startsWith('SELECT id,order_id,stock_id,quantity,status FROM reservations')) {
             return { rows: missingReservation ? [] : [{ id: fixture.reservationId,
               order_id: wrongReservationOrder ? fixture.orderA : fixture.orderB,
-              inventory_id: fixture.reservationInventoryId, quantity: 1,
+              stock_id: fixture.reservationInventoryId, quantity: 1,
               status: inactiveReservation ? 'released' : 'active' }] };
           }
           if (sql.startsWith('SELECT id FROM reservations')) {

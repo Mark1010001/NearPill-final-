@@ -22,7 +22,7 @@ export function createPostgresRetentionRepository(postgresPool) {
       counts.paymentEvents = await removed(pool, 'DELETE FROM payment_events WHERE created_at < ?', [cutoff]);
       counts.paymentReconciliation = await removed(
         pool,
-        `DELETE FROM payment_reconciliation WHERE status <> 'open' AND created_at < ?`,
+        `DELETE FROM payment_issues WHERE status <> 'open' AND created_at < ?`,
         [cutoff],
       );
       counts.authSessions = await removed(
@@ -39,12 +39,12 @@ export function createPostgresRetentionRepository(postgresPool) {
       );
       counts.passwordResets = await removed(
         securityPool,
-        'DELETE FROM password_reset_challenges WHERE created_at < ? AND (consumed_at IS NOT NULL OR expires_at < ?)',
+        'DELETE FROM reset_links WHERE created_at < ? AND (consumed_at IS NOT NULL OR expires_at < ?)',
         [cutoff, cutoff],
       );
       counts.emailChallenges = await removed(
         securityPool,
-        'DELETE FROM email_verification_challenges WHERE expires_at < ?',
+        'DELETE FROM email_codes WHERE expires_at < ?',
         [cutoff],
       );
       counts.loginThrottles = await removed(

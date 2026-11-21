@@ -21,7 +21,7 @@ const expectedApi = new Set([
   'GET /admin/pharmacies/:id/memberships','POST /admin/pharmacies/:id/memberships','POST /admin/pharmacies/:id/partner-accounts','POST /admin/partner-accounts/check-email','DELETE /admin/pharmacies/:id','GET /admin/customers','DELETE /admin/customers/:id','POST /admin/pharmacies/:id/memberships/:userId/login-email','DELETE /admin/pharmacies/:id/memberships/:userId',
   'GET /medicines','GET /medicines/:id','GET /stores','GET /stores/nearby','GET /stores/:id','GET /stores/:id/inventory',
   'GET /admin/pharmacies','POST /admin/pharmacies','PUT /admin/pharmacies/:id','GET /admin/pharmacies/:id/go-live','PUT /admin/pharmacies/:id/go-live',
-  'GET /admin/medicines','POST /admin/medicines','PUT /admin/medicines/:id','GET /admin/medicines/:id/evidence','POST /admin/medicines/:id/evidence','PUT /admin/medicines/:id/publication',
+  'GET /admin/medicines','POST /admin/medicines','PUT /admin/medicines/:id','PUT /admin/medicines/:id/publication',
   'POST /inventory/update','GET /admin/inventory','PUT /admin/inventory/:id/price',
   'POST /assistant/chat','POST /orders','GET /orders','GET /orders/:id','GET /admin/orders','GET /admin/orders/:id',
   'PUT /orders/:id/status','PUT /orders/:id/cancel','PUT /orders/:id/pickup',

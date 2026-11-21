@@ -89,13 +89,13 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
   // missing row, wrong tenant or app-role grant failure is not a security PASS.
   await withActor(pool, fixture.userPartner, 'partner', async (client) => {
     const membership = await client.query(
-      `SELECT id,drugstore_id,is_active FROM pharmacy_memberships
+      `SELECT id,pharmacy_id,is_active FROM pharmacy_memberships
        WHERE id = $1 AND user_id = $2`,
       [fixture.partnerMembershipId, fixture.userPartner],
     );
     if (!membership || !Array.isArray(membership.rows) || membership.rows.length !== 1 ||
         Number(membership.rows[0]?.id) !== fixture.partnerMembershipId ||
-        Number(membership.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(membership.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(membership.rows[0]?.is_active) !== 1) {
       throw new Error('Partner price RLS verification refused an absent/inactive/wrong-tenant membership.');
     }
@@ -106,7 +106,7 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
       `SELECT a.attname FROM pg_catalog.pg_attribute a
        JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'public' AND c.relname = 'inventory'
+       WHERE n.nspname = 'public' AND c.relname = 'stock'
          AND a.attname = 'price' AND a.attnum > 0 AND NOT a.attisdropped`,
     );
     if (!legacyPrice || !Array.isArray(legacyPrice.rows) || legacyPrice.rows.length !== 0) {
@@ -123,7 +123,7 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
        FROM pg_catalog.pg_attribute a
        JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'public' AND c.relname = 'inventory'
+       WHERE n.nspname = 'public' AND c.relname = 'stock'
          AND c.relkind IN ('r', 'p') AND a.attname = 'price_centavos'
          AND a.attnum > 0 AND NOT a.attisdropped`,
     );
@@ -148,7 +148,7 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
        FROM pg_catalog.pg_constraint k
        JOIN pg_catalog.pg_class c ON c.oid = k.conrelid
        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'public' AND c.relname = 'inventory'
+       WHERE n.nspname = 'public' AND c.relname = 'stock'
          AND c.relkind IN ('r', 'p')
          AND k.conname = 'inventory_price_centavos_nonnegative'`,
     );
@@ -173,7 +173,7 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
        FROM pg_catalog.pg_attribute a
        JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'public' AND c.relname = 'inventory'
+       WHERE n.nspname = 'public' AND c.relname = 'stock'
          AND c.relkind IN ('r', 'p')
          AND a.attname IN ('stock_on_hand', 'reserved_quantity')
          AND a.attnum > 0 AND NOT a.attisdropped`,
@@ -196,7 +196,7 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
        FROM pg_catalog.pg_constraint k
        JOIN pg_catalog.pg_class c ON c.oid = k.conrelid
        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-       WHERE n.nspname = 'public' AND c.relname = 'inventory'
+       WHERE n.nspname = 'public' AND c.relname = 'stock'
          AND c.relkind IN ('r', 'p')
          AND k.conname = 'inventory_stock_invariant'`,
     );
@@ -212,12 +212,12 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
       throw new Error('Packet 0 schema drift: inventory_stock_invariant must be validated and enforced.');
     }
     const visible = await client.query(
-      'SELECT id,drugstore_id,price_centavos,availability FROM inventory WHERE id = $1',
+      'SELECT id,pharmacy_id,price_centavos,availability FROM stock WHERE id = $1',
       [fixture.inventoryId],
     );
     if (!visible || !Array.isArray(visible.rows) || visible.rows.length !== 1 ||
         Number(visible.rows[0]?.id) !== fixture.inventoryId ||
-        Number(visible.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(visible.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(visible.rows[0]?.price_centavos) !== 1000 ||
         Number(visible.rows[0]?.availability) !== 1) {
       throw new Error('Partner price RLS verification refused missing/mismatched priced inventory or initial availability.');
@@ -227,7 +227,7 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
     // changes. 0001 constrains availability to 0/1; the committed synthetic
     // fixture starts at 1. ROLLBACK restores it before later RLS probes.
     const allowed = await client.query(
-      'UPDATE inventory SET availability = $2 WHERE id = $1 RETURNING id,availability,price_centavos',
+      'UPDATE stock SET availability = $2 WHERE id = $1 RETURNING id,availability,price_centavos',
       [fixture.inventoryId, 0],
     );
     if (!allowed || !Array.isArray(allowed.rows) || allowed.rows.length !== 1 ||
@@ -243,11 +243,11 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
     let result;
     try {
       result = await client.query(
-        'UPDATE inventory SET price_centavos = $2 WHERE id = $1 RETURNING id',
+        'UPDATE stock SET price_centavos = $2 WHERE id = $1 RETURNING id',
         [fixture.inventoryId, 1],
       );
     } catch (error) {
-      if (!isExpectedMutationDenial(error, 'inventory', 'price_centavos')) throw error;
+      if (!isExpectedMutationDenial(error, 'stock', 'price_centavos')) throw error;
       denied = true;
     }
     if (!denied && (!result || !Array.isArray(result.rows) ||
@@ -273,7 +273,7 @@ export async function assertPartnerInventoryPriceDenied({ pool, fixture }) {
     let changed;
     try {
       changed = await client.query(
-        'UPDATE inventory SET price_centavos = $2 WHERE id = $1 RETURNING id,price_centavos',
+        'UPDATE stock SET price_centavos = $2 WHERE id = $1 RETURNING id,price_centavos',
         [fixture.inventoryId, 1001],
       );
     } catch (cause) {
@@ -308,19 +308,19 @@ export async function assertPartnerCrossPharmacyInventoryDenied({ pool, fixture 
 
   await withActor(pool, fixture.userPartner, 'partner', async (client) => {
     const membership = await client.query(
-      `SELECT id,drugstore_id,is_active FROM pharmacy_memberships
+      `SELECT id,pharmacy_id,is_active FROM pharmacy_memberships
        WHERE id = $1 AND user_id = $2`,
       [fixture.partnerMembershipId, fixture.userPartner],
     );
     if (membership?.rows?.length !== 1 ||
         Number(membership.rows[0]?.id) !== fixture.partnerMembershipId ||
-        Number(membership.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(membership.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(membership.rows[0]?.is_active) !== 1) {
       throw new Error('Cross-pharmacy RLS verification requires an active first-pharmacy membership.');
     }
     const foreignMembership = await client.query(
       `SELECT id FROM pharmacy_memberships
-       WHERE drugstore_id = $1 AND user_id = $2 AND is_active = 1`,
+       WHERE pharmacy_id = $1 AND user_id = $2 AND is_active = 1`,
       [fixture.otherStoreId, fixture.userPartner],
     );
     if (!foreignMembership || !Array.isArray(foreignMembership.rows) || foreignMembership.rows.length !== 0) {
@@ -329,12 +329,12 @@ export async function assertPartnerCrossPharmacyInventoryDenied({ pool, fixture 
     // Both pharmacies are published so SELECT can observe the second row.
     // Otherwise a zero-row UPDATE would not demonstrate tenant isolation.
     const visible = await client.query(
-      'SELECT id,drugstore_id,availability,price_centavos FROM inventory WHERE id = $1',
+      'SELECT id,pharmacy_id,availability,price_centavos FROM stock WHERE id = $1',
       [fixture.otherInventoryId],
     );
     if (!visible || !Array.isArray(visible.rows) || visible.rows.length !== 1 ||
         Number(visible.rows[0]?.id) !== fixture.otherInventoryId ||
-        Number(visible.rows[0]?.drugstore_id) !== fixture.otherStoreId ||
+        Number(visible.rows[0]?.pharmacy_id) !== fixture.otherStoreId ||
         Number(visible.rows[0]?.availability) !== 1 ||
         Number(visible.rows[0]?.price_centavos) !== 1000) {
       throw new Error('Cross-pharmacy RLS verifier requires visible priced foreign inventory.');
@@ -352,13 +352,13 @@ export async function assertPartnerCrossPharmacyInventoryDenied({ pool, fixture 
   ]) {
     await withActor(pool, fixture.userPartner, 'partner', async (client) => {
       const visible = await client.query(
-        'SELECT id,drugstore_id,availability,price_centavos FROM inventory WHERE id = $1',
+        'SELECT id,pharmacy_id,availability,price_centavos FROM stock WHERE id = $1',
         [inventoryId],
       );
       const expectedStore = scope === 'own' ? fixture.storeId : fixture.otherStoreId;
       if (!visible || !Array.isArray(visible.rows) || visible.rows.length !== 1 ||
           Number(visible.rows[0]?.id) !== inventoryId ||
-          Number(visible.rows[0]?.drugstore_id) !== expectedStore ||
+          Number(visible.rows[0]?.pharmacy_id) !== expectedStore ||
           Number(visible.rows[0]?.availability) !== 1 ||
           Number(visible.rows[0]?.price_centavos) !== 1000) {
         throw new Error(`NP-037 DELETE verification requires visible ${scope}-pharmacy inventory.`);
@@ -366,9 +366,9 @@ export async function assertPartnerCrossPharmacyInventoryDenied({ pool, fixture 
       let denied = false;
       let result;
       try {
-        result = await client.query('DELETE FROM inventory WHERE id = $1 RETURNING id', [inventoryId]);
+        result = await client.query('DELETE FROM stock WHERE id = $1 RETURNING id', [inventoryId]);
       } catch (error) {
-        if (!isExpectedMutationDenial(error, 'inventory')) throw error;
+        if (!isExpectedMutationDenial(error, 'stock')) throw error;
         denied = true;
       }
       if (!denied && (!result || !Array.isArray(result.rows) ||
@@ -386,11 +386,11 @@ export async function assertPartnerCrossPharmacyInventoryDenied({ pool, fixture 
       let result;
       try {
         result = await client.query(
-          `UPDATE inventory SET ${column} = $2 WHERE id = $1 RETURNING id`,
+          `UPDATE stock SET ${column} = $2 WHERE id = $1 RETURNING id`,
           [fixture.otherInventoryId, attemptedValue],
         );
       } catch (error) {
-        if (!isExpectedMutationDenial(error, 'inventory', column)) throw error;
+        if (!isExpectedMutationDenial(error, 'stock', column)) throw error;
         denied = true;
       }
       if (!denied && (!result || !Array.isArray(result.rows) ||
@@ -439,8 +439,8 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     let inserted;
     try {
       inserted = await client.query(
-        `INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
-         VALUES ($1,$2,$3,0,0,1) RETURNING id,drugstore_id,medicine_id,price_centavos`,
+        `INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+         VALUES ($1,$2,$3,0,0,1) RETURNING id,pharmacy_id,medicine_id,price_centavos`,
         [fixture.storeId, fixture.priceProbeMedicineId, 1000],
       );
     } catch (cause) {
@@ -448,7 +448,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     }
     if (inserted?.rowCount !== 1 || inserted.rows?.length !== 1 ||
         !Number.isSafeInteger(Number(inserted.rows[0]?.id)) || Number(inserted.rows[0]?.id) <= 0 ||
-        Number(inserted.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(inserted.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(inserted.rows[0]?.medicine_id) !== fixture.priceProbeMedicineId ||
         Number(inserted.rows[0]?.price_centavos) !== 1000) {
       throw new Error('NP-038 admin INSERT positive control failed: insertion was ineffective or malformed.');
@@ -459,7 +459,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
   await withActor(pool, fixture.userPartner, 'partner', async (client) => {
     const membership = await client.query(
       `SELECT id FROM pharmacy_memberships
-       WHERE user_id = $1 AND drugstore_id = $2 AND is_active = 1`,
+       WHERE user_id = $1 AND pharmacy_id = $2 AND is_active = 1`,
       [fixture.userPartner, fixture.storeId],
     );
     if (membership?.rows?.length !== 1 ||
@@ -469,7 +469,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     let error;
     try {
       await client.query(
-        `INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+        `INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
          VALUES ($1,$2,$3,0,0,1) RETURNING id`,
         [fixture.storeId, fixture.priceProbeMedicineId, 1],
       );
@@ -482,7 +482,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     // INSERT cannot return a harmless filtered zero-row result in this query.
     // Require the exact inventory WITH CHECK RLS denial, not a duplicate key,
     // FK error, syntax error, or a missing table INSERT grant.
-    if (!isExpectedInsertRlsDenial(error, 'inventory')) throw error;
+    if (!isExpectedInsertRlsDenial(error, 'stock')) throw error;
   });
 
   // Cross-pharmacy INSERT must also be rejected, even at the legitimate
@@ -491,7 +491,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
   // the SAME new medicine from a real administrator before the negative.
   await withActor(pool, fixture.userAdmin, 'admin', async (client) => {
     const foreignStore = await client.query(
-      'SELECT id,is_active FROM drugstores WHERE id = $1', [fixture.otherStoreId],
+      'SELECT id,is_active FROM pharmacies WHERE id = $1', [fixture.otherStoreId],
     );
     if (foreignStore?.rows?.length !== 1 ||
         Number(foreignStore.rows[0]?.id) !== fixture.otherStoreId ||
@@ -501,8 +501,8 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     let inserted;
     try {
       inserted = await client.query(
-        `INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
-         VALUES ($1,$2,$3,0,0,1) RETURNING id,drugstore_id,medicine_id,price_centavos`,
+        `INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+         VALUES ($1,$2,$3,0,0,1) RETURNING id,pharmacy_id,medicine_id,price_centavos`,
         [fixture.otherStoreId, fixture.priceProbeMedicineId, 1000],
       );
     } catch (cause) {
@@ -510,7 +510,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     }
     if (inserted?.rowCount !== 1 || inserted.rows?.length !== 1 ||
         !Number.isSafeInteger(Number(inserted.rows[0]?.id)) || Number(inserted.rows[0]?.id) <= 0 ||
-        Number(inserted.rows[0]?.drugstore_id) !== fixture.otherStoreId ||
+        Number(inserted.rows[0]?.pharmacy_id) !== fixture.otherStoreId ||
         Number(inserted.rows[0]?.medicine_id) !== fixture.priceProbeMedicineId ||
         Number(inserted.rows[0]?.price_centavos) !== 1000) {
       throw new Error('NP-038 foreign admin INSERT positive control was ineffective or malformed.');
@@ -520,14 +520,14 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
   await withActor(pool, fixture.userPartner, 'partner', async (client) => {
     const unauthorizedMembership = await client.query(
       `SELECT id FROM pharmacy_memberships
-       WHERE user_id = $1 AND drugstore_id = $2 AND is_active = 1`,
+       WHERE user_id = $1 AND pharmacy_id = $2 AND is_active = 1`,
       [fixture.userPartner, fixture.otherStoreId],
     );
     if (!Array.isArray(unauthorizedMembership?.rows) || unauthorizedMembership.rows.length !== 0) {
       throw new Error('NP-038 foreign INSERT requires no active partner membership in the second pharmacy.');
     }
     const foreignStore = await client.query(
-      'SELECT id,is_active FROM drugstores WHERE id = $1', [fixture.otherStoreId],
+      'SELECT id,is_active FROM pharmacies WHERE id = $1', [fixture.otherStoreId],
     );
     if (foreignStore?.rows?.length !== 1 ||
         Number(foreignStore.rows[0]?.id) !== fixture.otherStoreId ||
@@ -537,7 +537,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     let error;
     try {
       await client.query(
-        `INSERT INTO inventory (drugstore_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
+        `INSERT INTO stock (pharmacy_id,medicine_id,price_centavos,stock_on_hand,reserved_quantity,availability)
          VALUES ($1,$2,$3,0,0,1) RETURNING id`,
         [fixture.otherStoreId, fixture.priceProbeMedicineId, 1000],
       );
@@ -547,7 +547,7 @@ export async function assertPartnerInventoryInsertDenied({ pool, fixture }) {
     if (!error) {
       throw new Error('NP-038 tenant isolation failed: member can insert into an unrelated pharmacy.');
     }
-    if (!isExpectedInsertRlsDenial(error, 'inventory')) throw error;
+    if (!isExpectedInsertRlsDenial(error, 'stock')) throw error;
   });
 }
 
@@ -574,17 +574,17 @@ export async function assertPartnerReservedQuantityDenied({ pool, fixture }) {
       throw new Error('NP-039 admin positive control requires a real administrator.');
     }
     const original = await client.query(
-      'SELECT id,drugstore_id,stock_on_hand,reserved_quantity FROM inventory WHERE id=$1',
+      'SELECT id,pharmacy_id,stock_on_hand,reserved_quantity FROM stock WHERE id=$1',
       [fixture.inventoryId],
     );
     if (original?.rows?.length !== 1 || Number(original.rows[0]?.id) !== fixture.inventoryId ||
-        Number(original.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(original.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(original.rows[0]?.stock_on_hand) !== 3 ||
         Number(original.rows[0]?.reserved_quantity) !== 0) {
       throw new Error('NP-039 admin positive control requires an untouched 3/0 inventory fixture.');
     }
     const changed = await client.query(
-      'UPDATE inventory SET reserved_quantity=$2 WHERE id=$1 RETURNING id,reserved_quantity,stock_on_hand',
+      'UPDATE stock SET reserved_quantity=$2 WHERE id=$1 RETURNING id,reserved_quantity,stock_on_hand',
       [fixture.inventoryId, 1],
     );
     if (changed?.rowCount !== 1 || changed.rows?.length !== 1 ||
@@ -600,21 +600,21 @@ export async function assertPartnerReservedQuantityDenied({ pool, fixture }) {
   // masquerade as authorization. The existing membership must be real.
   await withActor(pool, fixture.userPartner, 'partner', async (client) => {
     const membership = await client.query(
-      'SELECT id,drugstore_id,is_active FROM pharmacy_memberships WHERE id=$1 AND user_id=$2',
+      'SELECT id,pharmacy_id,is_active FROM pharmacy_memberships WHERE id=$1 AND user_id=$2',
       [fixture.partnerMembershipId, fixture.userPartner],
     );
     if (membership?.rows?.length !== 1 ||
         Number(membership.rows[0]?.id) !== fixture.partnerMembershipId ||
-        Number(membership.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(membership.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(membership.rows[0]?.is_active) !== 1) {
       throw new Error('NP-039 requires a real active member of the inventory pharmacy.');
     }
     const original = await client.query(
-      'SELECT id,drugstore_id,stock_on_hand,reserved_quantity FROM inventory WHERE id=$1',
+      'SELECT id,pharmacy_id,stock_on_hand,reserved_quantity FROM stock WHERE id=$1',
       [fixture.inventoryId],
     );
     if (original?.rows?.length !== 1 || Number(original.rows[0]?.id) !== fixture.inventoryId ||
-        Number(original.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(original.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(original.rows[0]?.stock_on_hand) !== 3 ||
         Number(original.rows[0]?.reserved_quantity) !== 0) {
       throw new Error('NP-039 requires visible untouched 3/0 member-owned inventory.');
@@ -623,11 +623,11 @@ export async function assertPartnerReservedQuantityDenied({ pool, fixture }) {
     let changed;
     try {
       changed = await client.query(
-        'UPDATE inventory SET reserved_quantity=$2 WHERE id=$1 RETURNING id,reserved_quantity,stock_on_hand',
+        'UPDATE stock SET reserved_quantity=$2 WHERE id=$1 RETURNING id,reserved_quantity,stock_on_hand',
         [fixture.inventoryId, 1],
       );
     } catch (error) {
-      if (!isExpectedMutationDenial(error, 'inventory', 'reserved_quantity')) throw error;
+      if (!isExpectedMutationDenial(error, 'stock', 'reserved_quantity')) throw error;
       denied = true;
     }
     if (!denied && (!changed || !Array.isArray(changed.rows) ||
@@ -663,31 +663,31 @@ export async function assertPartnerReservationDeleteDenied({ pool, fixture }) {
       throw new Error('NP-040 administrator DELETE positive control requires a real admin account.');
     }
     const reservation = await client.query(
-      `SELECT r.id,r.order_id,r.inventory_id,r.quantity,r.status,i.drugstore_id,i.reserved_quantity
-       FROM reservations r JOIN inventory i ON i.id=r.inventory_id WHERE r.id=$1`,
+      `SELECT r.id,r.order_id,r.stock_id,r.quantity,r.status,i.pharmacy_id,i.reserved_quantity
+       FROM reservations r JOIN stock i ON i.id=r.stock_id WHERE r.id=$1`,
       [fixture.reservationId],
     );
     if (reservation?.rows?.length !== 1 ||
         Number(reservation.rows[0]?.id) !== fixture.reservationId ||
         Number(reservation.rows[0]?.order_id) !== fixture.orderB ||
-        Number(reservation.rows[0]?.inventory_id) !== fixture.reservationInventoryId ||
-        Number(reservation.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(reservation.rows[0]?.stock_id) !== fixture.reservationInventoryId ||
+        Number(reservation.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(reservation.rows[0]?.quantity) !== 1 ||
         Number(reservation.rows[0]?.reserved_quantity) !== 1 ||
         reservation.rows[0]?.status !== 'active') {
       throw new Error('NP-040 requires a real, consistent, active reservation and reserved stock.');
     }
     const movement = await client.query(
-      `SELECT id,inventory_id,order_id,movement_type,reserved_delta,stock_on_hand_delta
+      `SELECT id,stock_id,order_id,movement_type,held_change,stock_change
        FROM stock_movements WHERE id=$1`, [fixture.reservationMovementId],
     );
     if (movement?.rows?.length !== 1 ||
         Number(movement.rows[0]?.id) !== fixture.reservationMovementId ||
-        Number(movement.rows[0]?.inventory_id) !== fixture.reservationInventoryId ||
+        Number(movement.rows[0]?.stock_id) !== fixture.reservationInventoryId ||
         Number(movement.rows[0]?.order_id) !== fixture.orderB ||
         movement.rows[0]?.movement_type !== 'reserve' ||
-        Number(movement.rows[0]?.reserved_delta) !== 1 ||
-        Number(movement.rows[0]?.stock_on_hand_delta) !== 0) {
+        Number(movement.rows[0]?.held_change) !== 1 ||
+        Number(movement.rows[0]?.stock_change) !== 0) {
       throw new Error('NP-040 requires an authentic matching reserve movement for the active reservation.');
     }
     const removed = await client.query(
@@ -703,23 +703,23 @@ export async function assertPartnerReservationDeleteDenied({ pool, fixture }) {
   // but must not destroy it. Treat a missing row or unrelated 42501 as FAIL.
   await withActor(pool, fixture.userPartner, 'partner', async (client) => {
     const membership = await client.query(
-      'SELECT id,drugstore_id,is_active FROM pharmacy_memberships WHERE id=$1 AND user_id=$2',
+      'SELECT id,pharmacy_id,is_active FROM pharmacy_memberships WHERE id=$1 AND user_id=$2',
       [fixture.partnerMembershipId, fixture.userPartner],
     );
     if (membership?.rows?.length !== 1 ||
         Number(membership.rows[0]?.id) !== fixture.partnerMembershipId ||
-        Number(membership.rows[0]?.drugstore_id) !== fixture.storeId ||
+        Number(membership.rows[0]?.pharmacy_id) !== fixture.storeId ||
         Number(membership.rows[0]?.is_active) !== 1) {
       throw new Error('NP-040 requires a real active membership in the reservation pharmacy.');
     }
     const existing = await client.query(
-      'SELECT id,order_id,inventory_id,status FROM reservations WHERE id=$1',
+      'SELECT id,order_id,stock_id,status FROM reservations WHERE id=$1',
       [fixture.reservationId],
     );
     if (existing?.rows?.length !== 1 ||
         Number(existing.rows[0]?.id) !== fixture.reservationId ||
         Number(existing.rows[0]?.order_id) !== fixture.orderB ||
-        Number(existing.rows[0]?.inventory_id) !== fixture.reservationInventoryId ||
+        Number(existing.rows[0]?.stock_id) !== fixture.reservationInventoryId ||
         existing.rows[0]?.status !== 'active') {
       throw new Error('NP-040 requires partner visibility of the existing active reservation.');
     }
@@ -773,13 +773,13 @@ export async function assertCustomerReservationDeleteDenied({ pool, fixture }) {
       throw new Error('NP-041 owner control requires a real customer-owned reserved order.');
     }
     const existing = await client.query(
-      'SELECT id,order_id,inventory_id,quantity,status FROM reservations WHERE id=$1',
+      'SELECT id,order_id,stock_id,quantity,status FROM reservations WHERE id=$1',
       [fixture.reservationId],
     );
     if (existing?.rows?.length !== 1 ||
         Number(existing.rows[0]?.id) !== fixture.reservationId ||
         Number(existing.rows[0]?.order_id) !== fixture.orderB ||
-        Number(existing.rows[0]?.inventory_id) !== fixture.reservationInventoryId ||
+        Number(existing.rows[0]?.stock_id) !== fixture.reservationInventoryId ||
         Number(existing.rows[0]?.quantity) !== 1 ||
         existing.rows[0]?.status !== 'active') {
       throw new Error('NP-041 owner control requires a visible, real active reservation.');
@@ -1191,32 +1191,13 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       }
     });
 
-    // Approved OTC evidence is publication authority, not customer-supplied data.
-    // An ordinary customer who can see the published medicine must not forge
-    // its approval evidence. The real synthetic medicine ID avoids a missing
-    // FK appearing to prove that the WITH CHECK policy is effective.
-    await withCustomer(pool, ownUser, async (client) => {
-      let deniedByRls = false;
-      try {
-        await client.query(
-          `INSERT INTO medicine_evidence (medicine_id,source_name,source_url,status)
-           VALUES ($1,$2,$3,'approved') RETURNING id`,
-          [fixture.medicineId, 'RLS verifier synthetic evidence', 'https://example.test/rls-only'],
-        );
-      } catch (error) {
-        if (!isExpectedInsertRlsDenial(error, 'medicine_evidence')) throw error;
-        deniedByRls = true;
-      }
-      if (!deniedByRls) {
-        throw new Error('RLS verification failed: customer can INSERT approved medicine evidence.');
-      }
-    });
+    // medicine_evidence was removed by migration 0053; there is no evidence table left to forge.
 
     // A verified, published pharmacy is public, but the customer role must
     // never change its verification evidence or remove it. Verify that the
     // synthetic pharmacy is visible first so zero-row mutations are meaningful.
     await withCustomer(pool, ownUser, async (client) => {
-      const visible = await client.query('SELECT id FROM drugstores WHERE id = $1', [fixture.storeId]);
+      const visible = await client.query('SELECT id FROM pharmacies WHERE id = $1', [fixture.storeId]);
       if (!visible || !Array.isArray(visible.rows) || visible.rows.length !== 1 ||
           Number(visible.rows[0]?.id) !== fixture.storeId) {
         throw new Error('RLS verification failed: public synthetic pharmacy is not visible to customer.');
@@ -1227,11 +1208,11 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let updated;
       try {
         updated = await client.query(
-          'UPDATE drugstores SET verification_status = $2 WHERE id = $1 RETURNING id',
+          'UPDATE pharmacies SET verification_status = $2 WHERE id = $1 RETURNING id',
           [fixture.storeId, 'rejected'],
         );
       } catch (error) {
-        if (!isExpectedMutationDenial(error, 'drugstores', 'verification_status')) throw error;
+        if (!isExpectedMutationDenial(error, 'pharmacies', 'verification_status')) throw error;
         explicitlyDenied = true;
       }
       if (!explicitlyDenied && (!updated || !Array.isArray(updated.rows) ||
@@ -1243,9 +1224,9 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let explicitlyDenied = false;
       let deleted;
       try {
-        deleted = await client.query('DELETE FROM drugstores WHERE id = $1 RETURNING id', [fixture.storeId]);
+        deleted = await client.query('DELETE FROM pharmacies WHERE id = $1 RETURNING id', [fixture.storeId]);
       } catch (error) {
-        if (!isExpectedMutationDenial(error, 'drugstores')) throw error;
+        if (!isExpectedMutationDenial(error, 'pharmacies')) throw error;
         explicitlyDenied = true;
       }
       if (!explicitlyDenied && (!deleted || !Array.isArray(deleted.rows) ||
@@ -1263,7 +1244,7 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let deniedByRls = false;
       try {
         await client.query(
-          `INSERT INTO pharmacy_memberships (user_id,drugstore_id,membership_role,is_active)
+          `INSERT INTO pharmacy_memberships (user_id,pharmacy_id,membership_role,is_active)
            VALUES ($1,$2,'manager',1) RETURNING id`,
           [ownUser, fixture.storeId],
         );
@@ -1286,7 +1267,7 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let deniedByRls = false;
       try {
         await client.query(
-          `INSERT INTO pharmacy_verifications (drugstore_id,status,evidence_reference)
+          `INSERT INTO pharmacy_verifications (pharmacy_id,status,evidence_reference)
            VALUES ($1,'verified',$2) RETURNING id`,
           [fixture.storeId, 'RLS verifier synthetic evidence'],
         );
@@ -1367,7 +1348,7 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
     let ownChildId;
     await withCustomer(pool, userId, async (client) => {
       const result = await client.query(
-        'SELECT id,order_id FROM order_drugstores WHERE order_id = ANY($1::int[]) ORDER BY id',
+        'SELECT id,order_id FROM order_pharmacies WHERE order_id = ANY($1::int[]) ORDER BY id',
         [[ownOrder, otherOrder]],
       );
       if (!result || !Array.isArray(result.rows) || result.rows.length !== 1 ||
@@ -1384,12 +1365,12 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
     const foreignItem = userId === fixture.userA ? fixture.orderItemB : fixture.orderItemA;
     await withCustomer(pool, userId, async (client) => {
       const lineRead = await client.query(
-        'SELECT id,order_drugstore_id FROM order_items WHERE id = ANY($1::int[]) ORDER BY id',
+        'SELECT id,order_pharmacy_id FROM order_items WHERE id = ANY($1::int[]) ORDER BY id',
         [[ownItem, foreignItem]],
       );
       if (!lineRead || !Array.isArray(lineRead.rows) || lineRead.rows.length !== 1 ||
           Number(lineRead.rows[0]?.id) !== ownItem ||
-          Number(lineRead.rows[0]?.order_drugstore_id) !== ownChildId) {
+          Number(lineRead.rows[0]?.order_pharmacy_id) !== ownChildId) {
         throw new Error('RLS verification failed: missing own order-line fixture or foreign order line visible.');
       }
     });
@@ -1439,7 +1420,7 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let explicitlyDenied = false;
       try {
         await client.query(
-          `INSERT INTO order_items (order_drugstore_id,medicine_id,quantity,unit_price_centavos)
+          `INSERT INTO order_items (order_pharmacy_id,medicine_id,quantity,unit_price_centavos)
            VALUES ($1,$2,1,1) RETURNING id`,
           [ownChildId, fixture.medicineId],
         );
@@ -1462,10 +1443,10 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let deleted;
       try {
         deleted = await client.query(
-          'DELETE FROM order_drugstores WHERE id = $1 RETURNING id', [ownChildId],
+          'DELETE FROM order_pharmacies WHERE id = $1 RETURNING id', [ownChildId],
         );
       } catch (error) {
-        if (!isExpectedMutationDenial(error, 'order_drugstores')) throw error;
+        if (!isExpectedMutationDenial(error, 'order_pharmacies')) throw error;
         denied = true;
       }
       if (!denied && (!deleted || !Array.isArray(deleted.rows) ||
@@ -1479,11 +1460,11 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let changed;
       try {
         changed = await client.query(
-          'UPDATE order_drugstores SET status = $2 WHERE order_id = $1 RETURNING id',
+          'UPDATE order_pharmacies SET status = $2 WHERE order_id = $1 RETURNING id',
           [ownOrder, 'completed'],
         );
       } catch (error) {
-        if (!isExpectedMutationDenial(error, 'order_drugstores', 'status')) throw error;
+        if (!isExpectedMutationDenial(error, 'order_pharmacies', 'status')) throw error;
         explicitlyDenied = true;
       }
       if (!explicitlyDenied && (!changed || !Array.isArray(changed.rows) ||
@@ -1501,12 +1482,12 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
   for (const userId of [fixture.userA, fixture.userB]) {
     await withCustomer(pool, userId, async (client) => {
       const visible = await client.query(
-        'SELECT id,drugstore_id,medicine_id FROM inventory WHERE id = $1',
+        'SELECT id,pharmacy_id,medicine_id FROM stock WHERE id = $1',
         [fixture.inventoryId],
       );
       if (!visible || !Array.isArray(visible.rows) || visible.rows.length !== 1 ||
           Number(visible.rows[0]?.id) !== fixture.inventoryId ||
-          Number(visible.rows[0]?.drugstore_id) !== fixture.storeId ||
+          Number(visible.rows[0]?.pharmacy_id) !== fixture.storeId ||
           Number(visible.rows[0]?.medicine_id) !== fixture.medicineId) {
         throw new Error('RLS verification failed: public synthetic inventory fixture is absent or mismatched.');
       }
@@ -1523,11 +1504,11 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
         try {
           // Field names are a closed code-owned allowlist, never user input.
           updated = await client.query(
-            `UPDATE inventory SET ${column} = $2 WHERE id = $1 RETURNING id`,
+            `UPDATE stock SET ${column} = $2 WHERE id = $1 RETURNING id`,
             [fixture.inventoryId, value],
           );
         } catch (error) {
-          if (!isExpectedMutationDenial(error, 'inventory', column)) throw error;
+          if (!isExpectedMutationDenial(error, 'stock', column)) throw error;
           denied = true;
         }
         if (!denied && (!updated || !Array.isArray(updated.rows) ||
@@ -1544,9 +1525,9 @@ export async function assertCustomerOrderRlsNegatives({ pool, fixture }) {
       let denied = false;
       let deleted;
       try {
-        deleted = await client.query('DELETE FROM inventory WHERE id = $1 RETURNING id', [fixture.inventoryId]);
+        deleted = await client.query('DELETE FROM stock WHERE id = $1 RETURNING id', [fixture.inventoryId]);
       } catch (error) {
-        if (!isExpectedMutationDenial(error, 'inventory')) throw error;
+        if (!isExpectedMutationDenial(error, 'stock')) throw error;
         denied = true;
       }
       if (!denied && (!deleted || !Array.isArray(deleted.rows) ||

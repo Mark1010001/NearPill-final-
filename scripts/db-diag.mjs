@@ -60,8 +60,8 @@ try {
   const t0 = Date.now();
   await client.connect();
   say(`pg connect ok in ${Date.now() - t0}ms`);
-  const r = await client.query('select count(*)::int as n from drugstores');
-  say(`drugstores rows: ${r.rows[0].n}`);
+  const r = await client.query('select count(*)::int as n from pharmacies');
+  say(`pharmacies rows: ${r.rows[0].n}`);
 } catch (x) {
   say(`pg FAILED: code=${x.code} msg=${mask(x.message).slice(0, 200)}`);
 } finally {

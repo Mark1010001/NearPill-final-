@@ -2,7 +2,6 @@ const requiredMethods = [
   'searchAvailableMedicines',
   'findMedicineById',
   'findMedicineInventoryById',
-  'listMedicineEvidence',
   'listActiveStores',
   'findPublicStoreById',
   'findStoreById',
@@ -20,9 +19,6 @@ const requiredMethods = [
   'createMedicine',
   'findMasterMedicineById',
   'updateMedicine',
-  'listAdminMedicineEvidence',
-  'addMedicineEvidence',
-  'countApprovedMedicineEvidence',
   'updateMedicinePublication',
   'appendAudit',
 ];

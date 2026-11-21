@@ -125,7 +125,7 @@ test('NP-031 baseline: legacy hash upgrade uses compare-and-swap users UPDATE be
 
 test('NP-031 baseline: token-verified recovery updates users under the backend identity capability and revokes sessions atomically', async () => {
   const observed = recordingPool((sql) => {
-    if (sql.includes('FROM password_reset_challenges') && sql.includes('FOR UPDATE')) {
+    if (sql.includes('FROM reset_links') && sql.includes('FOR UPDATE')) {
       return [{ id: 4, user_id: 17, email: 'fixture@example.invalid',
         expires_at: new Date('2030-01-01T00:00:00Z'), consumed_at: null }];
     }
@@ -138,11 +138,11 @@ test('NP-031 baseline: token-verified recovery updates users under the backend i
   assert.deepEqual(result, { status: 'reset', userId: 17, email: 'fixture@example.invalid' });
   expectTransaction(observed.calls);
   assert.deepEqual(observed.calls[1].params, ['', 'system', 'identity_security']);
-  assert.match(observed.calls[2].sql, /FROM password_reset_challenges WHERE token_hash = \$1 FOR UPDATE/);
+  assert.match(observed.calls[2].sql, /FROM reset_links WHERE token_hash = \$1 FOR UPDATE/);
   assert.deepEqual(observed.calls[2].params, ['synthetic-reset-hash']);
   assert.match(observed.calls[3].sql, /UPDATE users SET password = \$2 WHERE id = \$1/);
   assert.deepEqual(observed.calls[3].params, [17, 'synthetic-password-hash']);
-  assert.match(observed.calls[4].sql, /UPDATE password_reset_challenges SET consumed_at/);
+  assert.match(observed.calls[4].sql, /UPDATE reset_links SET consumed_at/);
   assert.match(observed.calls[5].sql, /UPDATE auth_session_families SET revoked_at/);
   assert.match(observed.calls[6].sql, /UPDATE auth_sessions SET revoked_at/);
   assert.equal(observed.calls.filter(({ sql }) => sql.includes("set_config('app.user_id'")).length, 1,
@@ -176,7 +176,7 @@ test('NP-031 negative baseline: membership lookup failure rolls back the verifie
 
 test('NP-031 negative baseline: password reset session-revocation failure rolls back all identity writes', async () => {
   const observed = recordingPool((sql) => {
-    if (sql.includes('FROM password_reset_challenges') && sql.includes('FOR UPDATE')) {
+    if (sql.includes('FROM reset_links') && sql.includes('FOR UPDATE')) {
       return [{ id: 4, user_id: 17, email: 'fixture@example.invalid',
         expires_at: new Date('2030-01-01T00:00:00Z'), consumed_at: null }];
     }
@@ -194,7 +194,7 @@ test('NP-031 negative baseline: password reset session-revocation failure rolls 
     /synthetic session revocation failure/,
   );
   assert.ok(observed.calls.some(({ sql }) => sql.startsWith('UPDATE users SET password')));
-  assert.ok(observed.calls.some(({ sql }) => sql.startsWith('UPDATE password_reset_challenges SET consumed_at')));
+  assert.ok(observed.calls.some(({ sql }) => sql.startsWith('UPDATE reset_links SET consumed_at')));
   assert.ok(observed.calls.some(({ sql }) => sql.startsWith('UPDATE auth_session_families SET revoked_at')));
   assert.deepEqual(observed.calls.slice(-2).map((call) => call.sql), ['ROLLBACK', 'RELEASE']);
   assert.equal(observed.calls.at(-1).discard, false, 'successful rollback permits connection reuse');
@@ -336,7 +336,7 @@ test('NP-031 baseline: admin membership listing joins users with authenticated a
 test('NP-031 baseline: approved admin membership assignment reads partner users and audits its write', async () => {
   const observed = recordingPool((sql) => {
     if (sql.includes('SELECT id, role FROM users')) return [{ id: 28, role: 'partner' }];
-    if (sql.includes('SELECT id FROM drugstores')) return [{ id: 14 }];
+    if (sql.includes('SELECT id FROM pharmacies')) return [{ id: 14 }];
     return [];
   });
   const repo = createPostgresSecurityRepository(observed.pool);

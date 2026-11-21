@@ -28,7 +28,7 @@ export const users = pgTable('users', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [uniqueIndex('users_email_unique').on(table.email)]);
 
-export const drugstores = pgTable('drugstores', {
+export const pharmacies = pgTable('pharmacies', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 150 }).notNull(),
   address: varchar('address', { length: 255 }).notNull(),
@@ -36,7 +36,6 @@ export const drugstores = pgTable('drugstores', {
   longitude: numeric('longitude', { precision: 11, scale: 8 }).notNull(),
   operatingHours: varchar('operating_hours', { length: 255 }),
   isActive: smallint('is_active').notNull().default(1),
-  accountNo: integer('account_no').unique(),
   verificationStatus: varchar('verification_status', { length: 16 }).notNull().default('pending'),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
   publicProfilePublishedAt: timestamp('public_profile_published_at', { withTimezone: true }),
@@ -48,13 +47,13 @@ export const drugstores = pgTable('drugstores', {
 export const pharmacyMemberships = pgTable('pharmacy_memberships', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-  drugstoreId: integer('drugstore_id').notNull().references(() => drugstores.id, { onDelete: 'cascade' }),
+  pharmacyId: integer('pharmacy_id').notNull().references(() => pharmacies.id, { onDelete: 'cascade' }),
   membershipRole: varchar('membership_role', { length: 32 }).notNull().default('staff'),
   isActive: smallint('is_active').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex('pharmacy_memberships_user_store_unique').on(table.userId, table.drugstoreId),
-  index('pharmacy_memberships_drugstore_idx').on(table.drugstoreId),
+  uniqueIndex('pharmacy_memberships_user_store_unique').on(table.userId, table.pharmacyId),
+  index('pharmacy_memberships_drugstore_idx').on(table.pharmacyId),
 ]);
 
 export const medicines = pgTable('medicines', {
@@ -72,21 +71,9 @@ export const medicines = pgTable('medicines', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index('medicines_publication_idx').on(table.publicationStatus, table.publishedAt)]);
 
-export const medicineEvidence = pgTable('medicine_evidence', {
-  id: serial('id').primaryKey(),
-  medicineId: integer('medicine_id').notNull().references(() => medicines.id, { onDelete: 'cascade' }),
-  sourceName: varchar('source_name', { length: 200 }).notNull(),
-  sourceUrl: text('source_url').notNull(),
-  sourceVersion: varchar('source_version', { length: 120 }),
-  status: varchar('status', { length: 16 }).notNull().default('approved'),
-  reviewedBy: integer('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
-  reviewedAt: timestamp('reviewed_at', { withTimezone: true }).notNull().defaultNow(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index('medicine_evidence_medicine_status_idx').on(table.medicineId, table.status, table.reviewedAt)]);
-
 export const pharmacyVerifications = pgTable('pharmacy_verifications', {
   id: serial('id').primaryKey(),
-  drugstoreId: integer('drugstore_id').notNull().references(() => drugstores.id, { onDelete: 'cascade' }),
+  pharmacyId: integer('pharmacy_id').notNull().references(() => pharmacies.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 16 }).notNull(),
   licenseNumber: varchar('license_number', { length: 160 }),
   evidenceReference: text('evidence_reference'),
@@ -94,11 +81,11 @@ export const pharmacyVerifications = pgTable('pharmacy_verifications', {
   reviewedBy: integer('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index('pharmacy_verifications_store_reviewed_idx').on(table.drugstoreId, table.reviewedAt)]);
+}, (table) => [index('pharmacy_verifications_store_reviewed_idx').on(table.pharmacyId, table.reviewedAt)]);
 
-export const inventory = pgTable('inventory', {
+export const stock = pgTable('stock', {
   id: serial('id').primaryKey(),
-  drugstoreId: integer('drugstore_id').notNull().references(() => drugstores.id, { onDelete: 'cascade' }),
+  pharmacyId: integer('pharmacy_id').notNull().references(() => pharmacies.id, { onDelete: 'cascade' }),
   medicineId: integer('medicine_id').notNull().references(() => medicines.id, { onDelete: 'cascade' }),
   priceCentavos: bigint('price_centavos', { mode: 'number' }).notNull(),
   sellingUnit: varchar('selling_unit', { length: 48 }),
@@ -109,7 +96,7 @@ export const inventory = pgTable('inventory', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex('inventory_store_medicine_unique').on(table.drugstoreId, table.medicineId),
+  uniqueIndex('inventory_store_medicine_unique').on(table.pharmacyId, table.medicineId),
   index('inventory_medicine_idx').on(table.medicineId),
 ]);
 
@@ -132,54 +119,54 @@ export const orders = pgTable('orders', {
   index('orders_user_status_created_idx').on(table.userId, table.status, table.createdAt),
 ]);
 
-export const orderDrugstores = pgTable('order_drugstores', {
+export const orderPharmacies = pgTable('order_pharmacies', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').notNull(),
   orderId: integer('order_id').notNull(),
-  drugstoreId: integer('drugstore_id').notNull().references(() => drugstores.id, { onDelete: 'cascade' }),
+  pharmacyId: integer('pharmacy_id').notNull().references(() => pharmacies.id, { onDelete: 'cascade' }),
   status: varchar('status', { length: 50 }).notNull().default('reserved'),
   rejectionReason: text('rejection_reason'),
 }, (table) => [
   index('order_drugstores_order_idx').on(table.orderId),
   foreignKey({ columns: [table.orderId, table.userId], foreignColumns: [orders.id, orders.userId], name: 'order_drugstores_owner_fk' }).onDelete('cascade'),
-  index('order_drugstores_drugstore_idx').on(table.drugstoreId),
+  index('order_drugstores_drugstore_idx').on(table.pharmacyId),
 ]);
 
 export const orderItems = pgTable('order_items', {
   id: serial('id').primaryKey(),
-  orderDrugstoreId: integer('order_drugstore_id').notNull().references(() => orderDrugstores.id, { onDelete: 'cascade' }),
+  orderPharmacyId: integer('order_pharmacy_id').notNull().references(() => orderPharmacies.id, { onDelete: 'cascade' }),
   medicineId: integer('medicine_id').notNull().references(() => medicines.id, { onDelete: 'cascade' }),
   quantity: integer('quantity').notNull(),
   unitPriceCentavos: bigint('unit_price_centavos', { mode: 'number' }).notNull(),
   sellingUnit: varchar('selling_unit', { length: 48 }),
-}, (table) => [index('order_items_order_drugstore_idx').on(table.orderDrugstoreId)]);
+}, (table) => [index('order_items_order_drugstore_idx').on(table.orderPharmacyId)]);
 
 
 export const reservations = pgTable('reservations', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   orderId: integer('order_id').notNull().references(() => orders.id, { onDelete: 'cascade' }),
-  inventoryId: integer('inventory_id').notNull().references(() => inventory.id, { onDelete: 'cascade' }),
+  stockId: integer('stock_id').notNull().references(() => stock.id, { onDelete: 'cascade' }),
   quantity: integer('quantity').notNull(),
   status: varchar('status', { length: 16 }).notNull().default('active'),
   releasedAt: timestamp('released_at', { withTimezone: true }),
   fulfilledAt: timestamp('fulfilled_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  uniqueIndex('reservations_order_inventory_unique').on(table.orderId, table.inventoryId),
+  uniqueIndex('reservations_order_inventory_unique').on(table.orderId, table.stockId),
   index('reservations_order_status_idx').on(table.orderId, table.status),
 ]);
 
 export const stockMovements = pgTable('stock_movements', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
-  inventoryId: integer('inventory_id').notNull().references(() => inventory.id, { onDelete: 'cascade' }),
+  stockId: integer('stock_id').notNull().references(() => stock.id, { onDelete: 'cascade' }),
   orderId: integer('order_id').references(() => orders.id, { onDelete: 'set null' }),
   actorId: integer('actor_id').references(() => users.id, { onDelete: 'set null' }),
   movementType: varchar('movement_type', { length: 24 }).notNull(),
-  stockOnHandDelta: integer('stock_on_hand_delta').notNull().default(0),
-  reservedDelta: integer('reserved_delta').notNull().default(0),
+  stockChange: integer('stock_change').notNull().default(0),
+  heldChange: integer('held_change').notNull().default(0),
   reason: text('reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index('stock_movements_inventory_created_idx').on(table.inventoryId, table.createdAt)]);
+}, (table) => [index('stock_movements_inventory_created_idx').on(table.stockId, table.createdAt)]);
 
 export const auditLogs = pgTable('audit_logs', {
   id: serial('id').primaryKey(),
@@ -250,7 +237,7 @@ export const refunds = pgTable('refunds', {
   index('refunds_payment_status_idx').on(table.paymentId, table.status, table.createdAt),
 ]);
 
-export const paymentReconciliation = pgTable('payment_reconciliation', {
+export const paymentIssues = pgTable('payment_issues', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
   paymentId: integer('payment_id').references(() => payments.id, { onDelete: 'cascade' }),
   provider: varchar('provider', { length: 64 }).notNull(),
@@ -258,43 +245,30 @@ export const paymentReconciliation = pgTable('payment_reconciliation', {
   reason: varchar('reason', { length: 120 }).notNull(),
   details: text('details'),
   status: varchar('status', { length: 24 }).notNull().default('open'),
-  resolvedBy: integer('resolved_by').references(() => users.id, { onDelete: 'set null' }),
-  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [index('payment_reconciliation_open_idx').on(table.status, table.createdAt)]);
 
 export const subscriptions = pgTable('subscriptions', {
   id: serial('id').primaryKey(),
-  drugstoreId: integer('drugstore_id').notNull().references(() => drugstores.id, { onDelete: 'cascade' }),
+  pharmacyId: integer('pharmacy_id').notNull().references(() => pharmacies.id, { onDelete: 'cascade' }),
   tier: varchar('tier', { length: 32 }).notNull(),
   status: varchar('status', { length: 32 }).notNull().default('active'),
   planVersion: varchar('plan_version', { length: 100 }).notNull().default('legacy-v1'),
   startDate: date('start_date').notNull(),
   endDate: date('end_date'),
-}, (table) => [index('subscriptions_store_status_idx').on(table.drugstoreId, table.status)]);
+}, (table) => [index('subscriptions_store_status_idx').on(table.pharmacyId, table.status)]);
 
-export const subscriptionEntitlements = pgTable('subscription_entitlements', {
+export const planFeatures = pgTable('plan_features', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
-  drugstoreId: integer('drugstore_id').notNull().references(() => drugstores.id, { onDelete: 'cascade' }),
+  pharmacyId: integer('pharmacy_id').notNull().references(() => pharmacies.id, { onDelete: 'cascade' }),
   subscriptionId: integer('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
   entitlementKey: varchar('entitlement_key', { length: 100 }).notNull(),
-  grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
 }, (table) => [
-  index('subscription_entitlements_store_idx').on(table.drugstoreId, table.revokedAt),
-  uniqueIndex('subscription_entitlements_active_unique').on(table.drugstoreId, table.entitlementKey)
+  index('subscription_entitlements_store_idx').on(table.pharmacyId, table.revokedAt),
+  uniqueIndex('subscription_entitlements_active_unique').on(table.pharmacyId, table.entitlementKey)
     .where(sql`${table.revokedAt} IS NULL`),
 ]);
-
-export const billingEvents = pgTable('billing_events', {
-  id: bigserial('id', { mode: 'number' }).primaryKey(),
-  drugstoreId: integer('drugstore_id').notNull().references(() => drugstores.id, { onDelete: 'cascade' }),
-  subscriptionId: integer('subscription_id').references(() => subscriptions.id, { onDelete: 'set null' }),
-  actorId: integer('actor_id').references(() => users.id, { onDelete: 'set null' }),
-  eventType: varchar('event_type', { length: 100 }).notNull(),
-  details: text('details'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index('billing_events_store_created_idx').on(table.drugstoreId, table.createdAt)]);
 
 export const authSessionFamilies = pgTable('auth_session_families', {
   id: varchar('id', { length: 64 }).primaryKey(),
@@ -321,7 +295,7 @@ export const authSessions = pgTable('auth_sessions', {
   index('auth_sessions_family_idx').on(table.familyId),
 ]);
 
-export const emailVerificationChallenges = pgTable('email_verification_challenges', {
+export const emailCodes = pgTable('email_codes', {
   email: varchar('email', { length: 254 }).primaryKey(),
   codeHash: varchar('code_hash', { length: 64 }).notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
@@ -331,7 +305,7 @@ export const emailVerificationChallenges = pgTable('email_verification_challenge
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const passwordResetChallenges = pgTable('password_reset_challenges', {
+export const resetLinks = pgTable('reset_links', {
   id: serial('id').primaryKey(),
   userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   email: varchar('email', { length: 254 }).notNull(),

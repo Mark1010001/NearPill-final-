@@ -53,7 +53,7 @@ test('reservation lifecycle is ledgered instead of decrementing stock at order c
   assert.match(orderRepo, /movement_type.*'release'/s);
   assert.match(orderRepo, /movement_type.*'fulfill'/s);
   assert.doesNotMatch(orderRepo, /stock_count\s*=\s*stock_count\s*-/);
-  assert.match(inventoryRepo, /movement_type, stock_on_hand_delta, reserved_delta/);
+  assert.match(inventoryRepo, /movement_type, stock_change, held_change/);
 });
 
 test('live verifier requires 100 competing attempts and proves no oversell', () => {

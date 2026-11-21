@@ -38,8 +38,8 @@ const migratorPool = new Pool({
 });
 
 const checks = [
-  ['invalid inventory invariant', `SELECT COUNT(*)::int AS count FROM inventory WHERE stock_on_hand < 0 OR reserved_quantity < 0 OR reserved_quantity > stock_on_hand`],
-  ['invalid availability', `SELECT COUNT(*)::int AS count FROM inventory WHERE availability NOT IN (0,1)`],
+  ['invalid inventory invariant', `SELECT COUNT(*)::int AS count FROM stock WHERE stock_on_hand < 0 OR reserved_quantity < 0 OR reserved_quantity > stock_on_hand`],
+  ['invalid availability', `SELECT COUNT(*)::int AS count FROM stock WHERE availability NOT IN (0,1)`],
   // Both columns are individually valid foreign keys, but the reviewed
   // schema does not enforce that a bearer session's user is the user owning
   // its refresh family. The canonical issue/rotation path writes matching
@@ -92,7 +92,7 @@ const checks = [
   // case-insensitive, trimmed addresses; consumed/expired challenges are
   // historical and cannot be redeemed. Never mutate tokens during an audit.
   ['active password reset challenges with mismatched account email', `SELECT COUNT(*)::int AS count
-    FROM password_reset_challenges c
+    FROM reset_links c
     JOIN users u ON u.id = c.user_id
     WHERE c.consumed_at IS NULL
       AND c.expires_at > CURRENT_TIMESTAMP
@@ -102,15 +102,15 @@ const checks = [
   // unexpired challenge at or above the limit indicates inconsistent or
   // unreviewed security state. Do not mutate the challenge during an audit.
   ['active unverified email challenges beyond attempt limit', `SELECT COUNT(*)::int AS count
-    FROM email_verification_challenges
+    FROM email_codes
     WHERE verified_at IS NULL
       AND expires_at > CURRENT_TIMESTAMP
       AND attempt_count >= 5`],
-  ['orphan order drugstores', `SELECT COUNT(*)::int AS count FROM order_drugstores od LEFT JOIN orders o ON o.id=od.order_id WHERE o.id IS NULL`],
-  ['orphan order items', `SELECT COUNT(*)::int AS count FROM order_items oi LEFT JOIN order_drugstores od ON od.id=oi.order_drugstore_id WHERE od.id IS NULL`],
+  ['orphan order drugstores', `SELECT COUNT(*)::int AS count FROM order_pharmacies od LEFT JOIN orders o ON o.id=od.order_id WHERE o.id IS NULL`],
+  ['orphan order items', `SELECT COUNT(*)::int AS count FROM order_items oi LEFT JOIN order_pharmacies od ON od.id=oi.order_pharmacy_id WHERE od.id IS NULL`],
   ['orphan payments', `SELECT COUNT(*)::int AS count FROM payments p LEFT JOIN orders o ON o.id=p.order_id WHERE o.id IS NULL`],
-  ['duplicate inventory', `SELECT COUNT(*)::int AS count FROM (SELECT drugstore_id, medicine_id FROM inventory GROUP BY 1,2 HAVING COUNT(*) > 1) d`],
-  ['negative centavos', `SELECT COUNT(*)::int AS count FROM (SELECT price_centavos AS amount FROM inventory UNION ALL SELECT total_centavos FROM orders UNION ALL SELECT unit_price_centavos FROM order_items UNION ALL SELECT amount_centavos FROM payments) m WHERE amount < 0`],
+  ['duplicate inventory', `SELECT COUNT(*)::int AS count FROM (SELECT pharmacy_id, medicine_id FROM stock GROUP BY 1,2 HAVING COUNT(*) > 1) d`],
+  ['negative centavos', `SELECT COUNT(*)::int AS count FROM (SELECT price_centavos AS amount FROM stock UNION ALL SELECT total_centavos FROM orders UNION ALL SELECT unit_price_centavos FROM order_items UNION ALL SELECT amount_centavos FROM payments) m WHERE amount < 0`],
   // Reconcile the payment ledger as well as order prices: the reviewed SQL
   // constrains refunds to positive amounts, while payment-event amounts are
   // optional but never negative. These SELECT-only checks detect invalid
@@ -127,8 +127,8 @@ const checks = [
     LEFT JOIN (
       SELECT od.order_id,
              SUM(oi.quantity::numeric * oi.unit_price_centavos::numeric) AS lines_centavos
-      FROM order_drugstores od
-      JOIN order_items oi ON oi.order_drugstore_id = od.id
+      FROM order_pharmacies od
+      JOIN order_items oi ON oi.order_pharmacy_id = od.id
       GROUP BY od.order_id
     ) items ON items.order_id = o.id
     WHERE o.total_centavos::numeric <> COALESCE(items.lines_centavos, 0)`],
@@ -136,8 +136,8 @@ const checks = [
     FROM orders o
     LEFT JOIN (
       SELECT od.order_id, COUNT(DISTINCT od.id) AS pharmacy_rows, COUNT(oi.id) AS item_rows
-      FROM order_drugstores od
-      LEFT JOIN order_items oi ON oi.order_drugstore_id = od.id
+      FROM order_pharmacies od
+      LEFT JOIN order_items oi ON oi.order_pharmacy_id = od.id
       GROUP BY od.order_id
     ) contents ON contents.order_id = o.id
     WHERE COALESCE(contents.pharmacy_rows, 0) <> 1
@@ -226,10 +226,10 @@ const checks = [
   // counts catch missed releases, double reservation writes and terminal
   // orders retaining stock holds; they never repair data automatically.
   ['reserved stock does not match active reservation ledger', `SELECT COUNT(*)::int AS count
-    FROM inventory i
-    LEFT JOIN (SELECT inventory_id, SUM(quantity) AS held_quantity
-               FROM reservations WHERE status = 'active' GROUP BY inventory_id) active
-      ON active.inventory_id = i.id
+    FROM stock i
+    LEFT JOIN (SELECT stock_id, SUM(quantity) AS held_quantity
+               FROM reservations WHERE status = 'active' GROUP BY stock_id) active
+      ON active.stock_id = i.id
     WHERE i.reserved_quantity <> COALESCE(active.held_quantity, 0)`],
   ['terminal orders with active reservations', `SELECT COUNT(*)::int AS count
     FROM reservations r JOIN orders o ON o.id = r.order_id
@@ -251,15 +251,15 @@ const checks = [
         COUNT(*) FILTER (WHERE movement_type = 'reserve') AS reserve_events,
         COUNT(*) FILTER (WHERE movement_type = 'release') AS release_events,
         COUNT(*) FILTER (WHERE movement_type = 'fulfill') AS fulfill_events,
-        COALESCE(SUM(reserved_delta) FILTER (WHERE movement_type = 'reserve'), 0) AS reserve_delta,
-        COALESCE(SUM(stock_on_hand_delta) FILTER (WHERE movement_type = 'reserve'), 0) AS reserve_stock_delta,
-        COALESCE(SUM(reserved_delta) FILTER (WHERE movement_type = 'release'), 0) AS release_delta,
-        COALESCE(SUM(stock_on_hand_delta) FILTER (WHERE movement_type = 'release'), 0) AS release_stock_delta,
-        COALESCE(SUM(reserved_delta) FILTER (WHERE movement_type = 'fulfill'), 0) AS fulfill_delta,
-        COALESCE(SUM(stock_on_hand_delta) FILTER (WHERE movement_type = 'fulfill'), 0) AS fulfill_stock_delta
+        COALESCE(SUM(held_change) FILTER (WHERE movement_type = 'reserve'), 0) AS reserve_delta,
+        COALESCE(SUM(stock_change) FILTER (WHERE movement_type = 'reserve'), 0) AS reserve_stock_delta,
+        COALESCE(SUM(held_change) FILTER (WHERE movement_type = 'release'), 0) AS release_delta,
+        COALESCE(SUM(stock_change) FILTER (WHERE movement_type = 'release'), 0) AS release_stock_delta,
+        COALESCE(SUM(held_change) FILTER (WHERE movement_type = 'fulfill'), 0) AS fulfill_delta,
+        COALESCE(SUM(stock_change) FILTER (WHERE movement_type = 'fulfill'), 0) AS fulfill_stock_delta
       FROM stock_movements sm
       WHERE sm.order_id = r.order_id
-        AND sm.inventory_id = r.inventory_id
+        AND sm.stock_id = r.stock_id
         AND sm.movement_type IN ('reserve','release','fulfill')
     ) movements ON TRUE
     WHERE movements.reserve_events <> 1
@@ -284,7 +284,7 @@ const checks = [
       AND NOT EXISTS (
         SELECT 1 FROM reservations r
         WHERE r.order_id = sm.order_id
-          AND r.inventory_id = sm.inventory_id
+          AND r.stock_id = sm.stock_id
       )`],
   // A reservation's independent order_id and inventory_id foreign keys do
   // not prove it came from the ordered pharmacy and medicine. Reconcile each
@@ -293,13 +293,13 @@ const checks = [
   // gate, not a retroactive change to business behavior or migration history.
   ['reservations without exactly one matching pharmacy medicine order line', `SELECT COUNT(*)::int AS count
     FROM reservations r
-    JOIN inventory i ON i.id = r.inventory_id
+    JOIN stock i ON i.id = r.stock_id
     WHERE (
       SELECT COUNT(*)
-      FROM order_drugstores od
-      JOIN order_items oi ON oi.order_drugstore_id = od.id
+      FROM order_pharmacies od
+      JOIN order_items oi ON oi.order_pharmacy_id = od.id
       WHERE od.order_id = r.order_id
-        AND od.drugstore_id = i.drugstore_id
+        AND od.pharmacy_id = i.pharmacy_id
         AND oi.medicine_id = i.medicine_id
         AND oi.quantity = r.quantity
     ) <> 1`],
@@ -310,7 +310,7 @@ const checks = [
   // the provider event or separate operator reconciliation case remains open.
   // Treat all three ledgers as independent integrity gates. 'received' events
   // are intentionally not counted because processing may still be in flight.
-  ['unresolved payment reconciliation cases', `SELECT COUNT(*)::int AS count FROM payment_reconciliation WHERE status = 'open'`],
+  ['unresolved payment reconciliation cases', `SELECT COUNT(*)::int AS count FROM payment_issues WHERE status = 'open'`],
   // Reconciliation incidents can exist before a provider payment is resolved,
   // so payment_id is intentionally nullable. Once linked, however, the case
   // must identify the same payment provider as the referenced payment; the
@@ -318,7 +318,7 @@ const checks = [
   // Include both open and resolved cases so historical misattribution cannot
   // be hidden by closing an incident. Read-only detection, not webhook repair.
   ['payment reconciliation incidents linked to a different provider', `SELECT COUNT(*)::int AS count
-    FROM payment_reconciliation pr
+    FROM payment_issues pr
     JOIN payments p ON p.id = pr.payment_id
     WHERE pr.provider IS DISTINCT FROM p.provider`],
   // A reconciliation case may be created without an event (for a manual
@@ -329,7 +329,7 @@ const checks = [
   // Open and resolved cases are both audited. This is read-only detection,
   // never an authorization or webhook-ownership repair.
   ['reconciliation incidents with unknown or cross-provider event IDs', `SELECT COUNT(*)::int AS count
-    FROM payment_reconciliation pr
+    FROM payment_issues pr
     WHERE pr.event_id IS NOT NULL
       AND NOT EXISTS (
         SELECT 1 FROM payment_events e
@@ -344,7 +344,7 @@ const checks = [
   // with nullable payment_id or event_id valid, as the reviewed schema permits.
   // This detects persisted misattribution; it does not fix the webhook handler.
   ['reconciliation incident events attributed to another payment', `SELECT COUNT(*)::int AS count
-    FROM payment_reconciliation pr
+    FROM payment_issues pr
     JOIN payments p ON p.id = pr.payment_id
     WHERE pr.event_id IS NOT NULL
       AND NOT EXISTS (
@@ -363,20 +363,16 @@ const checks = [
   // sides in the same read-only snapshot; leave nullable historic billing
   // subscription references (ON DELETE SET NULL) out of this join.
   ['entitlements linked to another pharmacy subscription', `SELECT COUNT(*)::int AS count
-    FROM subscription_entitlements e
+    FROM plan_features e
     JOIN subscriptions s ON s.id = e.subscription_id
-    WHERE e.drugstore_id IS DISTINCT FROM s.drugstore_id`],
-  ['billing events linked to another pharmacy subscription', `SELECT COUNT(*)::int AS count
-    FROM billing_events b
-    JOIN subscriptions s ON s.id = b.subscription_id
-    WHERE b.drugstore_id IS DISTINCT FROM s.drugstore_id`],
+    WHERE e.pharmacy_id IS DISTINCT FROM s.pharmacy_id`],
   // An unrevoked entitlement is directly consumed by premium authorization.
   // The reviewed backfill grants it only for active Plus or Pro subscriptions
   // whose end date has not passed, but the grant can become stale if a
   // subscription changes or expires without its entitlement being revoked.
   // Detect this in the same read-only snapshot; do not silently revoke data.
   ['unrevoked premium entitlements from ineligible subscriptions', `SELECT COUNT(*)::int AS count
-    FROM subscription_entitlements e
+    FROM plan_features e
     JOIN subscriptions s ON s.id = e.subscription_id
     WHERE e.revoked_at IS NULL
       AND e.entitlement_key = 'reports:view:premium'
@@ -395,8 +391,8 @@ const checks = [
       AND s.status = 'active'
       AND (s.end_date IS NULL OR s.end_date >= CURRENT_DATE)
       AND NOT EXISTS (
-        SELECT 1 FROM subscription_entitlements e
-        WHERE e.drugstore_id = s.drugstore_id
+        SELECT 1 FROM plan_features e
+        WHERE e.pharmacy_id = s.pharmacy_id
           AND e.subscription_id = s.id
           AND e.entitlement_key = 'reports:view:premium'
           AND e.revoked_at IS NULL
@@ -452,12 +448,12 @@ try {
         AND c.relname = ANY($1::text[])
       ORDER BY c.relname
     `, [[
-      'users','drugstores','pharmacy_memberships','medicines','inventory','orders',
-      'order_drugstores','order_items','payments','subscriptions','audit_logs',
-      'auth_session_families','auth_sessions','email_verification_challenges',
-      'password_reset_challenges','auth_rate_limit_events','auth_account_security','medicine_evidence','pharmacy_verifications','reservations','stock_movements',
-      'payment_events','refunds','payment_reconciliation','subscription_entitlements','billing_events',
-      'stock_submissions','medicine_id_renumbering','auth_throttle_events',
+      'users','pharmacies','pharmacy_memberships','medicines','stock','orders',
+      'order_pharmacies','order_items','payments','subscriptions','audit_logs',
+      'auth_session_families','auth_sessions','email_codes',
+      'reset_links','auth_rate_limit_events','auth_account_security','pharmacy_verifications','reservations','stock_movements',
+      'payment_events','refunds','payment_issues','plan_features',
+      'stock_submissions','auth_throttle_events',
     ]]);
     // Revalidate the exact protected set on THIS reconciliation connection,
     // including users (NP-031). The earlier application-pool preflight also
@@ -465,13 +461,13 @@ try {
     // The existing reviewed migrations still leave users RLS incomplete:
     // that is a BLOCKER, never a reason to omit the table or bypass the gate.
     assertForcedReconciliationRls(rls, [
-      'users','drugstores','pharmacy_memberships','medicines','inventory','orders',
-      'order_drugstores','order_items','payments','subscriptions','audit_logs',
-      'auth_session_families','auth_sessions','email_verification_challenges',
-      'password_reset_challenges','auth_rate_limit_events','auth_account_security',
-      'medicine_evidence','pharmacy_verifications','reservations','stock_movements',
-      'payment_events','refunds','payment_reconciliation','subscription_entitlements','billing_events',
-      'stock_submissions','medicine_id_renumbering','auth_throttle_events',
+      'users','pharmacies','pharmacy_memberships','medicines','stock','orders',
+      'order_pharmacies','order_items','payments','subscriptions','audit_logs',
+      'auth_session_families','auth_sessions','email_codes',
+      'reset_links','auth_rate_limit_events','auth_account_security',
+      'pharmacy_verifications','reservations','stock_movements',
+      'payment_events','refunds','payment_issues','plan_features',
+      'stock_submissions','auth_throttle_events',
     ]);
 
     const appRole = await client.query(`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1`, [process.env.DB_USER.split('.')[0]]);

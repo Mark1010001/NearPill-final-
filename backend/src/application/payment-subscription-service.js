@@ -226,7 +226,6 @@ export function createPaymentSubscriptionService({
       if (status === 'active') await repository.expireActiveSubscriptions(drugstoreId);
       const id = await repository.createSubscription({ drugstoreId, tier, status, planVersion, startDate, endDate: endDate || null });
       const entitlements = await syncSubscriptionEntitlements({ drugstoreId, subscriptionId: id, tier, status });
-      await repository.appendBillingEvent({ drugstoreId, subscriptionId: id, actorId, eventType: 'subscription.created', details: JSON.stringify({ tier, status, planVersion, entitlements }) });
       await repository.appendAudit(actorId, 'CREATE_SUBSCRIPTION', `Created ${tier} subscription for drugstore ${drugstoreId}.`);
       return success({ id, drugstoreId, tier, status, planVersion, startDate, endDate: endDate || null, entitlements }, 201);
     },
@@ -242,10 +241,9 @@ export function createPaymentSubscriptionService({
       const status = body.status ?? existing.status;
       const planVersion = body.planVersion ?? existing.plan_version ?? 'legacy-v1';
       const endDate = body.endDate !== undefined ? body.endDate : existing.end_date;
-      const drugstoreId = Number(existing.drugstore_id);
+      const drugstoreId = Number(existing.pharmacy_id);
       await repository.updateSubscription(subscriptionId, { tier, status, planVersion, endDate: endDate || null });
       const entitlements = await syncSubscriptionEntitlements({ drugstoreId, subscriptionId, tier, status });
-      await repository.appendBillingEvent({ drugstoreId, subscriptionId, actorId, eventType: 'subscription.updated', details: JSON.stringify({ tier, status, planVersion, entitlements }) });
       await repository.appendAudit(actorId, 'UPDATE_SUBSCRIPTION', `Updated subscription ${subscriptionId}.`);
       return success({ id: subscriptionId, drugstoreId, tier, status, planVersion, startDate: existing.start_date, endDate: endDate || null, entitlements });
     },

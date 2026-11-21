@@ -32,9 +32,9 @@ export async function cleanupSyntheticOrderVerifierFixtures({ migratorPool, fixt
 
   const steps = [
     ['orders', 'DELETE FROM orders WHERE user_id = $1', fixture.userId],
-    ['inventory', 'DELETE FROM inventory WHERE id = $1', fixture.inventoryId],
+    ['stock', 'DELETE FROM stock WHERE id = $1', fixture.inventoryId],
     ['medicines', 'DELETE FROM medicines WHERE id = $1', fixture.medicineId],
-    ['drugstores', 'DELETE FROM drugstores WHERE id = $1', fixture.storeId],
+    ['pharmacies', 'DELETE FROM pharmacies WHERE id = $1', fixture.storeId],
     ['users', 'DELETE FROM users WHERE id = $1', fixture.userId],
   ];
   const failures = [];

@@ -56,14 +56,14 @@ function recordingPool({ failBegin = false, failRollback = false, failContextRes
           if (sql.startsWith('UPDATE users') || sql.startsWith('DELETE FROM users')) {
             return { rows: [], rowCount: 0 };
           }
-          if (sql.startsWith('SELECT id,order_id FROM order_drugstores')) {
+          if (sql.startsWith('SELECT id,order_id FROM order_pharmacies')) {
             const orderId = actor === fixture.userA ? fixture.orderA : fixture.orderB;
             return { rows: [{ id: orderId + 1000, order_id: orderId }] };
           }
-          if (sql.startsWith('SELECT id,order_drugstore_id FROM order_items')) {
+          if (sql.startsWith('SELECT id,order_pharmacy_id FROM order_items')) {
             const orderId = actor === fixture.userA ? fixture.orderA : fixture.orderB;
             return { rows: [{ id: actor === fixture.userA ? fixture.orderItemA : fixture.orderItemB,
-              order_drugstore_id: orderId + 1000 }] };
+              order_pharmacy_id: orderId + 1000 }] };
           }
           if (sql.startsWith('UPDATE order_items SET unit_price_centavos')) {
             return { rows: [], rowCount: 0 };
@@ -74,18 +74,18 @@ function recordingPool({ failBegin = false, failRollback = false, failContextRes
             error.code = '42501';
             throw error;
           }
-          if (sql.startsWith('DELETE FROM order_drugstores WHERE id = $1')) return { rows: [], rowCount: 0 };
-          if (sql.startsWith('UPDATE order_drugstores SET status')) {
+          if (sql.startsWith('DELETE FROM order_pharmacies WHERE id = $1')) return { rows: [], rowCount: 0 };
+          if (sql.startsWith('UPDATE order_pharmacies SET status')) {
             return { rows: [], rowCount: 0 };
           }
           if (sql.startsWith('SELECT id,order_id FROM payments')) {
             return { rows: [{ id: actor === fixture.userA ? fixture.paymentA : fixture.paymentB,
               order_id: actor === fixture.userA ? fixture.orderA : fixture.orderB }] };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,medicine_id FROM inventory')) {
-            return { rows: [{ id: fixture.inventoryId, drugstore_id: fixture.storeId, medicine_id: fixture.medicineId }], rowCount: 1 };
+          if (sql.startsWith('SELECT id,pharmacy_id,medicine_id FROM stock')) {
+            return { rows: [{ id: fixture.inventoryId, pharmacy_id: fixture.storeId, medicine_id: fixture.medicineId }], rowCount: 1 };
           }
-          if (sql.startsWith('UPDATE inventory SET') || sql.startsWith('DELETE FROM inventory')) return { rows: [], rowCount: 0 };
+          if (sql.startsWith('UPDATE stock SET') || sql.startsWith('DELETE FROM stock')) return { rows: [], rowCount: 0 };
           if (sql.startsWith('SELECT id FROM medicines WHERE id = $1')) {
             return { rows: [{ id: fixture.medicineId }], rowCount: 1 };
           }
@@ -106,11 +106,11 @@ function recordingPool({ failBegin = false, failRollback = false, failContextRes
             error.code = '42501';
             throw error;
           }
-          if (sql.startsWith('SELECT id FROM drugstores')) {
+          if (sql.startsWith('SELECT id FROM pharmacies')) {
             return { rows: [{ id: fixture.storeId }], rowCount: 1 };
           }
-          if (sql.startsWith('UPDATE drugstores SET verification_status') ||
-              sql.startsWith('DELETE FROM drugstores')) {
+          if (sql.startsWith('UPDATE pharmacies SET verification_status') ||
+              sql.startsWith('DELETE FROM pharmacies')) {
             return { rows: [], rowCount: 0 };
           }
           if (sql.startsWith('INSERT INTO pharmacy_memberships')) {
@@ -147,9 +147,9 @@ function recordingPool({ failBegin = false, failRollback = false, failContextRes
 test('successful RLS verification returns only cleanly reset connections to the pool', async () => {
   const pool = recordingPool();
   await assertCustomerOrderRlsNegatives({ pool, fixture });
-  assert.equal(pool.releases.length, 92);
-  assert.deepEqual(pool.releases, Array(92).fill(false));
-  assert.equal(pool.statements.filter((sql) => sql === 'ROLLBACK').length, 92);
+  assert.equal(pool.releases.length, 90);
+  assert.deepEqual(pool.releases, Array(90).fill(false));
+  assert.equal(pool.statements.filter((sql) => sql === 'ROLLBACK').length, 90);
 });
 
 for (const [label, overrides, expected] of [

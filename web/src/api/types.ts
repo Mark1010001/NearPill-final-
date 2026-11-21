@@ -32,7 +32,7 @@ export interface StockRow {
 }
 
 export interface StockSubmission {
-  id: number; drugstoreId: number; drugstoreName: string; accountNo: number | null; source: 'csv' | 'single';
+  id: number; drugstoreId: number; drugstoreName: string; source: 'csv' | 'single';
   status: 'pending' | 'approved' | 'rejected'; fileName: string | null; rowCount: number; reviewNote: string | null;
   createdAt: string; reviewedAt: string | null; rows?: StockRow[];
 }
@@ -64,7 +64,6 @@ export interface Pharmacy {
   reviewedAt?: string | null;
   totalOrders?: number;
   totalSales?: number;
-  accountNo?: number | null;
   subscriptionTier?: string | null;
   partnershipStartedAt?: string | null;
   partnershipExpiresAt?: string | null;
@@ -78,9 +77,7 @@ export interface Medicine {
   dosageForm?: string;
   publicationStatus?: string;
   alreadyStocked?: boolean;
-  approvedEvidenceCount?: number;
   linkedPharmacies?: { id: number; name: string; inventoryId: number; priceCentavos: string; stockOnHand?: number; sellableQuantity?: number; sellingUnit?: string | null; packageSize?: string | null }[];
-  savedEvidence?: { id: number; name: string; status: string }[];
   description?: string | null;
   otcEligible?: boolean;
 }

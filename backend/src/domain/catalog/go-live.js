@@ -20,8 +20,8 @@ export function evaluateGoLive(facts) {
       hint: 'Check the latitude and longitude. They may be blank or swapped.',
     },
     {
-      id: 'account', label: 'Account No. is assigned and the name is not used by another pharmacy',
-      ok: Number(facts.accountNo) > 0 && Number(facts.duplicateNames) === 0,
+      id: 'name', label: 'The pharmacy name is not used by another pharmacy',
+      ok: Number(facts.duplicateNames) === 0,
       hint: 'Rename the pharmacy if another active pharmacy has the same name.',
     },
     {

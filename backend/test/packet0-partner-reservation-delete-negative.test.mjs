@@ -44,25 +44,25 @@ function recordingPool({ missingAdmin = false, wrongAdminRole = false, adminDele
           if (sql.startsWith('SELECT id,role FROM users')) {
             return { rows: missingAdmin ? [] : [{ id: fixture.userAdmin, role: wrongAdminRole ? 'partner' : 'admin' }] };
           }
-          if (sql.includes('FROM reservations r JOIN inventory i')) {
+          if (sql.includes('FROM reservations r JOIN stock i')) {
             return { rows: [{ id: fixture.reservationId, order_id: fixture.orderB,
-              inventory_id: fixture.reservationInventoryId, drugstore_id: fixture.storeId,
+              stock_id: fixture.reservationInventoryId, pharmacy_id: fixture.storeId,
               quantity: 1, reserved_quantity: inconsistentStock ? 0 : 1,
               status: wrongReservationStatus ? 'released' : 'active' }] };
           }
           if (sql.includes('FROM stock_movements WHERE id=$1')) {
             return { rows: missingMovement ? [] : [{ id: fixture.reservationMovementId,
-              inventory_id: fixture.reservationInventoryId, order_id: fixture.orderB,
-              movement_type: 'reserve', reserved_delta: 1, stock_on_hand_delta: 0 }] };
+              stock_id: fixture.reservationInventoryId, order_id: fixture.orderB,
+              movement_type: 'reserve', held_change: 1, stock_change: 0 }] };
           }
-          if (sql.startsWith('SELECT id,drugstore_id,is_active FROM pharmacy_memberships')) {
+          if (sql.startsWith('SELECT id,pharmacy_id,is_active FROM pharmacy_memberships')) {
             return { rows: missingMembership ? [] : [{ id: fixture.partnerMembershipId,
-              drugstore_id: wrongMembershipStore ? 999 : fixture.storeId,
+              pharmacy_id: wrongMembershipStore ? 999 : fixture.storeId,
               is_active: inactiveMembership ? 0 : 1 }] };
           }
-          if (sql.startsWith('SELECT id,order_id,inventory_id,status FROM reservations')) {
+          if (sql.startsWith('SELECT id,order_id,stock_id,status FROM reservations')) {
             return { rows: invisibleReservation ? [] : [{ id: fixture.reservationId,
-              order_id: fixture.orderB, inventory_id: fixture.reservationInventoryId,
+              order_id: fixture.orderB, stock_id: fixture.reservationInventoryId,
               status: wrongReservationStatus ? 'released' : 'active' }] };
           }
           if (sql.startsWith('DELETE FROM reservations')) {
@@ -170,8 +170,8 @@ test('NP-040 cleanup validates new IDs and removes dedicated inventory/medicine 
   } };
   await cleanupSyntheticRlsVerifierFixtures({ migratorPool, fixture, fixtureCommitted: true });
   assert.ok(calls.findIndex(({ sql }) => sql.startsWith('DELETE FROM orders')) <
-    calls.findIndex(({ sql }) => sql === 'DELETE FROM inventory WHERE id=$1'));
-  assert.deepEqual(calls.filter(({ sql }) => sql === 'DELETE FROM inventory WHERE id=$1').map(({ params }) => params[0]),
+    calls.findIndex(({ sql }) => sql === 'DELETE FROM stock WHERE id=$1'));
+  assert.deepEqual(calls.filter(({ sql }) => sql === 'DELETE FROM stock WHERE id=$1').map(({ params }) => params[0]),
     [fixture.inventoryId, fixture.reservationInventoryId]);
   assert.deepEqual(calls.filter(({ sql }) => sql === 'DELETE FROM medicines WHERE id=$1').map(({ params }) => params[0]),
     [fixture.reservationMedicineId]);

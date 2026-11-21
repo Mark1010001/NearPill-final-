@@ -42,11 +42,10 @@ export function createPostgresCatalogRepository(postgresPool) {
           m.description AS description,
           i.updated_at AS availabilityUpdatedAt,
           NULL AS distance,
-          ${distance} AS distanceKm,
-          (SELECT COUNT(*) FROM medicine_evidence me WHERE me.medicine_id = m.id AND me.status = 'approved') AS evidenceCount
-        FROM inventory i
+          ${distance} AS distanceKm
+        FROM stock i
         JOIN medicines m ON m.id = i.medicine_id
-        JOIN drugstores ds ON ds.id = i.drugstore_id
+        JOIN pharmacies ds ON ds.id = i.pharmacy_id
         WHERE ${publicStorePredicate}
           ${includeCatalog
             ? "AND m.publication_status IN ('draft', 'published')"
@@ -106,7 +105,7 @@ export function createPostgresCatalogRepository(postgresPool) {
         FROM medicines m
         WHERE m.id = ?
           AND (m.publication_status = 'published' OR EXISTS (
-            SELECT 1 FROM inventory i JOIN drugstores ds ON ds.id = i.drugstore_id
+            SELECT 1 FROM stock i JOIN pharmacies ds ON ds.id = i.pharmacy_id
             WHERE i.medicine_id = m.id AND ${publicStorePredicate} AND ${listingEligibleForCheckout}
           ))
         LIMIT 1
@@ -121,7 +120,7 @@ export function createPostgresCatalogRepository(postgresPool) {
         `
         SELECT
           i.id AS inventoryId,
-          i.drugstore_id AS drugstoreId,
+          i.pharmacy_id AS drugstoreId,
           ds.name AS drugstoreName,
           ds.address AS address,
           ds.latitude AS latitude,
@@ -132,8 +131,8 @@ export function createPostgresCatalogRepository(postgresPool) {
           (i.stock_on_hand - i.reserved_quantity) AS stockCount,
           i.availability AS availability,
           i.updated_at AS availabilityUpdatedAt
-        FROM inventory i
-        JOIN drugstores ds ON ds.id = i.drugstore_id
+        FROM stock i
+        JOIN pharmacies ds ON ds.id = i.pharmacy_id
         JOIN medicines m ON m.id = i.medicine_id
         WHERE i.medicine_id = ?
           AND ${publicStorePredicate}
@@ -141,23 +140,6 @@ export function createPostgresCatalogRepository(postgresPool) {
           AND i.availability = 1
           AND i.stock_on_hand - i.reserved_quantity > 0
         ORDER BY ds.name ASC
-        `,
-        [medicineId],
-      );
-      return rows;
-    },
-
-    async listMedicineEvidence(medicineId) {
-      const [rows] = await pool.query(
-        `
-        SELECT
-          source_name AS sourceName,
-          source_url AS sourceUrl,
-          source_version AS sourceVersion,
-          reviewed_at AS reviewedAt
-        FROM medicine_evidence
-        WHERE medicine_id = ? AND status = 'approved'
-        ORDER BY reviewed_at DESC, id DESC
         `,
         [medicineId],
       );
@@ -176,7 +158,7 @@ export function createPostgresCatalogRepository(postgresPool) {
           ds.is_active,
           ds.verified_at AS verifiedAt,
           ds.public_profile_published_at AS publicProfilePublishedAt
-        FROM drugstores ds
+        FROM pharmacies ds
         WHERE ${publicStorePredicate}
         ORDER BY ds.name ASC
       `);
@@ -196,7 +178,7 @@ export function createPostgresCatalogRepository(postgresPool) {
           ds.is_active,
           ds.verified_at AS verifiedAt,
           ds.public_profile_published_at AS publicProfilePublishedAt
-        FROM drugstores ds
+        FROM pharmacies ds
         WHERE ds.id = ? AND ${publicStorePredicate}
         LIMIT 1
         `,
@@ -219,7 +201,7 @@ export function createPostgresCatalogRepository(postgresPool) {
           verification_status,
           verified_at,
           public_profile_published_at
-        FROM drugstores
+        FROM pharmacies
         WHERE id = ?
         LIMIT 1
         `,
@@ -249,9 +231,9 @@ export function createPostgresCatalogRepository(postgresPool) {
           m.description AS description,
           i.updated_at AS availabilityUpdatedAt,
           NULL AS distance
-        FROM inventory i
+        FROM stock i
         JOIN medicines m ON m.id = i.medicine_id
-        JOIN drugstores ds ON ds.id = i.drugstore_id
+        JOIN pharmacies ds ON ds.id = i.pharmacy_id
         WHERE ds.id = ?
           AND ${publicStorePredicate}
           AND ${includeCatalog ? "m.publication_status IN ('draft', 'published')" : `${listingEligibleForCheckout} AND i.availability = 1 AND i.stock_on_hand - i.reserved_quantity > 0`}
@@ -277,7 +259,7 @@ export function createPostgresCatalogRepository(postgresPool) {
             nearpill_extensions.ll_to_earth(?, ?),
             nearpill_extensions.ll_to_earth(ds.latitude::DOUBLE PRECISION, ds.longitude::DOUBLE PRECISION)
           ) / 1000.0)::NUMERIC, 2) AS distanceKm
-        FROM drugstores ds
+        FROM pharmacies ds
         WHERE ${publicStorePredicate}
           AND nearpill_extensions.earth_box(
             nearpill_extensions.ll_to_earth(?, ?), ?
@@ -309,7 +291,7 @@ export function createPostgresCatalogRepository(postgresPool) {
           ds.operating_hours,
           ds.verified_at AS verifiedAt,
           NULL AS distanceKm
-        FROM drugstores ds
+        FROM pharmacies ds
         WHERE ${publicStorePredicate}
           AND (
             ds.name ILIKE ?
@@ -340,23 +322,22 @@ export function createPostgresCatalogRepository(postgresPool) {
           ds.verified_at AS verifiedAt,
           ds.public_profile_published_at AS publicProfilePublishedAt,
           ds.created_at,
-          ds.account_no AS accountNo,
           sub.tier AS subscriptionTier,
           pv.license_number AS licenseNumber,
           pv.evidence_reference AS evidenceReference,
           pv.notes AS verificationNotes,
           pv.reviewed_by AS reviewedBy, pv.reviewed_at AS reviewedAt
-        FROM drugstores ds
+        FROM pharmacies ds
         LEFT JOIN LATERAL (
           SELECT license_number, evidence_reference, notes, reviewed_by, reviewed_at
           FROM pharmacy_verifications
-          WHERE drugstore_id = ds.id
+          WHERE pharmacy_id = ds.id
           ORDER BY reviewed_at DESC, id DESC
           LIMIT 1
         ) pv ON TRUE
         LEFT JOIN LATERAL (
           SELECT tier FROM subscriptions
-          WHERE drugstore_id = ds.id AND status = 'active'
+          WHERE pharmacy_id = ds.id AND status = 'active'
           ORDER BY id DESC
           LIMIT 1
         ) sub ON TRUE
@@ -368,14 +349,14 @@ export function createPostgresCatalogRepository(postgresPool) {
     async listDrugstoreSales() {
       const [rows] = await pool.query(`
         SELECT
-          od.drugstore_id AS drugstoreId,
+          od.pharmacy_id AS drugstoreId,
           COUNT(DISTINCT od.order_id) AS totalOrders,
           COALESCE(SUM(oi.quantity * oi.unit_price_centavos), 0)::numeric / 100 AS totalSales
-        FROM order_drugstores od
+        FROM order_pharmacies od
         JOIN orders o ON o.id = od.order_id
-        JOIN order_items oi ON oi.order_drugstore_id = od.id
+        JOIN order_items oi ON oi.order_pharmacy_id = od.id
         WHERE o.status IN ('confirmed', 'preparing', 'ready_for_pickup', 'completed')
-        GROUP BY od.drugstore_id
+        GROUP BY od.pharmacy_id
       `);
       return rows;
     },
@@ -383,12 +364,10 @@ export function createPostgresCatalogRepository(postgresPool) {
     async createDrugstore({ name, address, latitude, longitude, operatingHours, isActive }) {
       const [result] = await pool.query(
         `
-        INSERT INTO drugstores
-          (name, address, latitude, longitude, operating_hours, is_active, verification_status, account_no)
+        INSERT INTO pharmacies
+          (name, address, latitude, longitude, operating_hours, is_active, verification_status)
         VALUES
-          (?, ?, ?, ?, ?, ?, 'verified', (SELECT COALESCE(
-            (SELECT MIN(n) FROM generate_series(1, (SELECT COALESCE(MAX(account_no), 0) + 1 FROM drugstores)) AS n
-              WHERE NOT EXISTS (SELECT 1 FROM drugstores x WHERE x.account_no = n)), 1)))
+          (?, ?, ?, ?, ?, ?, 'verified')
         `,
         [name, address, latitude, longitude, operatingHours, isActive],
       );
@@ -397,20 +376,20 @@ export function createPostgresCatalogRepository(postgresPool) {
 
     async getGoLiveFacts(drugstoreId) {
       const [rows] = await pool.query(
-        `SELECT d.id, d.name, d.address, d.latitude, d.longitude, d.operating_hours AS "operatingHours", d.account_no AS "accountNo",
+        `SELECT d.id, d.name, d.address, d.latitude, d.longitude, d.operating_hours AS "operatingHours",
                 d.verification_status AS "verificationStatus", d.is_active AS "isActive", d.public_profile_published_at AS "publishedAt",
-                (SELECT COUNT(*) FROM drugstores o WHERE o.id <> d.id AND o.is_active = 1 AND lower(o.name) = lower(d.name)) AS "duplicateNames",
-                (SELECT COUNT(*) FROM subscriptions s WHERE s.drugstore_id = d.id AND s.status = 'active'
+                (SELECT COUNT(*) FROM pharmacies o WHERE o.id <> d.id AND o.is_active = 1 AND lower(o.name) = lower(d.name)) AS "duplicateNames",
+                (SELECT COUNT(*) FROM subscriptions s WHERE s.pharmacy_id = d.id AND s.status = 'active'
                    AND (s.end_date IS NULL OR s.end_date >= CURRENT_DATE)) AS "activePlans",
-                (SELECT COUNT(*) FROM inventory i WHERE i.drugstore_id = d.id AND i.stock_on_hand > 0
+                (SELECT COUNT(*) FROM stock i WHERE i.pharmacy_id = d.id AND i.stock_on_hand > 0
                    AND i.price_centavos > 0 AND i.selling_unit IS NOT NULL) AS "stockedItems"
-         FROM drugstores d WHERE d.id = ? LIMIT 1`, [drugstoreId]);
+         FROM pharmacies d WHERE d.id = ? LIMIT 1`, [drugstoreId]);
       return rows[0] ?? null;
     },
 
     async setPublication(drugstoreId, live) {
       const [result] = await pool.query(
-        `UPDATE drugstores
+        `UPDATE pharmacies
          SET public_profile_published_at = ${live ? 'CURRENT_TIMESTAMP' : 'NULL'}
          WHERE id = ? AND is_active = 1 AND verification_status = 'verified'`, [drugstoreId]);
       return Number(result.affectedRows ?? 0) === 1;
@@ -419,7 +398,7 @@ export function createPostgresCatalogRepository(postgresPool) {
     async updateDrugstore(drugstoreId, { name, address, latitude, longitude, operatingHours, isActive }) {
       const [result] = await pool.query(
         `
-        UPDATE drugstores
+        UPDATE pharmacies
         SET
           name = ?,
           address = ?,
@@ -441,7 +420,7 @@ export function createPostgresCatalogRepository(postgresPool) {
         const verifiedAt = status === 'verified' ? new Date() : null;
         const publicProfilePublishedAt = status === 'verified' && publish ? verifiedAt : null;
         const [updated] = await connection.query(
-          `UPDATE drugstores
+          `UPDATE pharmacies
            SET verification_status = ?, verified_at = ?, public_profile_published_at = ?
            WHERE id = ?`,
           [status, verifiedAt, publicProfilePublishedAt, drugstoreId],
@@ -452,7 +431,7 @@ export function createPostgresCatalogRepository(postgresPool) {
         }
         await connection.query(
           `INSERT INTO pharmacy_verifications
-            (drugstore_id, status, license_number, evidence_reference, notes, reviewed_by)
+            (pharmacy_id, status, license_number, evidence_reference, notes, reviewed_by)
            VALUES (?, ?, ?, ?, ?, ?)`,
           [drugstoreId, status, licenseNumber, evidenceReference, notes, reviewedBy],
         );
@@ -483,10 +462,7 @@ export function createPostgresCatalogRepository(postgresPool) {
             'inventoryId', i.id, 'priceCentavos', i.price_centavos::text,
             'sellingUnit', i.selling_unit, 'packageSize', i.package_size,
             'stockOnHand', i.stock_on_hand, 'sellableQuantity', i.stock_on_hand - i.reserved_quantity) ORDER BY ds.name, ds.id)
-            FROM inventory i JOIN drugstores ds ON ds.id = i.drugstore_id WHERE i.medicine_id = m.id AND ds.is_active = 1), '[]'::json) AS linkedPharmacies,
-          COALESCE((SELECT json_agg(json_build_object('id', me.id, 'name', me.source_name, 'status', me.status) ORDER BY me.id)
-            FROM medicine_evidence me WHERE me.medicine_id = m.id), '[]'::json) AS savedEvidence,
-          (SELECT COUNT(*) FROM medicine_evidence me WHERE me.medicine_id = m.id AND me.status = 'approved') AS approvedEvidenceCount
+            FROM stock i JOIN pharmacies ds ON ds.id = i.pharmacy_id WHERE i.medicine_id = m.id AND ds.is_active = 1), '[]'::json) AS linkedPharmacies
         FROM medicines m
         ORDER BY m.brand_name ASC
       `);
@@ -545,44 +521,12 @@ export function createPostgresCatalogRepository(postgresPool) {
       return Number(result.affectedRows ?? 0);
     },
 
-    async listAdminMedicineEvidence(medicineId) {
-      const [rows] = await pool.query(
-        `SELECT id, medicine_id AS medicineId, source_name AS sourceName, source_url AS sourceUrl,
-                source_version AS sourceVersion, status, reviewed_by AS reviewedBy,
-                reviewed_at AS reviewedAt, created_at AS createdAt
-         FROM medicine_evidence
-         WHERE medicine_id = ?
-         ORDER BY reviewed_at DESC, id DESC`,
-        [medicineId],
-      );
-      return rows;
-    },
-
-    async addMedicineEvidence({ medicineId, sourceName, sourceUrl, sourceVersion, status, reviewedBy }) {
-      const [result] = await pool.query(
-        `INSERT INTO medicine_evidence
-          (medicine_id, source_name, source_url, source_version, status, reviewed_by)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [medicineId, sourceName, sourceUrl, sourceVersion, status, reviewedBy],
-      );
-      return Number(result.insertId);
-    },
-
-    async countApprovedMedicineEvidence(medicineId) {
-      const [rows] = await pool.query(
-        `SELECT COUNT(*) AS count FROM medicine_evidence WHERE medicine_id = ? AND status = 'approved'`,
-        [medicineId],
-      );
-      return Number(rows[0]?.count ?? 0);
-    },
-
     async updateMedicinePublication(medicineId, status, reviewReference, category) {
       if (reviewReference) {
         const [result] = await pool.query(
           `UPDATE medicines m SET otc_eligible = true, otc_review_reference = ?, otc_reviewed_at = CURRENT_TIMESTAMP,
                   publication_status = 'published', published_at = CURRENT_TIMESTAMP
-           WHERE m.id = ? AND m.publication_status = 'draft' AND NOT m.otc_eligible AND m.category = ?
-             AND EXISTS (SELECT 1 FROM medicine_evidence e WHERE e.medicine_id = m.id AND e.status = 'approved')`,
+           WHERE m.id = ? AND m.publication_status = 'draft' AND NOT m.otc_eligible AND m.category = ?`,
           [reviewReference, medicineId, category],
         );
         return Number(result.affectedRows ?? 0);

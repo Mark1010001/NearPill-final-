@@ -208,7 +208,7 @@ test('actual reviewed migrations are regular files with contiguous versions', as
   '0034_delete_test_pharmacies.sql',
   '0035_order_prescription_check.sql',
   '0036_order_pickup_date.sql',
-  '0037_account_deletion.sql', '0038_signup_hardening.sql', '0039_partner_account_numbers.sql', '0040_admin_create_partner_accounts.sql', '0041_stock_submissions.sql', '0042_renumber_catalog_ids.sql', '0043_verify_existing_pharmacies.sql', '0044_revoke_public_category_helpers.sql', '0045_log_retention.sql', '0046_auto_approved_stock.sql', '0047_delete_leftover_test_pharmacies.sql', '0048_remove_account_4_renumber_moms.sql', '0049_keep_only_alv_bing_dobol_b.sql', '0050_link_moms_partner_login.sql', '0051_admin_scrub_prescriptions.sql', '0052_partner_sees_own_pharmacy_and_full_delete.sql',
+  '0037_account_deletion.sql', '0038_signup_hardening.sql', '0039_partner_account_numbers.sql', '0040_admin_create_partner_accounts.sql', '0041_stock_submissions.sql', '0042_renumber_catalog_ids.sql', '0043_verify_existing_pharmacies.sql', '0044_revoke_public_category_helpers.sql', '0045_log_retention.sql', '0046_auto_approved_stock.sql', '0047_delete_leftover_test_pharmacies.sql', '0048_remove_account_4_renumber_moms.sql', '0049_keep_only_alv_bing_dobol_b.sql', '0050_link_moms_partner_login.sql', '0051_admin_scrub_prescriptions.sql', '0052_partner_sees_own_pharmacy_and_full_delete.sql', '0053_simpler_database_names.sql',
   ]);
   for (const { sql } of migrations) assert.ok(sql.trim().length > 100);
 });
@@ -225,12 +225,23 @@ test('actual reviewed migrations are regular files with contiguous versions', as
 // Share the strict literal DROP recognition with the RLS-posture replay so
 // that the two source characterizations cannot disagree about table identity.
 
+// The only table renames the reviewed history may contain: migration 0053 gives the database simpler names. A renamed table keeps its
+// RLS posture and policies, so its earlier history counts for the new name. Any other RENAME or SET SCHEMA is still rejected.
+const reviewedTableRenames = new Map([
+  ['drugstores', 'pharmacies'], ['inventory', 'stock'], ['order_drugstores', 'order_pharmacies'],
+  ['subscription_entitlements', 'plan_features'], ['payment_reconciliation', 'payment_issues'],
+  ['email_verification_challenges', 'email_codes'], ['password_reset_challenges', 'reset_links'],
+]);
+const reviewedRenameFile = '0053_simpler_database_names.sql';
+const tableAliases = (table) => new Set([table, ...[...reviewedTableRenames].filter(([, renamed]) => renamed === table).map(([original]) => original)]);
+
 function effectiveLiteralPolicies(migrations, table) {
   if (!/^(?:nearpill\.)?[a-z][a-z0-9_]*$/.test(table)) throw new Error('invalid inspected table');
   const policies = new Map();
+  const aliases = tableAliases(table);
   for (const { filename, sql } of migrations) {
     for (const { statement, line } of literalSqlStatements(sql, filename)) {
-      if (reviewedDropTableTargets(statement, filename, line)?.includes(table)) {
+      if (reviewedDropTableTargets(statement, filename, line)?.some((dropped) => aliases.has(dropped))) {
         policies.clear();
         continue;
       }
@@ -238,7 +249,7 @@ function effectiveLiteralPolicies(migrations, table) {
       const match = /^(CREATE|DROP|ALTER)\s+POLICY\s+(?:IF\s+EXISTS\s+)?([a-z_][a-z0-9_]*)\s+ON\s+(?:public\.)?((?:nearpill\.)?[a-z_][a-z0-9_]*)(?:\s+FOR\s+(ALL|SELECT|INSERT|UPDATE|DELETE)\s+TO\s+([a-z_][a-z0-9_]*))?(?=\s|$)/i.exec(statement);
       if (!match) throw new Error(`unreviewed policy syntax at ${filename}:${line}`);
       const [, action, name, target, operation, role] = match;
-      if (target !== table) continue;
+      if (!aliases.has(target)) continue;
       const suffix = statement.slice(match[0].length).trim();
       if (suffix && !/^(?:USING\b|WITH\b)/i.test(suffix)) {
         throw new Error(`unreviewed policy suffix for ${table} at ${filename}:${line}`);
@@ -272,13 +283,14 @@ function effectiveLiteralRlsPosture(migrations, table) {
   let enabled = false;
   let forced = false;
   let lastChange = null;
+  const aliases = tableAliases(table);
   for (const { filename, sql } of migrations) {
     for (const { statement, line } of literalSqlStatements(sql, filename)) {
       // A later DROP removes the protected relation and its policies even if
       // earlier migrations enabled/forced RLS. A recreated relation must earn
       // fresh ENABLE and FORCE evidence; do not carry old posture forward.
       if (/^DROP\s+TABLE\b/i.test(statement)) {
-        if (reviewedDropTableTargets(statement, filename, line)?.includes(table)) {
+        if (reviewedDropTableTargets(statement, filename, line)?.some((dropped) => aliases.has(dropped))) {
           enabled = false;
           forced = false;
           lastChange = `${filename}:${line}`;
@@ -294,7 +306,7 @@ function effectiveLiteralRlsPosture(migrations, table) {
         }
         continue;
       }
-      if (head[1].toLowerCase() !== table) continue;
+      if (!aliases.has(head[1].toLowerCase())) continue;
       const remainder = statement.slice(head[0].length).trim();
       const switchMatch = /^(ENABLE|DISABLE|FORCE|NO\s+FORCE)\s+ROW\s+LEVEL\s+SECURITY$/i.exec(remainder);
       if (switchMatch) {
@@ -304,6 +316,9 @@ function effectiveLiteralRlsPosture(migrations, table) {
         if (command === 'FORCE') forced = true;
         if (command === 'NO FORCE') forced = false;
         lastChange = `${filename}:${line}`;
+      } else if (filename === reviewedRenameFile && reviewedTableRenames.get(head[1].toLowerCase()) === (/^RENAME\s+TO\s+([a-z_][a-z0-9_]*)$/i.exec(remainder)?.[1] ?? '').toLowerCase()) {
+        // The reviewed 0053 rename: posture and policies carry over to the new name.
+        continue;
       } else if (/^(?:RENAME\s+TO|SET\s+SCHEMA)\b/i.test(remainder)) {
         // Moving/renaming a protected table invalidates the expected public
         // table identity, even if its physical relrowsecurity flag survives.
@@ -322,14 +337,14 @@ function policyOperations(policies) {
 
 test('Packet 0 migration-order audit: later migrations retire broad order, inventory and reservation policies', async () => {
   const migrations = await loadReviewedMigrationSources(new URL('../migrations/postgres/', import.meta.url));
-  const orderChildren = effectiveLiteralPolicies(migrations, 'order_drugstores');
+  const orderChildren = effectiveLiteralPolicies(migrations, 'order_pharmacies');
   assert.equal(orderChildren.has('order_drugstores_access'), false);
   assert.deepEqual(policyOperations(orderChildren), ['INSERT', 'SELECT', 'SELECT', 'UPDATE', 'UPDATE', 'UPDATE']);
   assert.equal(orderChildren.get('order_drugstores_partner_pickup_update')?.operation, 'UPDATE');
   const lines = effectiveLiteralPolicies(migrations, 'order_items');
   assert.equal(lines.has('order_items_access'), false);
   assert.deepEqual(policyOperations(lines), ['INSERT', 'SELECT']);
-  const inventory = effectiveLiteralPolicies(migrations, 'inventory');
+  const inventory = effectiveLiteralPolicies(migrations, 'stock');
   assert.equal(inventory.has('inventory_write'), false);
   // 0029 adds one partner-only INSERT policy (inventory_partner_new_product) for a pharmacy's brand-new draft product.
   assert.deepEqual(policyOperations(inventory), ['INSERT', 'INSERT', 'INSERT', 'INSERT', 'SELECT', 'SELECT', 'SELECT', 'UPDATE', 'UPDATE']);
@@ -426,7 +441,7 @@ CREATE POLICY retained ON order_drugstores FOR INSERT TO nearpill_app WITH CHECK
 
 test('Packet 0 effective RLS posture remains ENABLED and FORCED for protected order and inventory tables', async () => {
   const migrations = await loadReviewedMigrationSources(new URL('../migrations/postgres/', import.meta.url));
-  for (const table of ['inventory', 'reservations', 'order_drugstores', 'order_items']) {
+  for (const table of ['stock', 'reservations', 'order_pharmacies', 'order_items']) {
     const posture = effectiveLiteralRlsPosture(migrations, table);
     assert.equal(posture.enabled, true, `${table} source RLS must be enabled`);
     assert.equal(posture.forced, true, `${table} source RLS must be forced`);
