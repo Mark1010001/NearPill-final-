@@ -537,7 +537,8 @@ export function createPostgresSecurityRepository(pool) {
         await client.query(`DELETE FROM pharmacy_memberships WHERE drugstore_id = $1`, [drugstoreId]);
         await client.query(
           `UPDATE drugstores SET name = 'Deleted pharmacy', address = 'Deleted', operating_hours = NULL,
-                  latitude = 0, longitude = 0, is_active = 0, public_profile_published_at = NULL WHERE id = $1`,
+                  latitude = 0, longitude = 0, is_active = 0, public_profile_published_at = NULL,
+                  account_no = NULL WHERE id = $1`,
           [drugstoreId],
         );
         await client.query(

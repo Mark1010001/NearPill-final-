@@ -386,7 +386,9 @@ export function createPostgresCatalogRepository(postgresPool) {
         INSERT INTO drugstores
           (name, address, latitude, longitude, operating_hours, is_active, verification_status, account_no)
         VALUES
-          (?, ?, ?, ?, ?, ?, 'verified', (SELECT COALESCE(MAX(account_no), 0) + 1 FROM drugstores))
+          (?, ?, ?, ?, ?, ?, 'verified', (SELECT COALESCE(
+            (SELECT MIN(n) FROM generate_series(1, (SELECT COALESCE(MAX(account_no), 0) + 1 FROM drugstores)) AS n
+              WHERE NOT EXISTS (SELECT 1 FROM drugstores x WHERE x.account_no = n)), 1)))
         `,
         [name, address, latitude, longitude, operatingHours, isActive],
       );
