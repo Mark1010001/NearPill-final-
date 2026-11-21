@@ -164,8 +164,8 @@ export function StaffAccountsPage() {
               : <button type="button" className="secondary" disabled={visibility.isPending || !live.data} onClick={() => { setPanelDone(''); visibility.mutate(true); }}>Restore access</button>}
             <button type="button" className="danger" disabled={erase.isPending} onClick={() => void deletePharmacy()}>Delete pharmacy and account</button>
           </div>
-          <FormFeedback error={visibility.error || erase.error} success={panelDone} />
         </div>}
+        <FormFeedback error={visibility.error || erase.error} success={panelDone} />
       </section></div>
     </div>
     {confirmDialog}
