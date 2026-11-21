@@ -534,13 +534,21 @@ export function createPostgresSecurityRepository(pool) {
           );
           anonymised.push(userId);
         }
-        await client.query(`DELETE FROM pharmacy_memberships WHERE drugstore_id = $1`, [drugstoreId]);
-        await client.query(
-          `UPDATE drugstores SET name = 'Deleted pharmacy', address = 'Deleted', operating_hours = NULL,
-                  latitude = 0, longitude = 0, is_active = 0, public_profile_published_at = NULL,
-                  account_no = NULL WHERE id = $1`,
-          [drugstoreId],
-        );
+        const history = await client.query(`SELECT 1 FROM order_drugstores WHERE drugstore_id = $1 LIMIT 1`, [drugstoreId]);
+        if (!history.rows[0]) {
+          // No orders were ever placed here, so nothing is needed for the reports: remove the pharmacy and the logins completely.
+          await client.query(`DELETE FROM drugstores WHERE id = $1`, [drugstoreId]);
+          for (const userId of anonymised) await client.query(`DELETE FROM users WHERE id = $1 AND role = 'partner'`, [userId]);
+        } else {
+          // Orders exist, so the record stays without personal details and the number is freed; sales totals keep working.
+          await client.query(`DELETE FROM pharmacy_memberships WHERE drugstore_id = $1`, [drugstoreId]);
+          await client.query(
+            `UPDATE drugstores SET name = 'Deleted pharmacy', address = 'Deleted', operating_hours = NULL,
+                    latitude = 0, longitude = 0, is_active = 0, public_profile_published_at = NULL,
+                    account_no = NULL WHERE id = $1`,
+            [drugstoreId],
+          );
+        }
         await client.query(
           `INSERT INTO audit_logs (user_id, action, description) VALUES ($1, 'ADMIN_DELETE_PHARMACY', $2)`,
           [actorId, `Administrator deleted pharmacy ${drugstoreId} and ${anonymised.length} partner account(s).`],
