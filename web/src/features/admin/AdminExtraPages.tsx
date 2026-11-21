@@ -5,6 +5,7 @@ import { useSession } from '../../auth/session';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { DataTable, Status, displayDate } from '../../components/DataTable';
 import { ErrorState, FormFeedback, LoadingState, currency } from '../../components/States';
+import { hoursSummary, hoursToText, summaryText, weekDays } from './operatingHours';
 
 const dateTime = new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Manila' });
 function showDateTime(value?: string | null) {
@@ -33,6 +34,8 @@ export function StaffAccountsPage() {
   const [confirm, confirmDialog] = useConfirm();
   const [drugstoreId, setDrugstoreId] = useState('');
   const [form, setForm] = useState({ name: '', address: '', latitude: '', longitude: '' });
+  const [hours, setHours] = useState({ open: '08:00', close: '20:00', days: [0, 1, 2, 3, 4, 5, 6] });
+  const hoursInfo = hoursSummary(hours);
   const [createdId, setCreatedId] = useState(0);
   const [justAdded, setJustAdded] = useState<{ drugstoreId: number; userId: number; email: string } | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
@@ -50,9 +53,10 @@ export function StaffAccountsPage() {
     mutationFn: async () => {
       let id = createdId;
       if (!id) {
+        if (!hoursInfo) throw new Error('Set the opening and closing times (they must differ) and choose at least one day open.');
         // An email that already has any NearPill account is refused before anything is created.
         if (!(await api.checkPartnerEmail(accountEmail.trim())).available) throw new Error('An account with this email already exists. Use a different email. No pharmacy was added.');
-        const created = await api.createPharmacy({ name: form.name.trim(), address: form.address.trim(), latitude: Number(form.latitude), longitude: Number(form.longitude), status: 'active' }) as { id?: number; store_id?: number };
+        const created = await api.createPharmacy({ name: form.name.trim(), address: form.address.trim(), latitude: Number(form.latitude), longitude: Number(form.longitude), operatingHours: hoursToText(hours), status: 'active' }) as { id?: number; store_id?: number };
         id = Number(created.store_id ?? created.id);
         setCreatedId(id);
       }
@@ -136,6 +140,16 @@ export function StaffAccountsPage() {
           <label>Address<input required maxLength={255} disabled={createdId > 0} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
           <label>Latitude<input required type="number" min={-90} max={90} step="any" disabled={createdId > 0} value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} /></label>
           <label>Longitude<input required type="number" min={-180} max={180} step="any" disabled={createdId > 0} value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} /></label>
+          <fieldset className="hours-fieldset" disabled={createdId > 0}>
+            <legend>Operating hours</legend>
+            <label>Opens<input type="time" required value={hours.open} onChange={(event) => setHours({ ...hours, open: event.target.value })} /></label>
+            <label>Closes<input type="time" required value={hours.close} onChange={(event) => setHours({ ...hours, close: event.target.value })} /></label>
+            <div className="chip-row" role="group" aria-label="Days open">
+              {weekDays.map((day, index) => <label key={day} className="checkbox-inline"><input type="checkbox" checked={hours.days.includes(index)}
+                onChange={(event) => setHours({ ...hours, days: event.target.checked ? [...hours.days, index] : hours.days.filter((value) => value !== index) })} />{day}</label>)}
+            </div>
+            <p className="muted" role="status">{hoursInfo ? summaryText(hoursInfo) : 'Choose different opening and closing times and at least one day.'}</p>
+          </fieldset>
           <label>Email<input type="email" required autoComplete="off" maxLength={254} value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} /></label>
           <p className="muted">You do not set a password. NearPill emails the pharmacy a sign-in link and a link to choose their own password.</p>
           <button disabled={save.isPending}>{save.isPending ? 'Adding…' : createdId > 0 ? 'Retry partner account' : 'Add pharmacy'}</button>

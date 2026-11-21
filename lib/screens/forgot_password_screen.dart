@@ -67,6 +67,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             const Text(
               'Enter your account email to request a password-reset link.',
             ),
+            const SizedBox(height: 8),
+            const Text(
+              'Your new password needs at least 10 characters with a letter and a number.',
+            ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _email,

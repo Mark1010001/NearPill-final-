@@ -35,7 +35,7 @@ export function createPasswordRecoveryService({
       ? 'Repeated unsuccessful sign-in attempts temporarily blocked your NearPill account for 15 minutes.'
       : 'A password reset was requested for your NearPill account.';
     await sendEmail(user.email, 'NearPill account security',
-      `${intro}\n\nReset your password using this single-use link, which expires in 15 minutes:\n${link.href}\n\nIf you did not request this, you can ignore this email. Contact nearpillemail.business@gmail.com if you need help.`);
+      `${intro}\n\nReset your password using this single-use link, which expires in 15 minutes:\n${link.href}\n\nYour new password needs at least 10 characters with a letter and a number, and cannot be your name or email or a common password.\n\nIf you did not request this, you can ignore this email. Contact nearpillemail.business@gmail.com if you need help.`);
   }
 
   // A new partner pharmacy login: tells the owner their account exists and lets them choose their own password.
@@ -54,7 +54,7 @@ export function createPasswordRecoveryService({
     link.hash = `token=${token}`;
     // sendEmail answers false (it does not throw) when Brevo refuses; an invitation that was not sent must say so.
     const sent = await sendEmail(user.email, 'Your NearPill pharmacy account is ready',
-      `A NearPill pharmacy partner account was created for this email address.\n\nSign in to the partner portal: ${portal.href}\n\nTo choose your own password, use this single-use link, which expires in 3 days:\n${link.href}\n\nIf you were not expecting this email, you can ignore it. Contact nearpillemail.business@gmail.com with any questions.`);
+      `A NearPill pharmacy partner account was created for this email address.\n\nSign in to the partner portal: ${portal.href}\n\nTo choose your own password, use this single-use link, which expires in 3 days:\n${link.href}\n\nYour new password needs at least 10 characters with a letter and a number, and cannot be your name or email or a common password.\n\nIf you were not expecting this email, you can ignore it. Contact nearpillemail.business@gmail.com with any questions.`);
     if (sent === false) throw new Error('Invitation email could not be sent.');
   }
 

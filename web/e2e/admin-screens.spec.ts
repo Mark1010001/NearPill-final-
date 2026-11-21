@@ -75,12 +75,16 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
   await page.getByLabel('Address').fill('2 Main St');
   await page.getByLabel('Latitude').fill('14.5');
   await page.getByLabel('Longitude').fill('121');
+  await expect(page.getByText('12 hours per day · 84 hours per week (7 days open)')).toBeVisible();
+  await page.getByLabel('Closes').fill('18:00');
+  await page.getByLabel('Sun').uncheck();
+  await expect(page.getByText('10 hours per day · 60 hours per week (6 days open)')).toBeVisible();
   await page.getByLabel('Email').fill('new@example.test');
   await expect(page.getByLabel('Password')).toHaveCount(0);
   await page.getByRole('button', { name: 'Add pharmacy' }).click();
   await expect(page.getByText(/Beta Pharmacy was added. A login email .* was sent to new@example.test/)).toBeVisible();
   expect(state.posted).toEqual([
-    { name: 'Beta Pharmacy', address: '2 Main St', latitude: 14.5, longitude: 121, status: 'active' },
+    { name: 'Beta Pharmacy', address: '2 Main St', latitude: 14.5, longitude: 121, operatingHours: 'Mon-Sat, 8:00 AM - 6:00 PM', status: 'active' },
     { email: 'new@example.test' },
   ]);
   await expect(page.getByText('New Person')).toBeVisible();

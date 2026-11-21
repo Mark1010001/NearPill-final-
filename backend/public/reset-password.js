@@ -19,7 +19,12 @@ form.addEventListener('submit', async event => {
     confirmPassword.focus();
     return;
   }
-  if (!form.reportValidity()) return;
+  const value = password.value;
+  if (value.length < 10 || !/\p{L}/u.test(value) || !/\p{N}/u.test(value)) {
+    status.textContent = 'Use at least 10 characters with a letter and a number.';
+    password.focus();
+    return;
+  }
   submit.disabled = true;
   try {
     const response = await fetch('/api/v1/auth/reset-password', {
@@ -27,6 +32,10 @@ form.addEventListener('submit', async event => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, password: password.value }),
     });
+    if (response.status === 400) {
+      status.textContent = 'This link is invalid, already used or expired, or the password is too common. Request a new link, or choose a less common password.';
+      return;
+    }
     if (!response.ok) throw new Error('Reset failed');
     password.value = '';
     confirmPassword.value = '';

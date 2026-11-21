@@ -294,6 +294,7 @@ export function ForgotPasswordPage() {
     <form className="auth-form" onSubmit={submit} noValidate>
       <h1 id="reset-title">Reset password</h1>
       <p>Enter your account email to request a password-reset link.</p>
+      <p className="muted">Your new password needs at least 10 characters with a letter and a number.</p>
       <div className="auth-field">
         <label>Email address
           <input type="email" value={email} autoComplete="email" maxLength={254} readOnly={loading} aria-invalid={emailError ? true : undefined}

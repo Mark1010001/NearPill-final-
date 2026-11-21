@@ -71,6 +71,25 @@ try {
     (await client.query(`SELECT * FROM subscriptions WHERE drugstore_id IN (26, 43) ORDER BY id`))
       .rows,
   );
+  await client.query(
+    "SELECT set_config('app.user_id', '', true), set_config('app.role', 'system', true), set_config('app.capability', '', true)",
+  );
+  show(
+    'reset links (secret tokens are not shown)',
+    (
+      await client.query(
+        `SELECT id, user_id, email, created_at, expires_at, consumed_at, expires_at > CURRENT_TIMESTAMP AS still_valid FROM password_reset_challenges ORDER BY id DESC LIMIT 8`,
+      )
+    ).rows,
+  );
+  show(
+    'newest partner users',
+    (
+      await client.query(
+        `SELECT id, email FROM users WHERE role = 'partner' ORDER BY id DESC LIMIT 3`,
+      )
+    ).rows,
+  );
 } catch (error) {
   console.log(
     `FAILED: ${String(error.message)
