@@ -101,9 +101,9 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
   await page.getByRole('button', { name: 'Restore access' }).click();
   await expect(page.getByText(/Access restored/)).toBeVisible();
   expect(state.goLiveSet).toEqual([false, true]);
-  await page.getByRole('button', { name: 'Delete pharmacy and account' }).click();
+  await page.getByRole('button', { name: 'Delete pharmacy account' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByText('The pharmacy and its partner account were deleted.')).toBeVisible();
+  await expect(page.getByText('The pharmacy account was deleted.')).toBeVisible();
   expect(state.deletedPharmacies).toEqual(['12']);
 });
 

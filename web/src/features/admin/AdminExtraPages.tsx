@@ -93,7 +93,7 @@ export function StaffAccountsPage() {
   const erase = useMutation({
     mutationFn: () => api.deletePharmacy(selected),
     onSuccess: async () => {
-      setPanelDone('The pharmacy and its partner account were deleted.');
+      setPanelDone('The pharmacy account was deleted.');
       setDrugstoreId('');
       await Promise.all([pharmacies.refetch(), refresh()]);
     },
@@ -109,7 +109,7 @@ export function StaffAccountsPage() {
   }
   async function deletePharmacy() {
     const ok = await confirm({
-      title: 'Delete this pharmacy and its account?', confirmLabel: 'Delete', danger: true,
+      title: 'Delete this pharmacy account?', confirmLabel: 'Delete', danger: true,
       message: <>{selectedName()} and its partner account will be deleted for good. The partner’s personal details are removed and their email can be used again. Orders and sales totals stay in the reports without personal details. This cannot be undone.</>,
     });
     if (ok) { setPanelDone(''); erase.mutate(); }
@@ -162,7 +162,7 @@ export function StaffAccountsPage() {
             {live.data?.live
               ? <button type="button" className="secondary" disabled={visibility.isPending} onClick={() => void removeAccess()}>Remove access</button>
               : <button type="button" className="secondary" disabled={visibility.isPending || !live.data} onClick={() => { setPanelDone(''); visibility.mutate(true); }}>Restore access</button>}
-            <button type="button" className="danger" disabled={erase.isPending} onClick={() => void deletePharmacy()}>Delete pharmacy and account</button>
+            <button type="button" className="danger" disabled={erase.isPending} onClick={() => void deletePharmacy()}>Delete pharmacy account</button>
           </div>
         </div>}
         <FormFeedback error={visibility.error || erase.error} success={panelDone} />
