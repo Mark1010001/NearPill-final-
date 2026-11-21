@@ -251,7 +251,7 @@ export function CustomerAccountsPage() {
       <FormFeedback error={erase.error} success={done} />
       {customers.isLoading ? <LoadingState label="Loading customers…" /> : customers.error ? <ErrorState error={customers.error} retry={() => void customers.refetch()} /> :
         <DataTable label="Customer accounts" headers={['Name', 'Email', 'Joined', 'Action']}
-          rows={(customers.data || []).map((item) => [item.name, item.email, displayDate(item.createdAt), <button key={item.id} type="button" className="danger" disabled={erase.isPending} onClick={() => void remove(item.id, item.name)}>Delete account</button>])} />}
+          rows={(customers.data || []).map((item) => [item.id, item.name, item.email, displayDate(item.createdAt), <button key={item.id} type="button" className="danger" disabled={erase.isPending} onClick={() => void remove(item.id, item.name)}>Delete account</button>])} />}
     </section>
     {confirmDialog}
   </>;
