@@ -31,7 +31,7 @@ const reviewedPublicOperations = new Set([
 
 function assertRouteAuthenticationInventory(source) {
   const matches = [...source.matchAll(/\{ id: '([^']+)', method: '([^']+)', path: '([^']+)'/g)];
-  assert.equal(matches.length, 81, 'Packet 0 route inventory changed without review');
+  assert.equal(matches.length, 84, 'Packet 0 route inventory changed without review');
   const end = source.indexOf('\n  ];', matches.at(-1).index);
   assert.ok(end > matches.at(-1).index, 'routeSpecs array boundary missing');
   const counts = { none: 0, user: 0, admin: 0 };
@@ -54,7 +54,7 @@ function assertRouteAuthenticationInventory(source) {
       assert.match(header, /\brawBody:\s*true\b/, 'provider webhook must preserve signed raw bytes');
     }
   }
-  assert.deepEqual(counts, { none: 15, user: 33, admin: 33 });
+  assert.deepEqual(counts, { none: 15, user: 33, admin: 36 });
   return counts;
 }
 
@@ -152,8 +152,8 @@ test('durable auth separates access/refresh/web credentials and stores credentia
 test('Hono v1 contract preserves the secured API surface after compatibility retirement', () => {
   const specs = routeSpecs(routeSource);
   const unique = new Set(specs.map(({ method, path }) => `${method} ${path}`));
-  assert.equal(specs.length, 81);
-  assert.equal(unique.size, 81);
+  assert.equal(specs.length, 84);
+  assert.equal(unique.size, 84);
   assert.ok(unique.has('POST /auth/change-password'));
   assert.ok(unique.has('POST /auth/logout-all'));
   assert.ok(unique.has('GET /admin/pharmacies/:id/memberships'));

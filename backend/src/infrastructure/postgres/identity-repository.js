@@ -117,6 +117,22 @@ export function createPostgresIdentityRepository(postgresPool) {
       );
     },
 
+    async listCustomers({ search, limit }) {
+      const pattern = `%${String(search ?? '').toLowerCase().replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
+      const [rows] = await pool.query(
+        `SELECT id, name, email, created_at FROM users
+          WHERE role = 'customer' AND email NOT LIKE 'deleted-%@deleted.invalid'
+            AND (? = '%%' OR lower(name) LIKE ? OR lower(email) LIKE ?)
+          ORDER BY id DESC LIMIT ?`,
+        [pattern, pattern, pattern, limit],
+      );
+      return rows;
+    },
+
+    async recordAudit(actorId, action, description) {
+      await pool.query(`INSERT INTO audit_logs (user_id, action, description) VALUES (?, ?, ?)`, [actorId, action, description]);
+    },
+
     async anonymizeCustomer(userId, { name, email, passwordHash }) {
       const [result] = await pool.query(
         `UPDATE users SET name = ?, email = ?, phone = NULL, birthdate = NULL, password = ?

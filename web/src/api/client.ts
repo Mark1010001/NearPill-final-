@@ -1,4 +1,5 @@
 import type {
+  AdminCustomer,
   DrivingRoute,
   NearbyResponse,
   CatalogListing,
@@ -174,6 +175,9 @@ export const api = {
   pharmacyMemberships: (drugstoreId: number) => request<PharmacyMembership[]>(`/admin/pharmacies/${drugstoreId}/memberships`),
   saveMembership: (drugstoreId: number, body: { userId: number; membershipRole: string }) =>
     request(`/admin/pharmacies/${drugstoreId}/memberships`, { method: 'POST', body: JSON.stringify(body) }),
+  deletePharmacy: (drugstoreId: number) => request<{ deleted: boolean }>(`/admin/pharmacies/${drugstoreId}`, { method: 'DELETE' }),
+  adminCustomers: (q: string) => request<AdminCustomer[]>(`/admin/customers${q ? `?q=${encodeURIComponent(q)}` : ''}`),
+  deleteCustomer: (id: number) => request<{ deleted: boolean }>(`/admin/customers/${id}`, { method: 'DELETE' }),
   deactivateMembership: (drugstoreId: number, userId: number) =>
     request(`/admin/pharmacies/${drugstoreId}/memberships/${userId}`, { method: 'DELETE' }),
   partnerDashboard: () => request<PartnerDashboard>('/partner/dashboard'),

@@ -240,4 +240,5 @@ export interface DrivingRoute { distanceMeters: number; durationSeconds: number;
 export interface MedicineReportRow { medicineId: number; brandName: string; genericName?: string | null; quantitySold: number; orderCount: number }
 export interface DrugstoreReportRow { drugstoreId: number; drugstoreName: string; orderCount: number; revenue: number; cancelledCount: number; expiredCount: number }
 export interface AuditLogRow { id: number; userId?: number | null; userName?: string | null; userEmail?: string | null; userRole?: string | null; action: string; description?: string | null; createdAt: string }
+export interface AdminCustomer { id: number; name: string; email: string; createdAt: string | null }
 export interface PharmacyMembership { userId: number; name: string; email: string; drugstoreId: number; membershipRole: 'owner' | 'manager' | 'staff'; isActive: boolean; createdAt?: string }

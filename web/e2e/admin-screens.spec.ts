@@ -3,7 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 function json(body: unknown, status = 200) { return { status, contentType: 'application/json', body: JSON.stringify(body) }; }
 const admin = { id: 1, role: 'admin', email: 'admin@example.test', memberships: [] };
 
-async function mockAdmin(page: Page, state: { members: unknown[]; posted: unknown[]; removed: string[]; mailed: string[] }) {
+type MockState = { members: unknown[]; posted: unknown[]; removed: string[]; mailed: string[]; live?: boolean; goLiveSet?: boolean[]; deletedPharmacies?: string[]; customers?: { id: number; name: string; email: string; createdAt: string }[]; deletedCustomers?: string[] };
+
+async function mockAdmin(page: Page, state: MockState) {
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const { pathname } = new URL(request.url());
@@ -31,6 +33,16 @@ async function mockAdmin(page: Page, state: { members: unknown[]; posted: unknow
       state.members = (state.members as { userId: number }[]).map((item) => ({ ...item, isActive: false }));
       return route.fulfill(json({ userId: 7, drugstoreId: 12, isActive: false }));
     }
+    if (pathname.endsWith('/admin/pharmacies/12/go-live') && method === 'GET') return route.fulfill(json({ drugstoreId: 12, name: 'Alpha Pharmacy', live: state.live ?? true, canGoLive: true, checks: [] }));
+    if (pathname.endsWith('/admin/pharmacies/12/go-live') && method === 'PUT') { state.live = request.postDataJSON().live; (state.goLiveSet ||= []).push(state.live as boolean); return route.fulfill(json({ drugstoreId: 12, live: state.live })); }
+    if (pathname.endsWith('/admin/pharmacies/12') && method === 'DELETE') { (state.deletedPharmacies ||= []).push('12'); return route.fulfill(json({ drugstoreId: 12, deleted: true, partnerAccountsRemoved: 1 })); }
+    if (pathname.endsWith('/admin/customers') && method === 'GET') return route.fulfill(json(state.customers ?? []));
+    if (pathname.includes('/admin/customers/') && method === 'DELETE') {
+      const id = pathname.split('/').pop() || '';
+      (state.deletedCustomers ||= []).push(id);
+      state.customers = (state.customers ?? []).filter((item) => String(item.id) !== id);
+      return route.fulfill(json({ id: Number(id), deleted: true }));
+    }
     if (pathname.endsWith('/admin/reports/sales')) return route.fulfill(json([]));
     if (pathname.endsWith('/admin/reports/medicines')) return route.fulfill(json([{ medicineId: 8, brandName: 'Biogesic', genericName: 'Paracetamol', quantitySold: 14, orderCount: 5 }]));
     if (pathname.endsWith('/admin/reports/drugstores')) return route.fulfill(json([{ drugstoreId: 12, drugstoreName: 'Alpha Pharmacy', orderCount: 6, revenue: 1250.5, cancelledCount: 1, expiredCount: 0 }]));
@@ -43,6 +55,7 @@ test('admin menu lists the new screens', async ({ page }) => {
   await page.goto('/dashboard');
   const nav = page.getByRole('navigation', { name: 'Portal navigation' });
   await expect(nav.getByRole('link', { name: 'Partner pharmacy accounts' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Customer accounts' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Stock submissions' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Audit log' })).toHaveCount(0);
 });
@@ -79,10 +92,31 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
     '/api/v1/admin/pharmacies/12/memberships/90/login-email',
     '/api/v1/admin/pharmacies/12/memberships/7/login-email',
   ]);
-  await page.getByRole('row', { name: /Pat Staff/ }).getByRole('button', { name: 'Remove access' }).click();
+  // Remove access now hides the whole pharmacy from customers (reversible); it no longer removes one staff member.
+  await expect(page.getByText('Visible to customers')).toBeVisible();
+  await page.getByRole('button', { name: 'Remove access' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Remove access' }).click();
-  await expect(page.getByText('Access removed.')).toBeVisible();
-  expect(state.removed).toEqual(['7']);
+  await expect(page.getByText(/Customers no longer see this pharmacy/)).toBeVisible();
+  await expect(page.getByText('Hidden from customers')).toBeVisible();
+  await page.getByRole('button', { name: 'Restore access' }).click();
+  await expect(page.getByText(/Access restored/)).toBeVisible();
+  expect(state.goLiveSet).toEqual([false, true]);
+  await page.getByRole('button', { name: 'Delete pharmacy and account' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('The pharmacy and its partner account were deleted.')).toBeVisible();
+  expect(state.deletedPharmacies).toEqual(['12']);
+});
+
+test('admin searches customers and deletes a customer account', async ({ page }) => {
+  const state: MockState = { members: [], posted: [], removed: [], mailed: [], customers: [{ id: 9, name: 'Sam Customer', email: 'sam@example.test', createdAt: '2026-11-01T00:00:00Z' }] };
+  await mockAdmin(page, state);
+  await page.goto('/customers');
+  await expect(page.getByRole('heading', { name: 'Customer accounts', level: 1 })).toBeVisible();
+  await expect(page.getByText('sam@example.test')).toBeVisible();
+  await page.getByRole('row', { name: /Sam Customer/ }).getByRole('button', { name: 'Delete account' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('Customer account deleted.')).toBeVisible();
+  expect(state.deletedCustomers).toEqual(['9']);
 });
 
 test('admin cannot add a pharmacy with an email that already has an account, and no pharmacy is created', async ({ page }) => {

@@ -18,7 +18,7 @@ const expectedApi = new Set([
   'POST /auth/register','POST /auth/send-otp','POST /auth/verify-otp','POST /auth/login',
   'POST /auth/forgot-password','POST /auth/reset-password','POST /auth/refresh','POST /auth/logout',
   'POST /auth/logout-all','GET /auth/me','PUT /auth/me','POST /auth/change-password',
-  'GET /admin/pharmacies/:id/memberships','POST /admin/pharmacies/:id/memberships','POST /admin/pharmacies/:id/partner-accounts','POST /admin/partner-accounts/check-email','POST /admin/pharmacies/:id/memberships/:userId/login-email','DELETE /admin/pharmacies/:id/memberships/:userId',
+  'GET /admin/pharmacies/:id/memberships','POST /admin/pharmacies/:id/memberships','POST /admin/pharmacies/:id/partner-accounts','POST /admin/partner-accounts/check-email','DELETE /admin/pharmacies/:id','GET /admin/customers','DELETE /admin/customers/:id','POST /admin/pharmacies/:id/memberships/:userId/login-email','DELETE /admin/pharmacies/:id/memberships/:userId',
   'GET /medicines','GET /medicines/:id','GET /stores','GET /stores/nearby','GET /stores/:id','GET /stores/:id/inventory',
   'GET /admin/pharmacies','POST /admin/pharmacies','PUT /admin/pharmacies/:id','GET /admin/pharmacies/:id/go-live','PUT /admin/pharmacies/:id/go-live',
   'GET /admin/medicines','POST /admin/medicines','PUT /admin/medicines/:id','GET /admin/medicines/:id/evidence','POST /admin/medicines/:id/evidence','PUT /admin/medicines/:id/publication',

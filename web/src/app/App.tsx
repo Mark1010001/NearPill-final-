@@ -6,7 +6,7 @@ import { BrandLoading, ErrorState, FormFeedback, LoadingState } from '../compone
 import { LoginPage } from '../features/auth/LoginPage';
 import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { AdminDashboard, AdminOrdersPage, AdminReportsPage, CatalogPage, PharmaciesPage, SubscriptionsPage } from '../features/admin/AdminPages';
-import { StaffAccountsPage, StockSubmissionsPage } from '../features/admin/AdminExtraPages';
+import { CustomerAccountsPage, StaffAccountsPage, StockSubmissionsPage } from '../features/admin/AdminExtraPages';
 import { PartnerDashboardPage, PartnerInventoryPage, PartnerOrdersPage, PartnerReportsPage } from '../features/partner/PartnerPages';
 import { Shell } from './Shell';
 
@@ -82,6 +82,7 @@ function OperationsPortal() {
         <Route path="/subscriptions" element={<SubscriptionsPage />} />
         <Route path="/reports" element={<AdminReportsPage />} />
         <Route path="/staff" element={<StaffAccountsPage />} />
+        <Route path="/customers" element={<CustomerAccountsPage />} />
         <Route path="/stock-submissions" element={<StockSubmissionsPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </> : <>

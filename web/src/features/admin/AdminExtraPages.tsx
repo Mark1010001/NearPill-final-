@@ -79,17 +79,40 @@ export function StaffAccountsPage() {
     onSuccess: () => setDone('Login details emailed. The email has a sign-in link and a link to choose a password; it never contains a password.'),
     onError: () => setDone(''),
   });
-  const remove = useMutation({
-    mutationFn: (id: number) => api.deactivateMembership(selected, id),
-    onSuccess: async () => { setDone('Access removed.'); await refresh(); },
-    onError: () => setDone(''),
+  const [panelDone, setPanelDone] = useState('');
+  const live = useQuery({ queryKey: ['admin', 'go-live', selected], queryFn: () => api.goLiveChecklist(selected), enabled: Number.isInteger(selected) && selected > 0, retry: false });
+  // Remove access hides the pharmacy from the web app and the Android app (the partner can still sign in); Restore access shows it again.
+  const visibility = useMutation({
+    mutationFn: (liveNext: boolean) => api.setGoLive(selected, liveNext),
+    onSuccess: async (_data, liveNext) => {
+      setPanelDone(liveNext ? 'Access restored. Customers can see this pharmacy again.' : 'Access removed. Customers no longer see this pharmacy in the web app or the Android app.');
+      await Promise.all([live.refetch(), pharmacies.refetch()]);
+    },
+    onError: () => setPanelDone(''),
   });
-  async function deactivate(id: number, name: string) {
+  const erase = useMutation({
+    mutationFn: () => api.deletePharmacy(selected),
+    onSuccess: async () => {
+      setPanelDone('The pharmacy and its partner account were deleted.');
+      setDrugstoreId('');
+      await Promise.all([pharmacies.refetch(), refresh()]);
+    },
+    onError: () => setPanelDone(''),
+  });
+  const selectedName = () => (pharmacies.data || []).find((store) => Number(store.store_id ?? store.id) === selected)?.name ?? 'This pharmacy';
+  async function removeAccess() {
     const ok = await confirm({
-      title: 'Remove pharmacy access?', confirmLabel: 'Remove access', danger: true,
-      message: <>{name} will no longer be able to open this pharmacy’s orders or inventory. Their NearPill account stays. You can add them again later.</>,
+      title: 'Remove access to this pharmacy?', confirmLabel: 'Remove access', danger: true,
+      message: <>Customers will no longer see {selectedName()} in the web app or the Android app. The partner can still sign in. You can restore access later.</>,
     });
-    if (ok) remove.mutate(id);
+    if (ok) { setPanelDone(''); visibility.mutate(false); }
+  }
+  async function deletePharmacy() {
+    const ok = await confirm({
+      title: 'Delete this pharmacy and its account?', confirmLabel: 'Delete', danger: true,
+      message: <>{selectedName()} and its partner account will be deleted for good. The partner’s personal details are removed and their email can be used again. Orders and sales totals stay in the reports without personal details. This cannot be undone.</>,
+    });
+    if (ok) { setPanelDone(''); erase.mutate(); }
   }
   if (pharmacies.isLoading) return <LoadingState label="Loading pharmacies…" />;
   if (pharmacies.error) return <ErrorState error={pharmacies.error} retry={() => void pharmacies.refetch()} />;
@@ -131,9 +154,18 @@ export function StaffAccountsPage() {
             sortKeys={rows.map((item) => [item.name, item.email, item.membershipRole, item.isActive ? 'Active' : 'Removed', ''])}
             rows={rows.map((item) => [item.userId, <>{item.name}<small>Account ID {stores.find((store) => Number(store.store_id ?? store.id) === selected)?.accountNo ?? '—'}</small></>, item.email,
               roleLabels[item.membershipRole] ?? item.membershipRole, <Status value={item.isActive ? 'active' : 'inactive'} label={item.isActive ? 'Active' : 'Removed'} />,
-              item.isActive ? <div className="stack-actions"><button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: selected, userId: item.userId })}>Email login details</button><button type="button" className="secondary" disabled={remove.isPending} onClick={() => void deactivate(item.userId, item.name)}>Remove access</button></div> : '—'])}
+              item.isActive ? <div className="stack-actions"><button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: selected, userId: item.userId })}>Email login details</button></div> : '—'])}
             empty="No staff accounts for this pharmacy yet." />)}
-        {remove.error && <FormFeedback error={remove.error} />}
+        {selected > 0 && <div className="mini-form" role="group" aria-label="Pharmacy visibility and deletion">
+          <p><strong>{live.data ? (live.data.live ? 'Visible to customers' : 'Hidden from customers') : live.isError ? 'Visibility unavailable' : 'Checking visibility…'}</strong></p>
+          <div className="stack-actions">
+            {live.data?.live
+              ? <button type="button" className="secondary" disabled={visibility.isPending} onClick={() => void removeAccess()}>Remove access</button>
+              : <button type="button" className="secondary" disabled={visibility.isPending || !live.data} onClick={() => { setPanelDone(''); visibility.mutate(true); }}>Restore access</button>}
+            <button type="button" className="danger" disabled={erase.isPending} onClick={() => void deletePharmacy()}>Delete pharmacy and account</button>
+          </div>
+          <FormFeedback error={visibility.error || erase.error} success={panelDone} />
+        </div>}
       </section></div>
     </div>
     {confirmDialog}
@@ -187,4 +219,40 @@ export function StockSubmissionsPage() {
         rows={(item.rows ?? []).map((row) => [row.line, row.catalogId ?? 'New', row.name, row.genericName ?? '—', row.form, row.category, row.sellingUnit, currency.format(Number(row.price)), row.stock,
           row.match === 'existing' ? 'Updated catalog item' : (row.note ?? 'Added new medicine')])} />
     </section>)}</>;
+}
+
+export function CustomerAccountsPage() {
+  const qc = useQueryClient();
+  const { user } = useSession();
+  const [confirm, confirmDialog] = useConfirm();
+  const [search, setSearch] = useState('');
+  const [term, setTerm] = useState('');
+  const [done, setDone] = useState('');
+  const customers = useQuery({ queryKey: ['admin', 'customers', user?.id, term], queryFn: () => api.adminCustomers(term) });
+  const erase = useMutation({
+    mutationFn: (id: number) => api.deleteCustomer(id),
+    onSuccess: async () => { setDone('Customer account deleted.'); await qc.invalidateQueries({ queryKey: ['admin', 'customers'] }); },
+    onError: () => setDone(''),
+  });
+  async function remove(id: number, name: string) {
+    const ok = await confirm({
+      title: 'Delete this customer account?', confirmLabel: 'Delete', danger: true,
+      message: <>{name}’s personal details and prescription photos will be deleted and they will be signed out. Their orders stay in the reports without personal details. The email can be used again. This cannot be undone. Customers with active orders cannot be deleted.</>,
+    });
+    if (ok) { setDone(''); erase.mutate(id); }
+  }
+  return <>
+    <PageTitle title="Customer accounts" subtitle="Find a customer and delete their account when they ask for it." />
+    <section className="card">
+      <form className="inline-form" onSubmit={(event) => { event.preventDefault(); setDone(''); setTerm(search.trim()); }}>
+        <label>Search by name or email<input value={search} maxLength={100} onChange={(event) => setSearch(event.target.value)} /></label>
+        <button type="submit">Search</button>
+      </form>
+      <FormFeedback error={erase.error} success={done} />
+      {customers.isLoading ? <LoadingState label="Loading customers…" /> : customers.error ? <ErrorState error={customers.error} retry={() => void customers.refetch()} /> :
+        <DataTable label="Customer accounts" headers={['Name', 'Email', 'Joined', 'Action']}
+          rows={(customers.data || []).map((item) => [item.name, item.email, displayDate(item.createdAt), <button key={item.id} type="button" className="danger" disabled={erase.isPending} onClick={() => void remove(item.id, item.name)}>Delete account</button>])} />}
+    </section>
+    {confirmDialog}
+  </>;
 }

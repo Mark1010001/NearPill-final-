@@ -502,6 +502,52 @@ export function createPostgresSecurityRepository(pool) {
       });
     },
 
+    async deletePharmacyAccount({ actorId, drugstoreId, anonymise }) {
+      // Hashing is slow and async, so it is prepared before the transaction opens.
+      const members = await this.listDrugstoreMemberships(drugstoreId);
+      const partnerIds = [...new Set(members.map((member) => Number(member.userId)))];
+      const prepared = new Map();
+      for (const userId of partnerIds) prepared.set(userId, await anonymise(userId));
+      return transaction(async (client) => {
+        const store = await client.query(`SELECT id, name FROM drugstores WHERE id = $1 FOR UPDATE`, [drugstoreId]);
+        if (!store.rows[0]) return { status: 'store_missing' };
+        if (store.rows[0].name === 'Deleted pharmacy') return { status: 'already_deleted' };
+        const open = await client.query(
+          `SELECT 1 FROM order_drugstores WHERE drugstore_id = $1 AND status NOT IN ('cancelled','expired','completed','rejected') LIMIT 1`,
+          [drugstoreId],
+        );
+        if (open.rows[0]) return { status: 'open_orders' };
+        const anonymised = [];
+        for (const userId of partnerIds) {
+          const user = await client.query(`SELECT id, role FROM users WHERE id = $1 FOR UPDATE`, [userId]);
+          if (!user.rows[0] || user.rows[0].role !== 'partner') continue;
+          // A login that also works for another pharmacy keeps its account; only this pharmacy's link is removed.
+          const others = await client.query(
+            `SELECT 1 FROM pharmacy_memberships WHERE user_id = $1 AND drugstore_id <> $2 AND is_active = 1 LIMIT 1`,
+            [userId, drugstoreId],
+          );
+          if (others.rows[0]) continue;
+          const wipe = prepared.get(userId);
+          await client.query(
+            `UPDATE users SET name = $2, email = $3, phone = NULL, birthdate = NULL, password = $4 WHERE id = $1 AND role = 'partner'`,
+            [userId, wipe.name, wipe.email, wipe.passwordHash],
+          );
+          anonymised.push(userId);
+        }
+        await client.query(`DELETE FROM pharmacy_memberships WHERE drugstore_id = $1`, [drugstoreId]);
+        await client.query(
+          `UPDATE drugstores SET name = 'Deleted pharmacy', address = 'Deleted', operating_hours = NULL,
+                  latitude = 0, longitude = 0, is_active = 0, public_profile_published_at = NULL WHERE id = $1`,
+          [drugstoreId],
+        );
+        await client.query(
+          `INSERT INTO audit_logs (user_id, action, description) VALUES ($1, 'ADMIN_DELETE_PHARMACY', $2)`,
+          [actorId, `Administrator deleted pharmacy ${drugstoreId} and ${anonymised.length} partner account(s).`],
+        );
+        return { status: 'ok', userIds: anonymised };
+      });
+    },
+
     async deactivateMembership({ actorId, userId, drugstoreId }) {
       return transaction(async (client) => {
         const result = await client.query(

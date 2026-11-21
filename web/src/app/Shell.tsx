@@ -7,7 +7,7 @@ type NavItem = readonly [to: string, label: string, icon: keyof typeof navIcons]
 
 const adminNav: readonly NavItem[] = [
   ['/dashboard', 'Dashboard', 'dashboard'], ['/pharmacies', 'Pharmacies', 'pharmacies'], ['/orders', 'Orders', 'orders'],
-  ['/catalog', 'Stocks', 'catalog'], ['/subscriptions', 'Subscriptions', 'subscriptions'], ['/staff', 'Partner pharmacy accounts', 'staff'], ['/stock-submissions', 'Stock submissions', 'catalog'], ['/reports', 'Reports', 'reports'],
+  ['/catalog', 'Stocks', 'catalog'], ['/subscriptions', 'Subscriptions', 'subscriptions'], ['/staff', 'Partner pharmacy accounts', 'staff'], ['/customers', 'Customer accounts', 'staff'], ['/stock-submissions', 'Stock submissions', 'catalog'], ['/reports', 'Reports', 'reports'],
 ] as const;
 const partnerNav: readonly NavItem[] = [
   ['/partner', 'Overview', 'overview'], ['/partner/orders', 'Orders', 'orders'], ['/partner/inventory', 'Inventory', 'inventory'], ['/partner/reports', 'Reports & Plan', 'reports'],

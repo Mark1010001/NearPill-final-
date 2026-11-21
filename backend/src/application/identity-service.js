@@ -228,6 +228,50 @@ export function createIdentityService({
       return success({ message: 'Your account has been deleted.' });
     },
 
+    /** Lists customer accounts for the administrator (deleted accounts are left out). */
+    async adminListCustomers({ q = '', limit = 50 } = {}) {
+      if (typeof repository.listCustomers !== 'function') return failure(503, 'The customer list is not available right now.');
+      const rows = await repository.listCustomers({
+        search: String(q ?? '').trim().slice(0, 100),
+        limit: Math.min(Math.max(Math.trunc(Number(limit)) || 50, 1), 100),
+      });
+      return success(rows.map((row) => ({ id: Number(row.id), name: row.name, email: row.email, createdAt: row.created_at ?? null })));
+    },
+
+    /**
+     * An administrator deletes a customer account (for example to honour an erasure request). It works like the customer's own
+     * deletion: personal details are removed and the sign-in is made unusable, while order and payment records stay without a
+     * name or contact for the pharmacies, reports and payment reconciliation. The email can then be used again.
+     */
+    async adminDeleteCustomer(adminId, customerIdValue) {
+      const customerId = Number(customerIdValue);
+      if (!Number.isInteger(customerId) || customerId <= 0) return failure(400, 'Invalid customer ID.');
+      if (customerId === Number(adminId)) return failure(409, 'You cannot delete your own account here.');
+      if (!accountDeletionMethods.every((method) => typeof repository[method] === 'function') || typeof repository.recordAudit !== 'function') {
+        return failure(503, 'Account deletion is not available right now. Try again later.');
+      }
+      const target = await repository.findProfileById(customerId);
+      if (!target || target.role !== 'customer') return failure(404, 'Customer account not found.');
+      if ((await repository.countOpenOrders(customerId)) > 0) {
+        return failure(409, 'This customer has active orders. Wait until they are completed or cancelled, then delete the account.');
+      }
+      try {
+        await repository.scrubPrescriptionPhotos(customerId);
+        const changed = await repository.anonymizeCustomer(customerId, {
+          name: 'Deleted account',
+          email: `deleted-${customerId}@deleted.invalid`,
+          passwordHash: await hashPassword(randomSecret()),
+        });
+        if (changed !== 1) return failure(404, 'Customer account not found.');
+        await repository.recordAudit(Number(adminId), 'ADMIN_DELETE_CUSTOMER', `Administrator deleted customer account ${customerId}.`);
+      } catch (error) {
+        console.error('admin_customer_delete_failed', { code: error?.code });
+        return failure(503, 'Account deletion is not available right now. Try again later.');
+      }
+      await auth.revokeUserSessions(customerId, 'account_deleted');
+      return success({ id: customerId, deleted: true });
+    },
+
     async updateProfile(userId, { phone = null }) {
       const numericUserId = Number(userId);
       const user = await repository.updateProfile(numericUserId, { phone });

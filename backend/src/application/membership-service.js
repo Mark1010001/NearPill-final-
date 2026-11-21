@@ -5,7 +5,7 @@ import { normalizeEmail, passwordMatchesIdentity, signupPasswordMessage, validEm
 
 const roles = new Set(['owner', 'manager', 'staff']);
 
-export function createMembershipService({ repository, hashPassword, sendSetupEmail, emailInUse }) {
+export function createMembershipService({ repository, hashPassword, sendSetupEmail, emailInUse, revokeSessions }) {
   assertSecurityRepository(repository);
   if (typeof hashPassword !== 'function') throw new TypeError('A password hasher is required.');
   return Object.freeze({
@@ -70,6 +70,32 @@ export function createMembershipService({ repository, hashPassword, sendSetupEma
         return failure(502, 'The email could not be sent. Try again in a moment.');
       }
       return success({ userId, drugstoreId, email: member.email, sent: true });
+    },
+    /**
+     * Completely deletes a partner pharmacy account: the pharmacy disappears from the web app and the Android app, the partner
+     * logins that work only for it have their personal details removed (so their emails can be used again) and their
+     * sessions end. Orders, payments and sales totals stay, with the pharmacy shown as "Deleted pharmacy", so reports still add up.
+     */
+    async deletePharmacyAccount(actorId, drugstoreIdValue) {
+      const drugstoreId = Number(drugstoreIdValue);
+      if (!Number.isInteger(drugstoreId) || drugstoreId <= 0) return failure(400, 'Invalid drugstore ID.');
+      if (typeof repository.deletePharmacyAccount !== 'function') return failure(503, 'Deleting a pharmacy is not available right now.');
+      const result = await repository.deletePharmacyAccount({
+        actorId,
+        drugstoreId,
+        anonymise: async (userId) => ({
+          name: 'Deleted partner',
+          email: `deleted-partner-${userId}@deleted.invalid`,
+          passwordHash: await hashPassword(randomBytes(32).toString('base64url')),
+        }),
+      });
+      if (result.status === 'store_missing') return failure(404, 'Pharmacy not found.');
+      if (result.status === 'already_deleted') return failure(409, 'This pharmacy was already deleted.');
+      if (result.status === 'open_orders') return failure(409, 'This pharmacy has active orders. Wait until they are completed or cancelled, then delete it.');
+      if (typeof revokeSessions === 'function') {
+        for (const userId of result.userIds) await revokeSessions(userId).catch(() => console.error('partner_session_revoke_failed'));
+      }
+      return success({ drugstoreId, deleted: true, partnerAccountsRemoved: result.userIds.length });
     },
     async deactivate(actorId, drugstoreIdValue, userIdValue) {
       const drugstoreId = Number(drugstoreIdValue);
