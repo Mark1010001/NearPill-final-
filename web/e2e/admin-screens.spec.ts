@@ -61,7 +61,7 @@ test('admin menu lists the new screens', async ({ page }) => {
 });
 
 test('admin adds and removes pharmacy staff access', async ({ page }) => {
-  const state = { members: [{ userId: 7, name: 'Pat Staff', email: 'pat@example.test', drugstoreId: 12, membershipRole: 'staff', isActive: true }], posted: [] as unknown[], removed: [] as string[], mailed: [] as string[] };
+  const state: MockState = { members: [{ userId: 7, name: 'Pat Staff', email: 'pat@example.test', drugstoreId: 12, membershipRole: 'staff', isActive: true }], posted: [] as unknown[], removed: [] as string[], mailed: [] as string[] };
   await mockAdmin(page, state);
   await page.goto('/staff');
   await expect(page.getByRole('heading', { name: 'Partner pharmacy accounts', level: 1 })).toBeVisible();
