@@ -142,10 +142,6 @@ export const MedicinePublicationSchema = z.object({
 
 const sellingUnitSchema = z.string().trim().max(48).regex(/^[A-Za-z0-9][A-Za-z0-9 ().,\-]*$/);
 const packageSizeSchema = z.string().trim().max(80).regex(/^[A-Za-z0-9][A-Za-z0-9 ().,\/\-]*$/);
-export const InventoryPriceSchema = z.object({
-  price: z.coerce.number().nonnegative(),
-  expectedSellingUnit: sellingUnitSchema.nullable().optional(),
-}).strict();
 
 const InventoryIntakeRow = z.object({
   medicineId: z.number().int().positive(),

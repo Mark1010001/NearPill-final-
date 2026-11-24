@@ -169,24 +169,6 @@ export function createInventoryService({ repository }) {
       });
     },
 
-    async updatePrice(actorId, inventoryIdValue, body = {}) {
-      const inventoryId = Number(inventoryIdValue);
-      const priceCentavos = pesosToCentavos(body.price);
-      if (!Number.isInteger(inventoryId) || inventoryId <= 0) return failure(400, 'Invalid inventory ID.');
-      if (priceCentavos === null) return failure(400, 'Price must be a nonnegative amount with at most two decimal places.');
-
-      return repository.withTransaction(async (transaction) => {
-        const inventory = await transaction.findInventoryByIdForUpdate(inventoryId);
-        if (!inventory) return { rollback: true, value: failure(404, 'Inventory record not found.') };
-        if ((body.expectedSellingUnit ?? null) !== (inventory.sellingUnit ?? null)) {
-          return { rollback: true, value: failure(409, 'Selling unit changed. Refresh the catalog and review the price.') };
-        }
-        await transaction.updateInventoryPrice(inventoryId, priceCentavos);
-        await transaction.appendAudit(actorId, 'UPDATE_INVENTORY_PRICE', `Updated inventory ${inventoryId} price from ${inventory.priceCentavos} to ${priceCentavos} centavos.`);
-        return { value: success({ id: inventoryId, priceCentavos, price: centavosToPesosNumber(priceCentavos) }) };
-      });
-    },
-
     async listPartnerInventory(actor, query = {}) {
       const memberships = Array.isArray(actor?.memberships) ? actor.memberships.filter((item) => item.isActive !== false) : [];
       const requested = query.drugstoreId ?? query.pharmacyId;

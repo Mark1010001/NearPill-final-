@@ -164,7 +164,6 @@ export const api = {
   createMedicine: (body: Record<string, unknown>) => request('/admin/medicines', { method: 'POST', body: JSON.stringify(body) }),
   updateMedicine: (id: number, body: Record<string, unknown>) => request(`/admin/medicines/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   setMedicinePublication: (id: number, status: string, reviewReference?: string) => request(`/admin/medicines/${id}/publication`, { method: 'PUT', body: JSON.stringify({ status, reviewReference }) }),
-  updateInventoryPrice: (id: number, price: string, expectedSellingUnit?: string | null) => request(`/admin/inventory/${id}/price`, { method: 'PUT', body: JSON.stringify({ price, expectedSellingUnit }) }),
   subscriptions: () => request<Subscription[]>('/admin/subscriptions'),
   subscriptionPlans: () => request<SubscriptionPlan[]>('/subscription-plans'),
   createSubscription: (body: { drugstoreId: number; tier: string; startDate: string; planVersion: string }) => request('/admin/subscriptions', { method: 'POST', body: JSON.stringify({ ...body, status: 'active' }) }),

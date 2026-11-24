@@ -149,17 +149,6 @@ test('partner inventory reads drafts through catalogue access and stays scoped t
   assert.match(inventoryQuery.sql, /i\.pharmacy_id = \$1 AND m\.publication_status IN \('draft', 'published'\)/);
 });
 
-test('authoritative price is persisted and exposed as integer centavos', async () => {
-  const repository = repositoryFixture();
-  const service = createInventoryService({ repository });
-  const updated = await service.updatePrice(1, 1, { price: 12.75 });
-  assert.equal(updated.status, 200);
-  assert.equal(updated.body.priceCentavos, 1275);
-  assert.equal(updated.body.price, 12.75);
-  assert.equal((await service.updatePrice(1, 1, { price: 12.755 })).status, 400);
-  assert.ok(repository.audits.some((entry) => entry.action === 'UPDATE_INVENTORY_PRICE'));
-});
-
 test('partner intake carries catalog approval and records initial stock and price once', async () => {
   const repository = repositoryFixture();
   let inserted = false;

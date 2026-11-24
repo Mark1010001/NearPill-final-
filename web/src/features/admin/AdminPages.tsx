@@ -141,9 +141,7 @@ export function PharmaciesPage() {
   const qc = useQueryClient();
   const { user } = useSession();
   const query = useQuery({ queryKey: ['admin', 'pharmacies', user?.id], queryFn: api.pharmacies });
-  const create = useMutation({ mutationFn: api.createPharmacy, onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'pharmacies'] }) });
   const profile = useMutation({ mutationFn: ({ id, body }: { id: number; body: Record<string, unknown> }) => api.updatePharmacy(id, body), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'pharmacies'] }) });
-  const [form, setForm] = useState({ name: '', address: '', latitude: '', longitude: '' });
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
@@ -152,16 +150,8 @@ export function PharmaciesPage() {
   const pharmacies = (query.data || []).filter((pharmacy) =>
     (showInactive || pharmacy.status !== 'inactive') &&
     `${pharmacy.name} ${pharmacy.address || ''}`.toLowerCase().includes(search.trim().toLowerCase()));
-  return <><PageTitle title="Partner pharmacies" subtitle="Add pharmacies, check them against the go-live checklist, and decide which appear in the app." />
-    <div className="two-col two-col-reverse"><aside><section className="card"><h2>Onboard pharmacy</h2><form onSubmit={(e) => { e.preventDefault(); if (create.isPending) return; create.mutate({ name: form.name, address: form.address, latitude: Number(form.latitude), longitude: Number(form.longitude), status: 'active' }, { onSuccess: () => setForm({ name: '', address: '', latitude: '', longitude: '' }) }); }}>
-      <fieldset className="inline-form" disabled={create.isPending} aria-label="Pharmacy profile">
-        <label>Pharmacy name<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-        <label>Address<input required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></label>
-        <label>Latitude<input required type="number" min={-90} max={90} step="any" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} /></label>
-        <label>Longitude<input required type="number" min={-180} max={180} step="any" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} /></label>
-        <button className="primary">{create.isPending ? 'Creating…' : 'Create pharmacy'}</button>
-      </fieldset>
-    </form><FormFeedback error={create.error} success={create.isSuccess ? 'Pharmacy created and verified. It stays hidden from the app until you complete its go-live checklist.' : undefined} /></section></aside>
+  return <><PageTitle title="Partner pharmacies" subtitle="Check pharmacies against the go-live checklist and decide which appear in the app. New pharmacies are added from Add partner pharmacy." />
+    <div>
     <div><section className="card">
       <p className="notice">A pharmacy is hidden from the app automatically the day after its partnership expires. Its orders and records are kept.</p>
       <div className="chip-row" aria-label="Pharmacy summary">
@@ -181,7 +171,7 @@ export function PharmaciesPage() {
         <div className="stack-actions" key={String(p.store_id || p.id)}>
           {p.status === 'inactive' ? <Status value="Inactive" /> : <>
           {p.verificationStatus === 'verified' && <GoLivePanel pharmacy={p} />}
-          <details><summary>Edit storefront</summary>
+          <details><summary>Edit pharmacy</summary>
             <form className="mini-form" key={JSON.stringify([p.address, p.latitude, p.longitude, p.operatingHours])} onSubmit={(event) => {
               event.preventDefault();
               if (profile.isPending) return;
@@ -195,9 +185,9 @@ export function PharmaciesPage() {
               <label>Latitude<input name="latitude" type="number" required min="-90" max="90" step="any" defaultValue={p.latitude ?? ''} /></label>
               <label>Longitude<input name="longitude" type="number" required min="-180" max="180" step="any" defaultValue={p.longitude ?? ''} /></label>
               <label>Operating hours<input name="hours" maxLength={255} defaultValue={p.operatingHours ?? ''} /></label>
-              <button className="secondary" disabled={profile.isPending}>Save storefront</button>
+              <button className="secondary" disabled={profile.isPending}>Save pharmacy</button>
             </form>
-            {profile.variables?.id === Number(p.store_id || p.id) && <FormFeedback error={profile.error} success={profile.isSuccess ? 'Storefront saved.' : undefined} />}
+            {profile.variables?.id === Number(p.store_id || p.id) && <FormFeedback error={profile.error} success={profile.isSuccess ? 'Pharmacy saved.' : undefined} />}
           </details>
           </>}
         </div>,
@@ -325,7 +315,6 @@ export function CatalogPage() {
   const query = useQuery({ queryKey: ['admin', 'medicines', user?.id], queryFn: api.medicines });
   const [categoryFilter, setCategoryFilter] = useState('');
   const [stockSearch, setStockSearch] = useState('');
-  const price = useMutation({ mutationFn: ({ id, amount, sellingUnit }: { id: number; amount: string; sellingUnit?: string | null }) => api.updateInventoryPrice(id, amount, sellingUnit), onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'medicines'] }) });
   if (query.isLoading) return <LoadingState label="Loading stocks…" />;
   if (query.error) return <ErrorState error={query.error} retry={() => void query.refetch()} />;
   // "Stocks" lists what the active partner pharmacies actually have in their inventory.
@@ -336,7 +325,7 @@ export function CatalogPage() {
   const countOf = (label: string) => searched.filter((m) => stockCategory(m.category) === label).length;
   const visible = searched.filter((m) => !categoryFilter || stockCategory(m.category) === categoryFilter);
   const chipLabels = [...STOCK_CATEGORIES, ...(countOf('Category missing') > 0 ? ['Category missing' as const] : [])];
-  return <><PageTitle title="Stocks" subtitle="Everything the partner pharmacies currently stock. Pharmacies manage listings, categories, and stock in their inventory portal." />
+  return <><PageTitle title="Stocks" subtitle="Everything the partner pharmacies currently stock. Pharmacies manage their own listings, prices, categories, and stock in their inventory portal." />
     <label>Search stocks<input type="search" value={stockSearch} placeholder="Medicine, generic name, category or pharmacy" maxLength={80}
       onChange={(event) => setStockSearch(event.target.value)} /></label>
     <div className="chip-row" role="group" aria-label="Stocks by category">
@@ -344,29 +333,12 @@ export function CatalogPage() {
         onClick={() => setCategoryFilter(categoryFilter === label ? '' : label)}>{label}<b>{countOf(label)}</b></button>)}
     </div>
     <section className="card">
-      <DataTable label="Stocks" headers={['Product', 'Category', 'Actions']} empty={needle ? 'No stocked items match your search.' : 'No stocked items yet.'} columnMenu
-        sortKeys={visible.map((m) => [m.brandName, stockCategory(m.category), undefined])}
+      <DataTable label="Stocks" headers={['Product', 'Category']} empty={needle ? 'No stocked items match your search.' : 'No stocked items yet.'} columnMenu
+        sortKeys={visible.map((m) => [m.brandName, stockCategory(m.category)])}
         rows={visible.map((m) => [m.id, <>{m.brandName}<small>{m.genericName}</small>
           <small>Catalog #{m.id}{m.dosageForm ? ` · ${m.dosageForm}` : ''}</small>
           <small>{m.linkedPharmacies?.map((pharmacy) => pharmacy.name).join(', ') || 'No linked pharmacy inventory'}</small></>,
-          stockCategory(m.category),
-          <div className="stack-actions">
-            {m.linkedPharmacies?.some((pharmacy) => pharmacy.inventoryId > 0) && <details>
-              <summary>Pharmacy prices</summary>
-              {m.linkedPharmacies.map((pharmacy) => <form key={pharmacy.inventoryId} className="mini-form" onSubmit={(event) => {
-                event.preventDefault();
-                if (!price.isPending) price.mutate({ id: pharmacy.inventoryId, amount: String(new FormData(event.currentTarget).get('price')), sellingUnit: pharmacy.sellingUnit });
-              }}>
-                {pharmacy.stockOnHand != null && <small>{pharmacy.stockOnHand} on hand · {pharmacy.sellableQuantity} sellable</small>}
-                {pharmacy.sellingUnit && <small>Stock and price per {pharmacy.sellingUnit}</small>}
-                {pharmacy.packageSize && <small>Supplier package {pharmacy.packageSize}</small>}
-                <label>Price for {pharmacy.name} (₱)<input key={pharmacy.priceCentavos} name="price" type="number" min="0" step="0.01" required
-                  defaultValue={(Number(pharmacy.priceCentavos) / 100).toFixed(2)} disabled={price.isPending} /></label>
-                <button className="secondary" disabled={price.isPending}>Save price</button>
-                {price.variables?.id === pharmacy.inventoryId && <FormFeedback error={price.error} success={price.isSuccess ? 'Price saved.' : undefined} />}
-              </form>)}
-            </details>}
-          </div>])} />
+          stockCategory(m.category)])} />
     </section>
   </>;
 }

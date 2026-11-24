@@ -19,8 +19,8 @@ const [routes, coreRls, catalogRls, paymentRls, inventoryMigration] = await Prom
 
 const inventoryWrite = coreRls.match(/CREATE POLICY inventory_write ON inventory FOR ALL TO nearpill_app\s+USING\s*\(([\s\S]*?)\);\s*\n\s*ALTER TABLE orders ENABLE ROW LEVEL SECURITY;/)?.[0];
 
-test('NP-036: admin price overrides keep their admin-only endpoint', () => {
-  assert.match(routes, /id: 'adminUpdateInventoryPrice'[^\n]*path: '\/admin\/inventory\/:id\/price'[^\n]*auth: 'admin'/);
+test('NP-036: admin has no price endpoint; only partners change prices', () => {
+  assert.doesNotMatch(routes, /\/admin\/inventory\/:id\/price/);
   assert.match(routes, /id: 'updateInventory'[^\n]*path: '\/inventory\/update'[^\n]*auth: 'user'/);
 });
 

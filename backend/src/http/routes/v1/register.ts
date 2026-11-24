@@ -6,7 +6,6 @@ import {
   EmailSchema, SendOtpSchema,
   ErrorSchema,
   IdParamsSchema,
-  InventoryPriceSchema,
   InventoryQuerySchema,
   InventoryUpdateSchema,
   StockSubmissionSchema,
@@ -255,7 +254,6 @@ function routeSpecs(services: any): RouteSpec[] {
     { id: 'adminSetMedicinePublication', method: 'put', path: '/admin/medicines/:id/publication', tag: 'Admin catalog', summary: 'Publish, draft, or retire a medicine', auth: 'admin', params: IdParamsSchema, body: MedicinePublicationSchema, invoke: ({ userId, params, body }) => services.catalog.setMedicinePublication(userId, params.id, body) },
 
     { id: 'updateInventory', method: 'post', path: '/inventory/update', tag: 'Inventory', summary: 'Update pharmacy stock and unit price', auth: 'user', body: InventoryUpdateSchema, invoke: ({ userId, actor, body }) => services.inventory.updateStock(userId, actor, body) },
-    { id: 'adminUpdateInventoryPrice', method: 'put', path: '/admin/inventory/:id/price', tag: 'Inventory', summary: 'Set authoritative inventory price', auth: 'admin', params: IdParamsSchema, body: InventoryPriceSchema, invoke: ({ userId, params, body }) => services.inventory.updatePrice(userId, params.id, body) },
     { id: 'adminInventory', method: 'get', path: '/admin/inventory', tag: 'Inventory', summary: 'List admin inventory', auth: 'admin', query: InventoryQuerySchema, invoke: ({ query }) => services.inventory.listAdminInventory(query) },
 
     { id: 'createOrder', method: 'post', path: '/orders', tag: 'Orders', summary: 'Create a one-pharmacy idempotent order reservation', auth: 'user', accountRole: 'customer', body: OrderCreateSchema, invoke: ({ userId, actor, body, c }) => {

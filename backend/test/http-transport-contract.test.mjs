@@ -22,7 +22,7 @@ const expectedApi = new Set([
   'GET /medicines','GET /medicines/:id','GET /stores','GET /stores/nearby','GET /stores/:id','GET /stores/:id/inventory',
   'GET /admin/pharmacies','POST /admin/pharmacies','PUT /admin/pharmacies/:id','GET /admin/pharmacies/:id/go-live','PUT /admin/pharmacies/:id/go-live',
   'GET /admin/medicines','POST /admin/medicines','PUT /admin/medicines/:id','PUT /admin/medicines/:id/publication',
-  'POST /inventory/update','GET /admin/inventory','PUT /admin/inventory/:id/price',
+  'POST /inventory/update','GET /admin/inventory',
   'POST /assistant/chat','POST /orders','GET /orders','GET /orders/:id','GET /admin/orders','GET /admin/orders/:id',
   'PUT /orders/:id/status','PUT /orders/:id/cancel','PUT /orders/:id/pickup',
   'GET /partner/dashboard','GET /partner/orders','PUT /partner/orders/:id/pickup','GET /partner/inventory','GET /partner/inventory/catalog','POST /partner/stock-submissions','GET /partner/stock-submissions','GET /admin/stock-submissions','GET /partner/subscription','GET /partner/entitlements','GET /partner/reports/sales',

@@ -73,16 +73,11 @@ test('admin order actions follow pickup stage and display server payment separat
 });
 
 test('catalog identifies pharmacy records without draft or evidence actions', async ({ page }) => {
-  let priceCentavos = '700';
+  const priceCentavos = '700';
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (path.endsWith('/auth/me')) return route.fulfill(json({ id: 1, email: 'admin@example.test', role: 'admin' }));
-    if (path.endsWith('/admin/inventory/100/price')) {
-      expect(request.postDataJSON()).toEqual({ price: '8.50' });
-      priceCentavos = '850';
-      return route.fulfill(json({ id: 100, priceCentavos: 850 }));
-    }
     if (path.endsWith('/admin/medicines')) return route.fulfill(json([
       { id: 84, brandName: 'Test Product', category: 'Prescription (source list)', otcEligible: false, publicationStatus: 'draft',
         linkedPharmacies: [{ id: 24, name: 'Other Pharmacy' }] },
@@ -98,11 +93,9 @@ test('catalog identifies pharmacy records without draft or evidence actions', as
   await expect(page.getByRole('button', { name: /create draft|add evidence|publish/i })).toHaveCount(0);
   await expect(page.getByLabel(/evidence source|evidence url/i)).toHaveCount(0);
   await expect(item.getByText('Test Pharmacy', { exact: true })).toBeVisible();
-  await item.getByText('Pharmacy prices', { exact: true }).click();
-  await expect(item.getByLabel('Price for Test Pharmacy (₱)')).toHaveValue('7.00');
-  await item.getByLabel('Price for Test Pharmacy (₱)').fill('8.50');
-  await item.getByRole('button', { name: 'Save price' }).click();
-  await expect(item.getByText('Price saved.')).toBeVisible();
+  await expect(page.getByText('Pharmacy prices', { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel(/^Price for /)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Save price' })).toHaveCount(0);
 });
 
 test('partner session never loads administrator order or inventory collections', async ({ page }) => {
@@ -390,10 +383,10 @@ test('admin cannot remove a pharmacy by hand, can still edit a storefront, and i
   await page.getByLabel('Show inactive pharmacies').check();
   await expect(page.getByText('Previously removed pharmacy', { exact: true })).toBeVisible();
   await page.getByLabel('Show inactive pharmacies').uncheck();
-  await targetRow.getByText('Edit storefront', { exact: true }).click();
+  await targetRow.getByText('Edit pharmacy', { exact: true }).click();
   await targetRow.getByLabel('Address', { exact: true }).fill('Updated staging address');
-  await targetRow.getByRole('button', { name: 'Save storefront' }).click();
-  await expect(targetRow.getByText('Storefront saved.')).toBeVisible();
+  await targetRow.getByRole('button', { name: 'Save pharmacy' }).click();
+  await expect(targetRow.getByText('Pharmacy saved.')).toBeVisible();
   await expect(targetRow.getByText('Updated staging address', { exact: true })).toBeVisible();
   expect(deleteAttempts).toBe(0);
 });
