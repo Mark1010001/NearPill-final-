@@ -3,7 +3,7 @@ import { pickupText } from '../customer/pickup';
 import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
-import type { Pharmacy, SubscriptionPlan } from '../../api/types';
+import type { GoLiveChecklist, Pharmacy, SubscriptionPlan } from '../../api/types';
 import { useSession } from '../../auth/session';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { DataTable, SalesDateFilter, SalesTable, Status, displayDate } from '../../components/DataTable';
@@ -225,7 +225,14 @@ function GoLivePanel({ pharmacy }: { pharmacy: Pharmacy }) {
   const checklist = useQuery({ queryKey: ['admin', 'go-live', id], queryFn: () => api.goLiveChecklist(id), enabled: open });
   const publish = useMutation({
     mutationFn: (live: boolean) => api.setGoLive(id, live),
-    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['admin', 'go-live', id] }), qc.invalidateQueries({ queryKey: ['admin', 'pharmacies'] })]),
+    // Show the new state at once and confirm it with the server in the background, so the button does not wait for two refetches.
+    onSuccess: (_result, live) => {
+      qc.setQueryData<GoLiveChecklist>(['admin', 'go-live', id], (old) => (old ? { ...old, live } : old));
+      qc.setQueriesData<Pharmacy[]>({ queryKey: ['admin', 'pharmacies'] }, (old) => (Array.isArray(old)
+        ? old.map((item) => (Number(item.store_id || item.id) === id ? { ...item, publicProfilePublishedAt: live ? new Date().toISOString() : null } : item)) : old));
+      void qc.invalidateQueries({ queryKey: ['admin', 'go-live', id] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'pharmacies'] });
+    },
   });
   const data = checklist.data;
   return <details onToggle={(event) => setOpen(event.currentTarget.open)}><summary>Go-live checklist</summary>
@@ -238,7 +245,7 @@ function GoLivePanel({ pharmacy }: { pharmacy: Pharmacy }) {
       </ul>
       <p className="muted">After going live, open the Android or web app and confirm the pharmacy shows up near you, its medicines are listed and an order request can be sent. Prescription items need the customer to upload a prescription for the pharmacy to approve.</p>
       {data.live
-        ? <button className="danger" disabled={publish.isPending} onClick={() => publish.mutate(false)}>Take down</button>
+        ? <button className="danger" disabled={publish.isPending} onClick={() => publish.mutate(false)}>{publish.isPending ? 'Taking down…' : 'Take down'}</button>
         : <button className="primary" disabled={publish.isPending || !data.canGoLive} onClick={() => publish.mutate(true)}>{publish.isPending ? 'Publishing…' : 'Go live'}</button>}
       <FormFeedback error={publish.error} success={publish.isSuccess ? (publish.variables ? 'Pharmacy is live in the app.' : 'Pharmacy taken down from the app.') : undefined} />
     </div>}

@@ -12,7 +12,7 @@ export function evaluateGoLive(facts) {
     {
       id: 'details', label: 'Pharmacy details are complete',
       ok: present(facts.name) && present(facts.address) && present(facts.operatingHours),
-      hint: 'Add the name, address and operating hours (Partner pharmacies, Edit storefront).',
+      hint: `Missing: ${[['name', facts.name], ['address', facts.address], ['operating hours', facts.operatingHours]].filter(([, value]) => !present(value)).map(([label]) => label).join(', ') || 'nothing'}. Add it in Partner pharmacies, Edit pharmacy.`,
     },
     {
       id: 'location', label: 'Map location is inside the Philippines',

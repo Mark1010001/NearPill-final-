@@ -88,9 +88,10 @@ export function StaffAccountsPage() {
   // Remove access hides the pharmacy from the web app and the Android app (the partner can still sign in); Restore access shows it again.
   const visibility = useMutation({
     mutationFn: (liveNext: boolean) => api.setGoLive(selected, liveNext),
-    onSuccess: async (_data, liveNext) => {
+    onSuccess: (_data, liveNext) => {
       setPanelDone(liveNext ? 'Access restored. Customers can see this pharmacy again.' : 'Access removed. Customers no longer see this pharmacy in the web app or the Android app.');
-      await Promise.all([live.refetch(), pharmacies.refetch()]);
+      qc.setQueryData<{ live?: boolean }>(['admin', 'go-live', selected], (old) => (old ? { ...old, live: liveNext } : old));
+      void live.refetch(); void pharmacies.refetch();
     },
     onError: () => setPanelDone(''),
   });
