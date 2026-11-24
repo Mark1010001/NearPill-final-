@@ -63,7 +63,7 @@ test('catalog and pharmacy mutation authority remains server-owned', () => {
   assert.doesNotMatch(routes, /\/admin\/pharmacies\/:id\/verification/);
   assert.match(routes, /path: '\/admin\/pharmacies\/:id\/go-live'[\s\S]*auth: 'admin'/);
   assert.match(routes, /path: '\/admin\/medicines\/:id\/publication'[\s\S]*auth: 'admin'/);
-  assert.match(routes, /path: '\/admin\/inventory\/:id\/price'[\s\S]*auth: 'admin'/);
+  assert.doesNotMatch(routes, /\/admin\/inventory\/:id\/price/);
   assert.match(routes, /path: '\/inventory\/update'[\s\S]*auth: 'user'/);
   assert.match(contracts, /InventoryUpdateSchema[\s\S]*?\}\)\.strict\(\)/);
   assert.doesNotMatch(portalApi, /verifyPharmacy/);
