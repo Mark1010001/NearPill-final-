@@ -143,6 +143,7 @@ function EditPharmacyForm({ pharmacy: p, pending, onSave }: { pharmacy: Pharmacy
   const parsed = parseHours(p.operatingHours);
   const [hours, setHours] = useState(parsed ?? { open: '08:00', close: '20:00', days: [0, 1, 2, 3, 4, 5, 6] });
   const [hoursTouched, setHoursTouched] = useState(false);
+  const hasText = Boolean(p.operatingHours?.trim());
   const info = hoursSummary(hours);
   const change = (next: typeof hours) => { setHours(next); setHoursTouched(true); };
   return <form className="mini-form" onSubmit={(event) => {
@@ -152,8 +153,8 @@ function EditPharmacyForm({ pharmacy: p, pending, onSave }: { pharmacy: Pharmacy
       name: String(fields.get('name')).trim(), address: String(fields.get('address')),
       latitude: Number(fields.get('latitude')), longitude: Number(fields.get('longitude')),
     };
-    // Hours written in another format are left alone unless the admin changes them here.
-    if (hoursTouched || parsed) body.operatingHours = hoursToText(hours);
+    // Hours written in another format are left alone unless the admin changes them here. Blank hours are filled from the times shown.
+    if (hoursTouched || parsed || !hasText) body.operatingHours = hoursToText(hours);
     onSave(body);
   }}>
     <label>Pharmacy name<input name="name" required maxLength={200} defaultValue={p.name} /></label>
@@ -162,7 +163,8 @@ function EditPharmacyForm({ pharmacy: p, pending, onSave }: { pharmacy: Pharmacy
     <label>Longitude<input name="longitude" type="number" required min="-180" max="180" step="any" defaultValue={p.longitude ?? ''} /></label>
     <fieldset className="hours-fieldset">
       <legend>Operating hours</legend>
-      {!parsed && p.operatingHours && !hoursTouched && <p className="muted">Current: {p.operatingHours}</p>}
+      {!hasText && <p className="muted">Hours are not set yet. The times below are saved when you press Save pharmacy.</p>}
+      {!parsed && hasText && !hoursTouched && <p className="muted">Current: {p.operatingHours}</p>}
       <label>Opens<input type="time" required value={hours.open} onChange={(event) => change({ ...hours, open: event.target.value })} /></label>
       <label>Closes<input type="time" required value={hours.close} onChange={(event) => change({ ...hours, close: event.target.value })} /></label>
       <div className="chip-row" role="group" aria-label="Days open">
