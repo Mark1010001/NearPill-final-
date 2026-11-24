@@ -378,7 +378,8 @@ test('admin cannot remove a pharmacy by hand, can still edit a storefront, and i
   const targetRow = page.getByRole('row').filter({ hasText: 'Removal test pharmacy' });
   await expect(targetRow).toBeVisible();
   await expect(page.getByRole("button", { name: /^Remove / })).toHaveCount(0);
-  await expect(page.getByText(/hidden from the app automatically the day after its partnership expires/)).toBeVisible();
+  await expect(page.getByText(/hidden from the app automatically the day after its partnership expires/)).toHaveCount(0);
+  await expect(page.getByLabel('Pharmacy summary')).toHaveCount(0);
   await expect(page.getByText('Previously removed pharmacy', { exact: true })).toHaveCount(0);
   await page.getByLabel('Show inactive pharmacies').check();
   await expect(page.getByText('Previously removed pharmacy', { exact: true })).toBeVisible();

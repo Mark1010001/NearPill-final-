@@ -191,12 +191,6 @@ export function PharmaciesPage() {
   return <><PageTitle title="Partner pharmacies" subtitle="Check pharmacies against the go-live checklist and decide which appear in the app. New pharmacies are added from Add partner pharmacy." />
     <div>
     <div><section className="card">
-      <p className="notice">A pharmacy is hidden from the app automatically the day after its partnership expires. Its orders and records are kept.</p>
-      <div className="chip-row" aria-label="Pharmacy summary">
-        {(() => { const live = (query.data || []).filter((p) => p.status !== 'inactive'); const isPublic = (p: Pharmacy) => p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt;
-          return [['Verified', live.filter((p) => p.verificationStatus === 'verified').length], ['Pending', live.filter((p) => (p.verificationStatus || 'pending') !== 'verified').length], ['Not public', live.filter((p) => !isPublic(p)).length]]
-            .map(([label, count]) => <span key={String(label)} className="chip chip-static">{label}<b>{count}</b></span>); })()}
-      </div>
       <label>Find pharmacy<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <label><input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} /> Show inactive pharmacies</label>
       <DataTable label="Partner pharmacies" headers={['Pharmacy', 'Verification', 'Public state', 'Actions']} empty="No matching pharmacy profiles." columnMenu
