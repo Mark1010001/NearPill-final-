@@ -96,6 +96,10 @@ test('catalog identifies pharmacy records without draft or evidence actions', as
   await expect(page.getByText('Pharmacy prices', { exact: true })).toHaveCount(0);
   await expect(page.getByLabel(/^Price for /)).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Save price' })).toHaveCount(0);
+  await page.getByLabel('Pharmacy', { exact: true }).selectOption({ label: 'Test Pharmacy' });
+  await expect(page.getByRole('columnheader', { name: 'At this pharmacy' })).toBeVisible();
+  await expect(page.getByRole('row').filter({ hasText: 'Catalog #84' })).toHaveCount(0);
+  await expect(item).toBeVisible();
 });
 
 test('partner session never loads administrator order or inventory collections', async ({ page }) => {

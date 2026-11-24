@@ -334,10 +334,16 @@ export function CatalogPage() {
   const query = useQuery({ queryKey: ['admin', 'medicines', user?.id], queryFn: api.medicines });
   const [categoryFilter, setCategoryFilter] = useState('');
   const [stockSearch, setStockSearch] = useState('');
+  const [stockPharmacy, setStockPharmacy] = useState('');
   if (query.isLoading) return <LoadingState label="Loading stocks…" />;
   if (query.error) return <ErrorState error={query.error} retry={() => void query.refetch()} />;
   // "Stocks" lists what the active partner pharmacies actually have in their inventory.
-  const stocked = (query.data || []).filter((m) => m.publicationStatus !== 'retired' && (m.linkedPharmacies?.length ?? 0) > 0);
+  const allStocked = (query.data || []).filter((m) => m.publicationStatus !== 'retired' && (m.linkedPharmacies?.length ?? 0) > 0);
+  const pharmacyOptions = [...new Map(allStocked.flatMap((m) => m.linkedPharmacies ?? []).map((pharmacy) => [pharmacy.id, pharmacy.name])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1]));
+  const pharmacyId = Number(stockPharmacy) || 0;
+  const stocked = pharmacyId ? allStocked.filter((m) => m.linkedPharmacies?.some((pharmacy) => pharmacy.id === pharmacyId)) : allStocked;
+  const atPharmacy = (m: (typeof allStocked)[number]) => m.linkedPharmacies?.find((pharmacy) => pharmacy.id === pharmacyId);
   const needle = stockSearch.trim().toLowerCase();
   const searched = needle ? stocked.filter((m) => [m.brandName, m.genericName, m.dosageForm, `catalog #${m.id}`, stockCategory(m.category), ...(m.linkedPharmacies?.map((pharmacy) => pharmacy.name) ?? [])]
     .some((field) => (field ?? '').toLowerCase().includes(needle))) : stocked;
@@ -345,6 +351,10 @@ export function CatalogPage() {
   const visible = searched.filter((m) => !categoryFilter || stockCategory(m.category) === categoryFilter);
   const chipLabels = [...STOCK_CATEGORIES, ...(countOf('Category missing') > 0 ? ['Category missing' as const] : [])];
   return <><PageTitle title="Stocks" subtitle="Everything the partner pharmacies currently stock. Pharmacies manage their own listings, prices, categories, and stock in their inventory portal." />
+    <label>Pharmacy<select value={stockPharmacy} onChange={(event) => setStockPharmacy(event.target.value)}>
+      <option value="">All pharmacies</option>
+      {pharmacyOptions.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+    </select></label>
     <label>Search stocks<input type="search" value={stockSearch} placeholder="Medicine, generic name, category or pharmacy" maxLength={80}
       onChange={(event) => setStockSearch(event.target.value)} /></label>
     <div className="chip-row" role="group" aria-label="Stocks by category">
@@ -352,12 +362,13 @@ export function CatalogPage() {
         onClick={() => setCategoryFilter(categoryFilter === label ? '' : label)}>{label}<b>{countOf(label)}</b></button>)}
     </div>
     <section className="card">
-      <DataTable label="Stocks" headers={['Product', 'Category']} empty={needle ? 'No stocked items match your search.' : 'No stocked items yet.'} columnMenu
-        sortKeys={visible.map((m) => [m.brandName, stockCategory(m.category)])}
+      <DataTable label="Stocks" headers={pharmacyId ? ['Product', 'Category', 'At this pharmacy'] : ['Product', 'Category']} empty={needle ? 'No stocked items match your search.' : 'No stocked items yet.'} columnMenu
+        sortKeys={visible.map((m) => pharmacyId ? [m.brandName, stockCategory(m.category), atPharmacy(m)?.stockOnHand ?? 0] : [m.brandName, stockCategory(m.category)])}
         rows={visible.map((m) => [m.id, <>{m.brandName}<small>{m.genericName}</small>
           <small>Catalog #{m.id}{m.dosageForm ? ` · ${m.dosageForm}` : ''}</small>
           <small>{m.linkedPharmacies?.map((pharmacy) => pharmacy.name).join(', ') || 'No linked pharmacy inventory'}</small></>,
-          stockCategory(m.category)])} />
+          stockCategory(m.category),
+          ...(pharmacyId ? [<>{atPharmacy(m)?.stockOnHand ?? 0} on hand<small>{atPharmacy(m)?.sellableQuantity ?? 0} sellable · {currency.format(Number(atPharmacy(m)?.priceCentavos ?? 0) / 100)}{atPharmacy(m)?.sellingUnit ? ` per ${atPharmacy(m)?.sellingUnit}` : ''}</small></>] : [])])} />
     </section>
   </>;
 }
