@@ -47,3 +47,28 @@ export function hoursToText(input: HoursInput) {
   if (!hoursSummary(input)) return null;
   return `${dayText(input.days)}, ${clock(input.open)} - ${clock(input.close)}`;
 }
+
+/** Reads text saved by hoursToText ("Mon-Sat, 8:00 AM - 8:00 PM", "Daily, ...") back into picker values. Null when the text is in another format. */
+export function parseHours(text?: string | null): HoursInput | null {
+  const match = /^(.*?),?\s*(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)\s*$/i.exec((text ?? '').trim());
+  if (!match) return null;
+  const to24 = (h: string, m: string, ap: string) => {
+    let hour = Number(h) % 12;
+    if (ap.toUpperCase() === 'PM') hour += 12;
+    return `${String(hour).padStart(2, '0')}:${m}`;
+  };
+  const dayPart = match[1].trim();
+  const days: number[] = [];
+  if (dayPart === '' || /^daily$/i.test(dayPart)) days.push(0, 1, 2, 3, 4, 5, 6);
+  else {
+    for (const token of dayPart.split(',').map((item) => item.trim())) {
+      const range = /^([A-Za-z]{3})(?:-([A-Za-z]{3}))?$/.exec(token);
+      const names = weekDays.map((day) => day.toLowerCase());
+      const from = range ? names.indexOf(range[1].toLowerCase()) : -1;
+      const to = range?.[2] ? names.indexOf(range[2].toLowerCase()) : from;
+      if (!range || from < 0 || to < from) return null;
+      for (let day = from; day <= to; day += 1) days.push(day);
+    }
+  }
+  return { open: to24(match[2], match[3], match[4]), close: to24(match[5], match[6], match[7]), days };
+}

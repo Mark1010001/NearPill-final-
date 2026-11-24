@@ -8,6 +8,7 @@ import { useSession } from '../../auth/session';
 import { useConfirm } from '../../components/ConfirmDialog';
 import { DataTable, SalesDateFilter, SalesTable, Status, displayDate } from '../../components/DataTable';
 import { AdminExtraReports } from './AdminExtraPages';
+import { hoursSummary, hoursToText, parseHours, summaryText, weekDays } from './operatingHours';
 import { PlanCards } from '../../components/PlanCards';
 import { ErrorState, FormFeedback, LoadingState, Stat, currency, pesos } from '../../components/States';
 
@@ -137,6 +138,43 @@ export function AdminDashboard() {
     </section></>;
 }
 
+/** Same fields as Add pharmacy (name, address, coordinates, opening times and days open); the login email belongs to the account and is not shown here. */
+function EditPharmacyForm({ pharmacy: p, pending, onSave }: { pharmacy: Pharmacy; pending: boolean; onSave: (body: Record<string, unknown>) => void }) {
+  const parsed = parseHours(p.operatingHours);
+  const [hours, setHours] = useState(parsed ?? { open: '08:00', close: '20:00', days: [0, 1, 2, 3, 4, 5, 6] });
+  const [hoursTouched, setHoursTouched] = useState(false);
+  const info = hoursSummary(hours);
+  const change = (next: typeof hours) => { setHours(next); setHoursTouched(true); };
+  return <form className="mini-form" onSubmit={(event) => {
+    event.preventDefault();
+    const fields = new FormData(event.currentTarget);
+    const body: Record<string, unknown> = {
+      name: String(fields.get('name')).trim(), address: String(fields.get('address')),
+      latitude: Number(fields.get('latitude')), longitude: Number(fields.get('longitude')),
+    };
+    // Hours written in another format are left alone unless the admin changes them here.
+    if (hoursTouched || parsed) body.operatingHours = hoursToText(hours);
+    onSave(body);
+  }}>
+    <label>Pharmacy name<input name="name" required maxLength={200} defaultValue={p.name} /></label>
+    <label>Address<input name="address" required maxLength={255} defaultValue={p.address} /></label>
+    <label>Latitude<input name="latitude" type="number" required min="-90" max="90" step="any" defaultValue={p.latitude ?? ''} /></label>
+    <label>Longitude<input name="longitude" type="number" required min="-180" max="180" step="any" defaultValue={p.longitude ?? ''} /></label>
+    <fieldset className="hours-fieldset">
+      <legend>Operating hours</legend>
+      {!parsed && p.operatingHours && !hoursTouched && <p className="muted">Current: {p.operatingHours}</p>}
+      <label>Opens<input type="time" required value={hours.open} onChange={(event) => change({ ...hours, open: event.target.value })} /></label>
+      <label>Closes<input type="time" required value={hours.close} onChange={(event) => change({ ...hours, close: event.target.value })} /></label>
+      <div className="chip-row" role="group" aria-label="Days open">
+        {weekDays.map((day, index) => <label key={day} className="checkbox-inline"><input type="checkbox" checked={hours.days.includes(index)}
+          onChange={(event) => change({ ...hours, days: event.target.checked ? [...hours.days, index] : hours.days.filter((value) => value !== index) })} />{day}</label>)}
+      </div>
+      <p className="muted" role="status">{info ? summaryText(info) : 'Choose different opening and closing times and at least one day.'}</p>
+    </fieldset>
+    <button className="secondary" disabled={pending || (hoursTouched && !info)}>Save pharmacy</button>
+  </form>;
+}
+
 export function PharmaciesPage() {
   const qc = useQueryClient();
   const { user } = useSession();
@@ -172,21 +210,8 @@ export function PharmaciesPage() {
           {p.status === 'inactive' ? <Status value="Inactive" /> : <>
           {p.verificationStatus === 'verified' && <GoLivePanel pharmacy={p} />}
           <details><summary>Edit pharmacy</summary>
-            <form className="mini-form" key={JSON.stringify([p.address, p.latitude, p.longitude, p.operatingHours])} onSubmit={(event) => {
-              event.preventDefault();
-              if (profile.isPending) return;
-              const fields = new FormData(event.currentTarget);
-              profile.mutate({ id: Number(p.store_id || p.id), body: {
-                address: String(fields.get('address')), latitude: Number(fields.get('latitude')),
-                longitude: Number(fields.get('longitude')), operatingHours: String(fields.get('hours')).trim() || null,
-              } });
-            }}>
-              <label>Address<input name="address" required maxLength={255} defaultValue={p.address} /></label>
-              <label>Latitude<input name="latitude" type="number" required min="-90" max="90" step="any" defaultValue={p.latitude ?? ''} /></label>
-              <label>Longitude<input name="longitude" type="number" required min="-180" max="180" step="any" defaultValue={p.longitude ?? ''} /></label>
-              <label>Operating hours<input name="hours" maxLength={255} defaultValue={p.operatingHours ?? ''} /></label>
-              <button className="secondary" disabled={profile.isPending}>Save pharmacy</button>
-            </form>
+            <EditPharmacyForm key={JSON.stringify([p.name, p.address, p.latitude, p.longitude, p.operatingHours])} pharmacy={p} pending={profile.isPending}
+              onSave={(body) => { if (!profile.isPending) profile.mutate({ id: Number(p.store_id || p.id), body }); }} />
             {profile.variables?.id === Number(p.store_id || p.id) && <FormFeedback error={profile.error} success={profile.isSuccess ? 'Pharmacy saved.' : undefined} />}
           </details>
           </>}

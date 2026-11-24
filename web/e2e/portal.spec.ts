@@ -384,6 +384,8 @@ test('admin cannot remove a pharmacy by hand, can still edit a storefront, and i
   await expect(page.getByText('Previously removed pharmacy', { exact: true })).toBeVisible();
   await page.getByLabel('Show inactive pharmacies').uncheck();
   await targetRow.getByText('Edit pharmacy', { exact: true }).click();
+  await expect(targetRow.getByLabel('Pharmacy name')).toBeVisible();
+  await expect(targetRow.getByLabel('Opens')).toBeVisible();
   await targetRow.getByLabel('Address', { exact: true }).fill('Updated staging address');
   await targetRow.getByRole('button', { name: 'Save pharmacy' }).click();
   await expect(targetRow.getByText('Pharmacy saved.')).toBeVisible();
