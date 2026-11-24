@@ -29,6 +29,26 @@ test('a staff tab clears its private orders when another tab signs out', async (
   await expect(page.getByText('PRIVATE-FIXTURE-ORDER')).toHaveCount(0);
 });
 
+test('portal sign-in page offers a forgot-password link that requests a reset email', async ({ page }) => {
+  let requested: unknown = null;
+  await page.route('**/api/v1/**', async (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/auth/forgot-password')) {
+      requested = route.request().postDataJSON();
+      return route.fulfill({ json: { message: 'If this account can receive email, a reset link will be sent.' } });
+    }
+    return route.fulfill({ status: 401, json: { error: 'Signed out' } });
+  });
+  await page.goto('/portal');
+  await page.getByRole('button', { name: 'Forgot password?' }).click();
+  await page.getByLabel('Email').fill('partner@example.test');
+  await page.getByRole('button', { name: 'Send reset link' }).click();
+  await expect(page.getByText(/a reset link will be sent/)).toBeVisible();
+  expect(requested).toEqual({ email: 'partner@example.test' });
+  await page.getByRole('button', { name: 'Back to sign in' }).click();
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
+});
+
 test('a session outage leaves the public catalogue and unfinished search usable', async ({ page }) => {
   let offline = true;
   let hold = false;
