@@ -29,7 +29,7 @@ test('partner adds a medicine that follows the template and it goes on sale at o
   await page.getByLabel('Brand', { exact: true }).fill('Test Item');
   await page.getByLabel('Generic name', { exact: true }).fill('Testgen');
   await page.getByLabel('Form', { exact: true }).fill('Unit');
-  await page.getByLabel('Category', { exact: true }).selectOption('Non-medicine');
+  await page.getByRole('combobox', { name: 'Category', exact: true }).selectOption('Non-medicine');
   await page.getByLabel('Selling unit', { exact: true }).fill('Box of 10');
   await page.getByLabel('Price per unit (₱)', { exact: true }).fill('0');
   await page.getByLabel('Stock quantity', { exact: true }).fill('8');
