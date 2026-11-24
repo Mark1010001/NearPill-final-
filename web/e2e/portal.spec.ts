@@ -24,8 +24,12 @@ test('partner adds a medicine that follows the template and it goes on sale at o
   });
   await page.goto('/partner/inventory');
   await expect(page.getByRole('button', { name: 'Download CSV template' })).toBeEnabled();
-  await page.getByLabel('Fill from catalog (optional)').selectOption('90');
-  await expect(page.getByLabel('Brand')).toHaveValue('Test Item');
+  await expect(page.getByLabel('Fill from catalog (optional)')).toHaveCount(0);
+  await expect(page.getByLabel(/Catalog ID/)).toHaveCount(0);
+  await page.getByLabel('Brand', { exact: true }).fill('Test Item');
+  await page.getByLabel('Generic name', { exact: true }).fill('Testgen');
+  await page.getByLabel('Form', { exact: true }).fill('Unit');
+  await page.getByLabel('Category', { exact: true }).selectOption('Non-medicine');
   await page.getByLabel('Selling unit', { exact: true }).fill('Box of 10');
   await page.getByLabel('Price per unit (₱)', { exact: true }).fill('0');
   await page.getByLabel('Stock quantity', { exact: true }).fill('8');
@@ -34,7 +38,7 @@ test('partner adds a medicine that follows the template and it goes on sale at o
   await page.getByLabel('Price per unit (₱)', { exact: true }).fill('7.50');
   await page.getByRole('button', { name: 'Add stock' }).click();
   await expect(page.getByText(/Stock added \(1 row\)/)).toBeVisible();
-  expect(submissions).toEqual([{ drugstoreId: 12, row: { pharmacy: 'Test Pharmacy', catalog_id: '90', brand: 'Test Item', generic_name: 'Testgen', strength: '', form: 'Unit', category: 'Non-medicine', selling_unit: 'Box of 10', price: '7.50', stock_quantity: '8' } }]);
+  expect(submissions).toEqual([{ drugstoreId: 12, row: { pharmacy: 'Test Pharmacy', catalog_id: '', brand: 'Test Item', generic_name: 'Testgen', strength: '', form: 'Unit', category: 'Non-medicine', selling_unit: 'Box of 10', price: '7.50', stock_quantity: '8' } }]);
   await expect(page.getByRole('cell', { name: 'approved' })).toBeVisible();
 });
 

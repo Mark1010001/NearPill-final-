@@ -32,7 +32,6 @@ export function StockSubmitCard({ drugstoreId }: { drugstoreId: number }) {
   const qc = useQueryClient();
   const fileInput = useRef<HTMLInputElement>(null);
   const list = useQuery({ queryKey: ['partner', 'stock-submissions', drugstoreId], queryFn: () => api.partnerStockSubmissions(drugstoreId) });
-  const catalog = useQuery({ queryKey: ['partner', 'intake', drugstoreId], queryFn: () => api.partnerIntakeProducts(drugstoreId), retry: false });
   const [form, setForm] = useState(empty);
   const [fileError, setFileError] = useState('');
   const refresh = () => qc.invalidateQueries({ queryKey: ['partner', 'stock-submissions', drugstoreId] });
@@ -69,17 +68,7 @@ export function StockSubmitCard({ drugstoreId }: { drugstoreId: number }) {
       }}>
         <h3>Add one medicine</h3>
         <fieldset disabled={send.isPending} className="inline-form">
-          <label>Fill from catalog (optional)
-            <select value="" onChange={(event) => {
-              const found = catalog.data?.find((item) => String(item.id) === event.target.value);
-              if (found) setForm({ ...form, catalog_id: String(found.id), brand: found.brandName, generic_name: found.genericName ?? '', strength: '', form: found.dosageForm ?? '', category: found.category ?? '' });
-            }}>
-              <option value="">Choose a medicine</option>
-              {(catalog.data ?? []).filter((item) => !item.alreadyStocked).map((item) => <option key={item.id} value={item.id}>{item.brandName} · Catalog #{item.id}</option>)}
-            </select>
-          </label>
           <label>Pharmacy<input readOnly value={pharmacyName} /></label>
-          <label>Catalog ID (blank if new)<input inputMode="numeric" maxLength={9} value={form.catalog_id} onChange={set('catalog_id')} /></label>
           <label>Brand<input required maxLength={100} placeholder="Biogesic" value={form.brand} onChange={set('brand')} /></label>
           <label>Generic name<input maxLength={100} placeholder="Paracetamol" value={form.generic_name} onChange={set('generic_name')} /></label>
           <label>Strength<input maxLength={40} placeholder="500 mg" value={form.strength} onChange={set('strength')} /></label>

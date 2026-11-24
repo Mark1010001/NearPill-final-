@@ -116,3 +116,14 @@ test('every missing or invalid value is reported before anything is saved', asyn
   assert.equal(state.options, null);
   assert.equal(state.recorded.length, 0);
 });
+
+test('a single add of a medicine already in the catalog joins that entry without a catalog_id', async () => {
+  const { service, state } = fake({ catalog: [{ id: 4, brandName: 'Biogesic 500 mg', dosageForm: 'Tablet' }] });
+  const row = Object.fromEntries(STOCK_HEADERS.map((name) => [name, { pharmacy: 'ALV Pharmacy', catalog_id: '', brand: 'Biogesic', generic_name: 'Paracetamol', strength: '500 mg', form: 'Tablet', category: 'Non-prescription', selling_unit: 'Tablet', price: '3.50', stock_quantity: '10' }[name]]));
+  const result = await service.submit(9, partner, { drugstoreId: 7, row });
+  assert.equal(result.status, 201);
+  assert.equal(state.created.length, 0);
+  assert.equal(state.recorded[0].rows[0].medicineId, 4);
+  const asFile = await service.submit(9, partner, { drugstoreId: 7, csv: `${H}\n${line()}` });
+  assert.match(asFile.body.rowErrors[0].message, /already in the catalog as catalog_id 4/);
+});

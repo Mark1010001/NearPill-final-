@@ -85,6 +85,8 @@ export function createStockSubmissionService({ repository }) {
           return { ...row, catalogId: null, match: 'new', note: `catalog_id ${row.catalogId} was not found, so it will be added as a new medicine.` };
         }
         const same = matches.find((item) => lower(item.brandName) === lower(row.name) && lower(item.dosageForm) === lower(row.form));
+        // One medicine added by hand has no catalog_id box, so it joins the catalog entry with the same name and form. A file still has to name it.
+        if (same && !hasCsv) return { ...row, catalogId: Number(same.id), match: 'existing', medicineId: Number(same.id) };
         if (same) problems.push({ line: row.line, message: `${row.name} (${row.form}) is already in the catalog as catalog_id ${same.id}. Put that number in catalog_id.` });
         return { ...row, match: 'new' };
       });
