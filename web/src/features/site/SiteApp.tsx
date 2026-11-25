@@ -163,7 +163,6 @@ function Faq() {
 }
 
 function Home() {
-  const [androidNote, setAndroidNote] = useState(false);
   usePage('NearPill - Find medicine at a pharmacy near you in Cebu City', 'Find nearby verified pharmacies in Cebu City, check each pharmacy’s stock and prices in pesos, and reserve items for in-store pickup with NearPill.');
   return <>
     <section aria-labelledby="hero-heading" className="st-hero">
@@ -173,9 +172,8 @@ function Home() {
           <h1 id="hero-heading">Find the medicines you need at a pharmacy near you.</h1>
           <div className="st-actions">
             <a className="st-btn st-btn-primary st-btn-lg" href="/app/">Open web app <Icon name="arrow" size={18} /></a>
-            <button type="button" className="st-btn st-btn-outline st-btn-lg" aria-expanded={androidNote} aria-controls="st-android-note" onClick={() => setAndroidNote(!androidNote)}><Icon name="phone" size={18} /> Get the Android app (coming soon)</button>
+            <a className="st-btn st-btn-outline st-btn-lg" href="/download.html"><Icon name="phone" size={18} /> Download the Android app</a>
           </div>
-          {androidNote && <p id="st-android-note" className="st-note" role="status">The Android app is not on the Play Store yet. Use the web app for now, or <Link to="/partners">see how pharmacies join</Link>.</p>}
         </div>
         <div className="st-hero-art"><PhoneMockup /></div>
       </div>
