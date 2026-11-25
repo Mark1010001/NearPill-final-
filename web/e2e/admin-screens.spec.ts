@@ -66,11 +66,15 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
   await page.goto('/staff');
   await expect(page.getByRole('heading', { name: 'Partner pharmacy accounts', level: 1 })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Closed Pharmacy' })).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'Partnership expiry' })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('tab', { name: 'Add pharmacy' }).click();
   await expect(page.getByRole('heading', { name: 'Add partner pharmacy' })).toBeVisible();
   await expect(page.getByLabel('Role')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Manage accounts' }).click();
   await page.getByRole('combobox').selectOption('12');
   await expect(page.getByText('Pat Staff')).toBeVisible();
   await expect(page.getByText('Pharmacy ID 12')).toBeVisible();
+  await page.getByRole('tab', { name: 'Add pharmacy' }).click();
   await page.getByLabel('Pharmacy name').fill('Beta Pharmacy');
   await page.getByLabel('Address').fill('2 Main St');
   await page.getByLabel('Latitude').fill('14.5');
@@ -87,9 +91,10 @@ test('admin adds and removes pharmacy staff access', async ({ page }) => {
     { name: 'Beta Pharmacy', address: '2 Main St', latitude: 14.5, longitude: 121, operatingHours: 'Mon-Sat, 8:00 AM - 6:00 PM', status: 'active' },
     { email: 'new@example.test' },
   ]);
-  await expect(page.getByText('New Person')).toBeVisible();
   await page.getByRole('button', { name: 'Email login details again to new@example.test' }).click();
   await expect(page.getByText(/Login details emailed/)).toBeVisible();
+  await page.getByRole('tab', { name: 'Manage accounts' }).click();
+  await expect(page.getByText('New Person')).toBeVisible();
   await page.getByRole('row', { name: /Pat Staff/ }).getByRole('button', { name: 'Email login details' }).click();
   expect(state.mailed).toEqual([
     '/api/v1/admin/pharmacies/12/memberships/90/login-email',
@@ -127,6 +132,7 @@ test('admin cannot add a pharmacy with an email that already has an account, and
   const state = { members: [] as unknown[], posted: [] as unknown[], removed: [] as string[], mailed: [] as string[] };
   await mockAdmin(page, state);
   await page.goto('/staff');
+  await page.getByRole('tab', { name: 'Add pharmacy' }).click();
   await page.getByLabel('Pharmacy name').fill('Gamma Pharmacy');
   await page.getByLabel('Address').fill('3 Main St');
   await page.getByLabel('Latitude').fill('14.5');

@@ -40,6 +40,7 @@ export function StaffAccountsPage() {
   const [justAdded, setJustAdded] = useState<{ drugstoreId: number; userId: number; email: string } | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
   const [done, setDone] = useState('');
+  const [tab, setTab] = useState<'expiry' | 'add' | 'manage'>('expiry');
   const pharmacies = useQuery({ queryKey: ['admin', 'pharmacies', user?.id], queryFn: api.pharmacies });
   const selected = Number(drugstoreId);
   const members = useQuery({
@@ -124,7 +125,20 @@ export function StaffAccountsPage() {
   const stores = (pharmacies.data || []).filter((store) => store.status !== 'inactive');
   const rows = members.data || [];
   return <>
-    <PageTitle title="Partner pharmacy accounts" subtitle="Each partner pharmacy's ID and when its partnership with NearPill expires. Choose who can work for each pharmacy below. Each person needs an existing pharmacy partner account." />
+    <PageTitle title="Partner pharmacy accounts" subtitle="Each partner pharmacy's ID and when its partnership with NearPill expires. Add a pharmacy or manage its accounts from the tabs below. Each person needs an existing pharmacy partner account." />
+    <div className="portal-tabs" role="tablist" aria-label="Partner pharmacy accounts" onKeyDown={(event) => {
+      const order = ['expiry', 'add', 'manage'] as const;
+      const move = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+      if (!move) return;
+      event.preventDefault();
+      const next = order[(order.indexOf(tab) + move + order.length) % order.length];
+      setTab(next);
+      document.getElementById(`staff-tab-${next}`)?.focus();
+    }}>
+      {([['expiry', 'Partnership expiry'], ['add', 'Add pharmacy'], ['manage', 'Manage accounts']] as const).map(([key, label]) =>
+        <button key={key} type="button" role="tab" id={`staff-tab-${key}`} aria-selected={tab === key} aria-controls={`staff-panel-${key}`} tabIndex={tab === key ? 0 : -1} onClick={() => setTab(key)}>{label}</button>)}
+    </div>
+    <div role="tabpanel" id="staff-panel-expiry" aria-labelledby="staff-tab-expiry" hidden={tab !== 'expiry'}>
     <section className="card"><h2>Partnership expiry</h2>
       <p className="muted">Counted from the day the pharmacy joined NearPill: Basic 3 months, Plus 6 months, Pro 1 year.</p>
       <DataTable label="Partnership expiry" headers={['ID', 'Pharmacy', 'Plan', 'Partner since', 'Expires', 'Partnership']}
@@ -134,8 +148,9 @@ export function StaffAccountsPage() {
           <Status value={partnershipState(store.partnershipExpiresAt).value} label={partnershipState(store.partnershipExpiresAt).label} />])}
         empty="No partner pharmacies yet." />
     </section>
-    <div className="two-col two-col-reverse">
-      <aside><section className="card"><h2>Add partner pharmacy</h2>
+    </div>
+    <div role="tabpanel" id="staff-panel-add" aria-labelledby="staff-tab-add" hidden={tab !== 'add'}>
+<section className="card"><h2>Add partner pharmacy</h2>
         <form onSubmit={(event) => { event.preventDefault(); if (!save.isPending) { setDone(''); setJustAdded(null); save.mutate(); } }}>
           <label>Pharmacy name<input required maxLength={150} disabled={createdId > 0} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
           <label>Address<input required maxLength={255} disabled={createdId > 0} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} /></label>
@@ -157,8 +172,10 @@ export function StaffAccountsPage() {
           <FormFeedback error={save.error} success={done} />
           {justAdded && <button type="button" className="secondary" disabled={mail.isPending} onClick={() => mail.mutate({ id: justAdded.drugstoreId, userId: justAdded.userId })}>{mail.isPending ? 'Sending…' : `Email login details again to ${justAdded.email}`}</button>}
           <FormFeedback error={mail.error} />
-        </form></section></aside>
-      <div><section className="card">
+        </form></section>
+    </div>
+    <div role="tabpanel" id="staff-panel-manage" aria-labelledby="staff-tab-manage" hidden={tab !== 'manage'}>
+<section className="card">
         <label>Pharmacy<select value={drugstoreId} onChange={(event) => { setDrugstoreId(event.target.value); setDone(''); }}>
           <option value="">Choose a pharmacy</option>
           {stores.map((store) => { const id = store.store_id ?? store.id; return <option key={String(id)} value={String(id)}>{store.name}</option>; })}
@@ -181,7 +198,7 @@ export function StaffAccountsPage() {
           </div>
         </div>}
         <FormFeedback error={visibility.error || erase.error} success={panelDone} />
-      </section></div>
+      </section>
     </div>
     {confirmDialog}
   </>;
