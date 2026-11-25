@@ -1,0 +1,5 @@
+.download-button { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: .75rem 1.5rem; border-radius: 12px; background: #2e7d32; color: #fff; font-weight: 700; text-decoration: none; }
+.download-button:hover, .download-button:focus-visible { background: #1b5e20; }
+.download-note { color: #4b635c; font-size: .9rem; }
+ol, ul { padding-left: 1.25rem; }
+li { margin-block: .4rem; }
