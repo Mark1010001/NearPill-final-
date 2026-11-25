@@ -195,12 +195,11 @@ export function PharmaciesPage() {
     <div><section className="card">
       <label>Find pharmacy<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
       <label><input type="checkbox" checked={showInactive} onChange={(event) => setShowInactive(event.target.checked)} /> Show inactive pharmacies</label>
-      <DataTable label="Partner pharmacies" headers={['Pharmacy', 'Verification', 'Public state', 'Actions']} empty="No matching pharmacy profiles." columnMenu
-        exportCsv={{ filename: 'pharmacies.csv', rows: pharmacies.map((p) => [p.name, p.verificationStatus || 'pending', p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt ? 'Public' : 'Not public', '']) }}
-        sortKeys={pharmacies.map((p) => [p.name, p.verificationStatus || 'pending', p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt ? 'Public' : 'Not public', undefined])} rows={pharmacies.map((p) => [
+      <DataTable label="Partner pharmacies" headers={['Pharmacy', 'Public state', 'Actions']} empty="No matching pharmacy profiles." columnMenu
+        exportCsv={{ filename: 'pharmacies.csv', rows: pharmacies.map((p) => [p.name, p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt ? 'Public' : 'Not public', '']) }}
+        sortKeys={pharmacies.map((p) => [p.name, p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt ? 'Public' : 'Not public', undefined])} rows={pharmacies.map((p) => [
         Number(p.store_id || p.id),
         <div><strong>{p.name}</strong><small>{p.address || 'No address'}</small></div>,
-        <Status value={p.verificationStatus || 'pending'} />,
         p.verificationStatus === 'verified' && p.status === 'active' && p.publicProfilePublishedAt ? 'Public' : 'Not public',
         <div className="stack-actions" key={String(p.store_id || p.id)}>
           {p.status === 'inactive' ? <Status value="Inactive" /> : <>
