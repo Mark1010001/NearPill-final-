@@ -4,7 +4,7 @@ import type { NpIconName } from '../../components/npIcons';
 /** Website icons: the shared NearPill set, addressed by the names the site pages already use. */
 const names = {
   pin: 'mapPin', search: 'search', box: 'box', store: 'store', wallet: 'wallet', receipt: 'receipt', bot: 'bot', shield: 'shield',
-  lock: 'lock', pill: 'pill', file: 'file', clipboard: 'clipboard', check: 'check', arrow: 'arrowRight', phone: 'phone',
+  lock: 'lock', pill: 'pill', file: 'file', clipboard: 'clipboard', check: 'check', arrow: 'arrowRight', phone: 'phone', download: 'download',
   calendar: 'calendar', home: 'home', user: 'user', plus: 'plus', menu: 'menu', close: 'x',
 } as const satisfies Record<string, NpIconName>;
 

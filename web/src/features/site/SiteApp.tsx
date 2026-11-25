@@ -172,7 +172,7 @@ function Home() {
           <h1 id="hero-heading">Find the medicines you need at a pharmacy near you.</h1>
           <div className="st-actions">
             <a className="st-btn st-btn-primary st-btn-lg" href="/app/">Open web app <Icon name="arrow" size={18} /></a>
-            <a className="st-btn st-btn-outline st-btn-lg" href="/download.html"><Icon name="phone" size={18} /> Download the Android app</a>
+            <a className="st-btn st-btn-outline st-btn-lg" href="/download.html"><Icon name="download" size={18} /> Download the Android app</a>
           </div>
         </div>
         <div className="st-hero-art"><PhoneMockup /></div>
